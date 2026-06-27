@@ -1,0 +1,4 @@
+import { Star } from "lucide-react";
+import SectionHeader from "../common/SectionHeader";
+const reviews = ["SwapWear made my college wardrobe feel new without spending money.", "The UI feels premium and the swap flow is very easy.", "I love that I can chat before confirming a swap."];
+export default function Testimonials() { return <section className="container-main py-16"><SectionHeader eyebrow="Community Love" title="Swappers are already loving it." /><div className="mt-10 grid gap-6 md:grid-cols-3">{reviews.map((review) => <div key={review} className="rounded-[36px] bg-white border border-pink-100 p-8 shadow-lg"><div className="flex gap-1 text-yellow-400">{[1,2,3,4,5].map((i) => <Star key={i} fill="currentColor" size={20} />)}</div><p className="mt-6 text-lg font-semibold text-slate-600 leading-relaxed">"{review}"</p></div>)}</div></section>; }

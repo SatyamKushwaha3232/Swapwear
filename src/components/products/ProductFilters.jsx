@@ -1,78 +1,56 @@
-import { Search, SlidersHorizontal } from "lucide-react";
+import { Filter, RotateCcw, SlidersHorizontal } from "lucide-react";
 
-const categories = [
-  "All",
-  "Streetwear",
-  "Vintage",
-  "Luxury",
-  "Sneakers",
-  "Ethnic",
-  "Oversized",
-  "Y2K",
-];
+const categories = ["All", "Jackets", "Hoodies", "Sneakers", "Ethnic", "Streetwear", "Vintage", "Luxury"];
+const sizes = ["All", "S", "M", "L", "XL", "XXL", "32", "34", "42"];
+const conditions = ["All", "New", "Like New", "Good", "Fair"];
 
-export default function ProductFilters() {
+export default function ProductFilters({ filters, onChange, onReset }) {
   return (
-    <div className="mt-14 flex flex-col xl:flex-row xl:items-center xl:justify-between gap-8">
-      <div className="flex flex-wrap gap-3">
-        {categories.map((category, index) => (
-          <button
-            key={category}
-            className={`
-              px-6 py-3 rounded-full
-              backdrop-blur-2xl
-              border
-              transition-all duration-300
-              font-black text-sm
-              ${
-                index === 0
-                  ? `
-                    bg-pink-400/30
-                    border-pink-300/40
-                    shadow-[0_10px_25px_rgba(255,105,180,0.18)]
-                  `
-                  : `
-                    bg-white/45
-                    border-white/50
-                    hover:bg-pink-400/20
-                  `
-              }
-            `}
-          >
-            {category}
-          </button>
-        ))}
+    <aside className="sticky top-36 hidden h-fit rounded-[38px] border border-pink-100 bg-white/85 p-6 shadow-[0_26px_90px_rgba(15,23,42,0.07)] backdrop-blur-2xl xl:block">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm font-black uppercase tracking-[2px] text-pink-500">Filters</p>
+          <h3 className="mt-1 text-2xl font-black">Refine picks</h3>
+        </div>
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-pink-50 text-pink-500">
+          <SlidersHorizontal size={22} />
+        </div>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="h-[58px] w-full sm:w-[320px] rounded-full bg-white/50 backdrop-blur-2xl border border-white/50 shadow-[0_10px_35px_rgba(15,23,42,0.06)] flex items-center px-5">
-          <Search size={18} className="text-[var(--muted)]" />
+      <FilterGroup title="Category" options={categories} value={filters.category} onSelect={(v) => onChange("category", v)} />
+      <FilterGroup title="Size" options={sizes} value={filters.size} onSelect={(v) => onChange("size", v)} />
+      <FilterGroup title="Condition" options={conditions} value={filters.condition} onSelect={(v) => onChange("condition", v)} />
 
-          <input
-            type="text"
-            placeholder="Search fashion..."
-            className="w-full bg-transparent outline-none px-3 text-[15px]"
-          />
-        </div>
+      <button
+        type="button"
+        onClick={onReset}
+        className="mt-7 flex h-12 w-full items-center justify-center gap-2 rounded-full bg-slate-950 font-black !text-white transition hover:-translate-y-0.5 hover:bg-pink-500"
+      >
+        <RotateCcw size={17} /> Reset Filters
+      </button>
+    </aside>
+  );
+}
 
-        <button
-          className="
-            h-[58px]
-            px-7
-            rounded-full
-            bg-white/50
-            backdrop-blur-2xl
-            border border-white/50
-            flex items-center gap-3
-            font-black
-            shadow-[0_10px_35px_rgba(15,23,42,0.06)]
-            hover:bg-pink-400/20
-            transition-all
-          "
-        >
-          <SlidersHorizontal size={18} />
-          Filters
-        </button>
+function FilterGroup({ title, options, value, onSelect }) {
+  return (
+    <div className="mt-7 border-t border-pink-50 pt-6">
+      <h4 className="font-black text-slate-900">{title}</h4>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {options.map((option) => (
+          <button
+            key={option}
+            type="button"
+            onClick={() => onSelect(option)}
+            className={`rounded-full px-4 py-2 text-xs font-black transition ${
+              value === option
+                ? "bg-pink-500 !text-white shadow-[0_10px_24px_rgba(255,79,163,0.22)]"
+                : "bg-pink-50 text-pink-500 hover:bg-pink-100"
+            }`}
+          >
+            {option}
+          </button>
+        ))}
       </div>
     </div>
   );
