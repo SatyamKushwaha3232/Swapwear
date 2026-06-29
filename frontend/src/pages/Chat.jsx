@@ -13,9 +13,11 @@ import {
   Repeat2,
 } from "lucide-react";
 
-import { supabase } from "../lib/supabase";
+import { getMessages, sendMessage } from "../services/chat";
 import { useAuth } from "../context/AuthContext";
 import { getCurrentProfile } from "../services/profile";
+
+const DEMO_SWAP_ID = 1;
 
 export default function Chat() {
   const { user } = useAuth();
@@ -30,6 +32,17 @@ export default function Chat() {
     user?.email?.split("@")[0] ||
     "SwapWear User";
 
+  async function loadMessages() {
+    const response = await getMessages(DEMO_SWAP_ID);
+
+    if (!response.success) {
+      toast.error(response.error);
+      return;
+    }
+
+    setMessages(response.data);
+  }
+
   useEffect(() => {
     async function loadProfile() {
       const response = await getCurrentProfile();
@@ -37,65 +50,40 @@ export default function Chat() {
     }
 
     loadProfile();
-  }, []);
-
-  useEffect(() => {
-    async function loadMessages() {
-      const { data, error } = await supabase
-        .from("messages")
-        .select("*")
-        .order("created_at", { ascending: true });
-
-      if (error) {
-        toast.error(error.message);
-        return;
-      }
-
-      setMessages(data || []);
-    }
-
     loadMessages();
-
-    const channel = supabase
-      .channel("swapwear-chat-room")
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "messages",
-        },
-        (payload) => {
-          setMessages((prev) => [...prev, payload.new]);
-        }
-      )
-      .subscribe();
-
-    return () => supabase.removeChannel(channel);
   }, []);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  async function sendMessage() {
+  async function handleSendMessage() {
     if (!input.trim()) return;
+
+    if (!user) {
+      toast.error("Please login to send message");
+      return;
+    }
 
     const messageText = input.trim();
     setInput("");
 
-    const { error } = await supabase.from("messages").insert([
-      {
-        sender_name: displayName,
-        receiver_name: "SwapWear Community",
-        message: messageText,
-      },
-    ]);
+    const response = await sendMessage({
+      swap_id: DEMO_SWAP_ID,
+      sender_id: user.id,
+      receiver_id: user.id,
+      sender_name: displayName,
+      receiver_name: "SwapWear Community",
+      message: messageText,
+    });
 
-    if (error) {
-      toast.error(error.message);
+    if (!response.success) {
+      toast.error(response.error);
       setInput(messageText);
+      return;
     }
+
+    await loadMessages();
   }
 
   return (
@@ -143,10 +131,10 @@ export default function Chat() {
                   <div>
                     <h3 className="font-black">SwapWear Community</h3>
                     <p className="text-sm text-[var(--muted)] font-semibold">
-                      Marketplace negotiations
+                      Demo negotiation room
                     </p>
                     <p className="text-sm text-[var(--muted)]">
-                      Live conversation
+                      Real swap chat connect later
                     </p>
                   </div>
                 </div>
@@ -159,7 +147,11 @@ export default function Chat() {
               <div className="flex items-center gap-4">
                 <div className="relative w-16 h-16 rounded-full bg-[var(--accent-soft)] border border-white/50 overflow-hidden">
                   {profile?.avatar_url && (
-                    <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
+                    <img
+                      src={profile.avatar_url}
+                      alt=""
+                      className="w-full h-full object-cover"
+                    />
                   )}
                   <span className="absolute right-1 bottom-1 w-4 h-4 rounded-full bg-[var(--green)] border-2 border-white" />
                 </div>
@@ -196,7 +188,7 @@ export default function Chat() {
                     Negotiating for
                   </p>
                   <h3 className="text-xl font-black mt-1 truncate">
-                    Fashion Swap Deal
+                    Demo Fashion Swap Deal
                   </h3>
                   <p className="text-[var(--accent)] font-black mt-1">
                     Discuss points, pickup, and condition
@@ -220,7 +212,8 @@ export default function Chat() {
               )}
 
               {messages.map((msg) => {
-                const mine = msg.sender_name === displayName;
+                const mine = msg.sender_id === user?.id;
+
                 return (
                   <div
                     key={msg.id}
@@ -233,7 +226,9 @@ export default function Chat() {
                           : "bg-white/65 border-white/50 rounded-bl-md"
                       }`}
                     >
-                      <p className="leading-relaxed font-medium">{msg.message}</p>
+                      <p className="leading-relaxed font-medium">
+                        {msg.message}
+                      </p>
                       <span className="text-xs mt-2 block text-[var(--muted)] font-semibold">
                         {msg.sender_name}
                       </span>
@@ -258,12 +253,12 @@ export default function Chat() {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter") sendMessage();
+                    if (e.key === "Enter") handleSendMessage();
                   }}
                   className="flex-1 bg-transparent outline-none min-w-0"
                 />
                 <button
-                  onClick={sendMessage}
+                  onClick={handleSendMessage}
                   className="w-12 h-12 rounded-full bg-pink-400/35 border border-white/50 flex items-center justify-center shadow-[0_12px_34px_rgba(255,105,180,0.20)] hover:bg-pink-400/50 transition"
                 >
                   <Send size={20} />

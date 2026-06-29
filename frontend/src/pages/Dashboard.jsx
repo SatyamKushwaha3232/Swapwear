@@ -39,7 +39,7 @@ export default function Dashboard() {
     async function loadListings() {
       setLoading(true);
 
-      const response = await getListings(user?.id);
+      const response = await getListings();
 
       if (response.success) {
         setListings(response.data);

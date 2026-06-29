@@ -8,7 +8,9 @@ import Home from "./pages/Home";
 import Explore from "./pages/Explore";
 import ItemDetails from "./pages/ItemDetails";
 import AddListing from "./pages/AddListing";
-import Auth from "./pages/Auth";
+import Login from "./pages/Login";
+import Signup from "./pages/Signup";
+import ForgotPassword from "./pages/ForgotPassword";
 import SwapRequests from "./pages/SwapRequests";
 import Chat from "./pages/Chat";
 import Dashboard from "./pages/Dashboard";
@@ -27,7 +29,9 @@ export default function App() {
         <Route index element={<Home />} />
         <Route path="/explore" element={<Explore />} />
         <Route path="/item/:id" element={<ItemDetails />} />
-        <Route path="/auth" element={<Auth />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/signup" element={<Signup />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
 
         {/* Protected */}
         <Route

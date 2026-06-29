@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import toast from "react-hot-toast";
 import {
   BadgeCheck,
   Eye,
@@ -12,7 +13,12 @@ import {
   Star,
 } from "lucide-react";
 
+import { useAuth } from "../../context/AuthContext";
+import { addWishlist, getWishlist, removeWishlist } from "../../services/wishlist";
+
 export default function ProductCard({ item }) {
+  const { user } = useAuth();
+
   const images = useMemo(() => {
     if (Array.isArray(item?.images) && item.images.length > 0) return item.images;
     if (item?.image) return [item.image];
@@ -20,8 +26,69 @@ export default function ProductCard({ item }) {
   }, [item]);
 
   const [liked, setLiked] = useState(false);
+  const [wishlistId, setWishlistId] = useState(null);
   const [activeImage, setActiveImage] = useState(0);
+  const [saving, setSaving] = useState(false);
+
   const currentImage = images[activeImage] || images[0];
+
+  useEffect(() => {
+    async function checkWishlist() {
+      if (!user?.id || !item?.id) return;
+
+      const wishlist = await getWishlist(user.id);
+      const found = wishlist.find((wish) => Number(wish.listing_id) === Number(item.id));
+
+      if (found) {
+        setLiked(true);
+        setWishlistId(found.id);
+      } else {
+        setLiked(false);
+        setWishlistId(null);
+      }
+    }
+
+    checkWishlist();
+  }, [user?.id, item?.id]);
+
+  async function handleWishlist(e) {
+    e.preventDefault();
+
+    if (!user?.id) {
+      toast.error("Please login to save wishlist");
+      return;
+    }
+
+    if (saving) return;
+    setSaving(true);
+
+    if (liked && wishlistId) {
+      const response = await removeWishlist(wishlistId);
+
+      if (response?.success) {
+        setLiked(false);
+        setWishlistId(null);
+        toast.success("Removed from wishlist");
+      } else {
+        toast.error(response?.error || "Unable to remove wishlist");
+      }
+
+      setSaving(false);
+      return;
+    }
+
+    const response = await addWishlist(user.id, item.id);
+
+    if (response?.success) {
+      setLiked(true);
+      setWishlistId(response.data?.id);
+      toast.success("Saved to wishlist");
+    } else {
+      toast.error(response?.error || "Unable to save wishlist");
+    }
+
+    setSaving(false);
+  }
 
   return (
     <article className="group relative overflow-hidden rounded-[42px] border border-white/80 bg-white/85 p-3 shadow-[0_28px_90px_rgba(15,23,42,0.08)] backdrop-blur-2xl transition duration-500 hover:-translate-y-2 hover:shadow-[0_38px_110px_rgba(255,79,163,0.20)]">
@@ -56,11 +123,9 @@ export default function ProductCard({ item }) {
 
           <button
             type="button"
-            onClick={(e) => {
-              e.preventDefault();
-              setLiked((prev) => !prev);
-            }}
-            className={`absolute right-4 top-4 flex h-12 w-12 items-center justify-center rounded-full shadow-lg backdrop-blur-xl transition ${
+            disabled={saving}
+            onClick={handleWishlist}
+            className={`absolute right-4 top-4 flex h-12 w-12 items-center justify-center rounded-full shadow-lg backdrop-blur-xl transition disabled:opacity-60 ${
               liked
                 ? "bg-pink-500 text-white"
                 : "bg-white/90 text-slate-800 hover:bg-pink-50 hover:text-pink-500"

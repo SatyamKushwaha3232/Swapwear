@@ -4,6 +4,7 @@ import { Bell, Heart, Menu, MessageCircle, Plus, X, Sparkles } from "lucide-reac
 import { useAuth } from "../../context/AuthContext";
 import { supabase } from "../../lib/supabase";
 import { getCurrentProfile } from "../../services/profile";
+import { getNotifications, markNotificationRead } from "../../services/notifications";
 import Logo from "./Logo";
 import NavLinks from "./NavLinks";
 import SearchBar from "./SearchBar";
@@ -17,8 +18,26 @@ export default function Navbar() {
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [notifyOpen, setNotifyOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const unreadCount = notifications.filter((n) => !n.is_read).length;
   useEffect(() => { const onScroll = () => setScrolled(window.scrollY > 15); onScroll(); window.addEventListener("scroll", onScroll); return () => window.removeEventListener("scroll", onScroll); }, []);
   useEffect(() => { async function loadProfile() { if (!user) { setProfile(null); return; } const response = await getCurrentProfile(); if (response.success) setProfile(response.data); } loadProfile(); }, [user]);
+  useEffect(() => {
+    async function loadNotifications() {
+      if (!user?.id) {
+        setNotifications([]);
+        return;
+      }
+
+      const response = await getNotifications(user.id);
+
+      if (response.success) {
+        setNotifications(response.data);
+      }
+    }
+
+    loadNotifications();
+  }, [user]);
   async function handleLogout() { await supabase.auth.signOut(); setProfileOpen(false); setMobileOpen(false); }
   const avatarLetter = (profile?.full_name || user?.user_metadata?.full_name || user?.email || "U").charAt(0).toUpperCase();
   return (
@@ -33,7 +52,58 @@ export default function Navbar() {
             <div className="flex items-center gap-3">
               <IconButton to="/wishlist" icon={Heart} />
               <IconButton to="/chat" icon={MessageCircle} />
-              <div className="relative hidden md:block"><button type="button" onClick={() => setNotifyOpen(!notifyOpen)} className="relative h-12 w-12 flex items-center justify-center rounded-full border border-pink-100 bg-white shadow-[0_12px_26px_rgba(15,23,42,0.08)] hover:-translate-y-0.5 hover:shadow-xl transition"><Bell size={20} /><span className="absolute right-2.5 top-2.5 h-2.5 w-2.5 rounded-full bg-pink-500 ring-2 ring-white" /></button>{notifyOpen && <div className="absolute right-0 top-[68px] w-[320px] rounded-[30px] bg-white/95 border border-pink-100 shadow-[0_30px_90px_rgba(255,79,163,0.20)] p-4"><h3 className="font-black text-lg">Notifications</h3><div className="mt-4 space-y-3"><Notice title="New swap request" text="Someone wants to swap with you." /><Notice title="Message received" text="You have a new chat message." /><Notice title="Wishlist update" text="A saved item is trending." /></div></div>}</div>
+              <div className="relative hidden md:block">
+                <button
+                  type="button"
+                  onClick={() => setNotifyOpen(!notifyOpen)}
+                  className="relative h-12 w-12 flex items-center justify-center rounded-full border border-pink-100 bg-white shadow-[0_12px_26px_rgba(15,23,42,0.08)] hover:-translate-y-0.5 hover:shadow-xl transition"
+                >
+                  <Bell size={20} />
+
+                  {unreadCount > 0 && (
+                    <span className="absolute -right-1 -top-1 min-w-5 h-5 rounded-full bg-pink-500 px-1 text-[11px] font-black text-white ring-2 ring-white flex items-center justify-center">
+                      {unreadCount}
+                    </span>
+                  )}
+                </button>
+
+                {notifyOpen && (
+                  <div className="absolute right-0 top-[68px] w-[360px] rounded-[30px] bg-white/95 border border-pink-100 shadow-[0_30px_90px_rgba(255,79,163,0.20)] p-4">
+                    <h3 className="font-black text-lg">Notifications</h3>
+
+                    <div className="mt-4 space-y-3">
+                      {notifications.length === 0 ? (
+                        <div className="rounded-2xl bg-pink-50/70 p-4">
+                          <h4 className="font-black text-sm">No notifications</h4>
+                          <p className="mt-1 text-sm text-slate-500">
+                            Updates will appear here.
+                          </p>
+                        </div>
+                      ) : (
+                        notifications.slice(0, 6).map((notice) => (
+                          <button
+                            key={notice.id}
+                            onClick={async () => {
+                              await markNotificationRead(notice.id);
+                              setNotifications((prev) =>
+                                prev.map((item) =>
+                                  item.id === notice.id ? { ...item, is_read: true } : item
+                                )
+                              );
+                            }}
+                            className={`w-full text-left rounded-2xl p-4 transition ${
+                              notice.is_read ? "bg-slate-50" : "bg-pink-50"
+                            }`}
+                          >
+                            <h4 className="font-black text-sm">{notice.title}</h4>
+                            <p className="mt-1 text-sm text-slate-500">{notice.message}</p>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
               <NavLink to="/add-listing" className="hidden md:flex h-12 items-center gap-2 rounded-full bg-gradient-to-r from-pink-500 to-fuchsia-500 px-6 font-black text-white shadow-[0_16px_38px_rgba(255,79,163,0.35)] hover:-translate-y-0.5 hover:shadow-[0_20px_48px_rgba(255,79,163,0.45)] transition"><Plus size={19} />Sell Item</NavLink>
               {user ? <div className="relative hidden md:block"><button type="button" onClick={() => setProfileOpen(!profileOpen)} className="h-12 w-12 overflow-hidden rounded-full bg-gradient-to-r from-pink-500 to-fuchsia-500 text-lg font-black text-white shadow-xl ring-4 ring-pink-100 hover:scale-105 transition">{profile?.avatar_url ? <img src={profile.avatar_url} alt="Profile" className="h-full w-full object-cover" /> : avatarLetter}</button><UserMenu user={user} profile={profile} open={profileOpen} onLogout={handleLogout} /></div> : <NavLink to="/auth" className="hidden md:flex h-12 items-center rounded-full border border-pink-100 bg-white px-7 font-black shadow-[0_12px_26px_rgba(15,23,42,0.08)] hover:bg-pink-50 transition">Login</NavLink>}
               <button type="button" onClick={() => setMobileOpen(true)} className="xl:hidden h-12 w-12 rounded-full border border-pink-100 bg-white flex items-center justify-center shadow-md"><Menu size={23} /></button>

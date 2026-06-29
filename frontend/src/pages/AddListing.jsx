@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { supabase } from "../lib/supabase";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import {
@@ -35,6 +36,15 @@ export default function AddListing() {
   const [imagePreviews, setImagePreviews] = useState([]);
   const [videoPreview, setVideoPreview] = useState("");
   const [formData, setFormData] = useState(initialForm);
+  useEffect(() => {
+    return () => {
+      imagePreviews.forEach((url) => URL.revokeObjectURL(url));
+
+      if (videoPreview) {
+        URL.revokeObjectURL(videoPreview);
+      }
+    };
+  }, [imagePreviews, videoPreview]);
 
   function handleChange(e) {
     setFormData((prev) => ({
@@ -78,13 +88,30 @@ export default function AddListing() {
     }
 
     setLoading(true);
+    const {
+     data: { user },
+    } = await supabase.auth.getUser();
 
-    const response = await createListing(formData, images, video);
+const listingPayload = {
+  ...formData,
+  owner_name:
+    user?.user_metadata?.full_name ||
+    user?.email?.split("@")[0] ||
+    "SwapWear User",
+  user_id: user?.id || null,
+};
+
+const response = await createListing(listingPayload, images, video);
 
     if (!response.success) {
       toast.error(response.error);
       setLoading(false);
       return;
+    }
+    imagePreviews.forEach((url) => URL.revokeObjectURL(url));
+
+    if (videoPreview) {
+      URL.revokeObjectURL(videoPreview);
     }
 
     toast.success("Listing published successfully");
