@@ -37,19 +37,28 @@ export default function Dashboard() {
 
   useEffect(() => {
     async function loadListings() {
+      if (!user?.id) {
+        setListings([]);
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
 
-      const response = await getListings();
+      const response = await getListings(user.id);
 
       if (response.success) {
         setListings(response.data);
+      } else {
+        setListings([]);
+        console.error(response.error);
       }
 
       setLoading(false);
     }
 
     loadListings();
-  }, [user]);
+  }, [user?.id]);
   async function handleDelete(id) {
   const confirmDelete = window.confirm(
     "Delete this listing?"

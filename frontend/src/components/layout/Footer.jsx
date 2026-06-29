@@ -15,7 +15,7 @@ const footerLinks = [
     title: "Account",
     links: [
       { label: "Dashboard", path: "/dashboard" },
-      { label: "Login", path: "/auth" },
+      { label: "Login", path: "/login" },
       { label: "Admin Panel", path: "/admin" },
       { label: "Saved Items", path: "/explore" },
     ],
