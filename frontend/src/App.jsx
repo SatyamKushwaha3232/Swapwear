@@ -2,6 +2,7 @@ import { Routes, Route } from "react-router-dom";
 
 import MainLayout from "./components/layout/MainLayout";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
+import AuthLayout from "./components/layout/AuthLayout";
 
 /* Pages */
 import Home from "./pages/Home";
@@ -11,6 +12,7 @@ import AddListing from "./pages/AddListing";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 import SwapRequests from "./pages/SwapRequests";
 import Chat from "./pages/Chat";
 import Dashboard from "./pages/Dashboard";
@@ -22,16 +24,22 @@ import NotFound from "./pages/NotFound";
 
 export default function App() {
   return (
-    <Routes>
-      <Route element={<MainLayout />}>
+    
+      <Routes>
+       {/* Auth pages - no navbar/footer */}
+        <Route element={<AuthLayout />}>
+          <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+        </Route>
 
-        {/* Public */}
+      {/* Main website */}
+      <Route element={<MainLayout />}>
         <Route index element={<Home />} />
         <Route path="/explore" element={<Explore />} />
         <Route path="/item/:id" element={<ItemDetails />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<Signup />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
+
 
         {/* Protected */}
         <Route

@@ -7,21 +7,29 @@ export default function ForgotPassword() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
 
-  async function handleSubmit(e) {
+    async function handleSubmit(e) {
     e.preventDefault();
+
+    if (!email) {
+        toast.error("Enter your email");
+        return;
+    }
+
     setLoading(true);
 
-    const { error } = await supabase.auth.resetPasswordForEmail(email);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: "http://localhost:5173/reset-password",
+    });
 
     setLoading(false);
 
     if (error) {
-      toast.error(error.message);
-      return;
+        toast.error(error.message);
+        return;
     }
 
-    toast.success("Password reset link sent");
-  }
+    toast.success("Password reset email sent.");
+    }
 
   return (
     <section className="section-space pt-32">

@@ -14,6 +14,10 @@ import {
   CheckCircle2,
   XCircle,
 } from "lucide-react";
+import GoogleIcon from "../assets/auth-icons/google.svg";
+import MicrosoftIcon from "../assets/auth-icons/microsoft.svg";
+import GithubIcon from "../assets/auth-icons/github.svg";
+import PhoneIcon from "../assets/auth-icons/phone.svg";
 
 import { supabase } from "../lib/supabase";
 
@@ -121,8 +125,8 @@ export default function Signup() {
     }
   }
     return (
-    <section className="section-space pt-32">
-      <div className="container-main grid lg:grid-cols-[1fr_0.95fr] gap-10 items-center">
+    <section className="pt-10 lg:pt-14">
+      <div className="mx-auto grid max-w-[1450px] lg:grid-cols-[1fr_0.95fr] gap-6 xl:gap-8 items-center">
         <div className="relative overflow-hidden rounded-[46px] bg-white/60 backdrop-blur-2xl border border-white/50 p-10 shadow-[0_25px_80px_rgba(15,23,42,0.08)]">
           <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-pink-300/40 blur-3xl" />
           <div className="absolute -left-24 bottom-0 h-72 w-72 rounded-full bg-fuchsia-300/30 blur-3xl" />
@@ -133,7 +137,7 @@ export default function Signup() {
               Join SwapWear
             </div>
 
-            <h1 className="mt-6 text-6xl xl:text-7xl font-black tracking-[-3px] leading-[0.95]">
+            <h1 className="mt-6 text-[66px] xl:text-[78px] font-black tracking-[-3px] leading-[0.95]">
               Create your
               <br />
               swap account.
@@ -165,7 +169,10 @@ export default function Signup() {
           </div>
 
           <div className="grid sm:grid-cols-2 gap-3">
-//button
+<AuthButtons
+  oauthLoading={oauthLoading}
+  onOAuth={handleOAuth}
+/>
           </div>
 
           <div className="relative flex items-center gap-4">
@@ -365,4 +372,63 @@ function MiniStat({ value, label }) {
       <p className="mt-1 text-sm font-bold text-[var(--muted)]">{label}</p>
     </div>
   );
+}
+
+function AuthButtons({ oauthLoading, onOAuth }) {
+  const providers = [
+    { id: "google", title: "Continue with Google", icon: GoogleIcon },
+    { id: "azure", title: "Continue with Microsoft", icon: MicrosoftIcon },
+    { id: "github", title: "Continue with GitHub", icon: GithubIcon },
+  ];
+
+  return (
+    <div className="space-y-5">
+      <div className="flex justify-center gap-5">
+        {providers.map((provider) => (
+          <button
+            key={provider.id}
+            type="button"
+            title={provider.title}
+            disabled={Boolean(oauthLoading)}
+            onClick={() => onOAuth(provider.id)}
+            className="group flex h-14 w-14 items-center justify-center rounded-2xl border border-pink-100 bg-white/80 shadow-[0_12px_30px_rgba(15,23,42,0.08)] backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:border-pink-300 hover:shadow-[0_18px_40px_rgba(255,79,163,0.22)] disabled:opacity-60"
+          >
+            <img
+              src={provider.icon}
+              alt={provider.title}
+              className="h-7 w-7 transition group-hover:scale-110"
+            />
+          </button>
+        ))}
+
+        <button
+          type="button"
+          disabled
+          title="Phone OTP coming soon"
+          className="flex h-14 w-14 cursor-not-allowed items-center justify-center rounded-2xl border border-pink-100 bg-pink-50 opacity-60"
+        >
+          <img src={PhoneIcon} alt="Phone OTP" className="h-7 w-7" />
+        </button>
+      </div>
+
+      <p className="text-center text-xs font-semibold text-slate-400">
+        Google, Microsoft & GitHub login available.
+        <br />
+        Phone OTP login coming soon.
+      </p>
+    </div>
+  );
+}
+
+async function loginWithGoogle() {
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      redirectTo: "http://localhost:5173/dashboard",
+    },
+  });
+
+  if (error) {
+    toast.error(error.message);
+  }
 }
