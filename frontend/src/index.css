@@ -48,3 +48,37 @@ img, video { max-width: 100%; display: block; }
 .marquee-track { animation: marquee 28s linear infinite; }
 .marquee-track:hover { animation-play-state: paused; }
 @media (max-width: 768px) { .container-main { padding-inline: 18px; } .section-space { padding-block: 64px; } }
+
+html,
+body,
+#root {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: clip;
+}
+
+.container-main {
+  width: min(100% - 32px, var(--container));
+  max-width: var(--container);
+  margin-inline: auto;
+  padding-inline: 0;
+}
+
+@media (max-width: 768px) {
+  .container-main {
+    width: min(100% - 20px, 100%);
+  }
+}
+
+.input-premium {
+  width: 100%;
+  min-width: 0;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+}

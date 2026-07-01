@@ -1,5 +1,4 @@
-import { supabase } from "../lib/supabase";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import {
@@ -13,6 +12,9 @@ import {
   Sparkles,
   Video,
   Ruler,
+  X,
+  Crown,
+  Eye,
 } from "lucide-react";
 
 import { createListing } from "../services/listings";
@@ -23,188 +25,388 @@ const initialForm = {
   category: "Jackets",
   size: "",
   location: "",
-  points: "",
+  points: 500,
   condition: "Good",
   description: "",
 };
 
+const categories = [
+  "Jackets",
+  "Hoodies",
+  "Shirts",
+  "Tshirts",
+  "Jeans",
+  "Sneakers",
+  "Ethnic",
+  "Dresses",
+  "Kurti",
+  "Saree",
+  "Accessories",
+  "Vintage",
+];
+
+const sizes = ["XS", "S", "M", "L", "XL", "XXL", "28", "30", "32", "34", "36", "Free Size"];
+
+const conditions = ["New", "Like New", "Excellent", "Good", "Used"];
+
 export default function AddListing() {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
+
+  const [formData, setFormData] = useState(initialForm);
   const [images, setImages] = useState([]);
   const [video, setVideo] = useState(null);
   const [imagePreviews, setImagePreviews] = useState([]);
   const [videoPreview, setVideoPreview] = useState("");
-  const [formData, setFormData] = useState(initialForm);
+  const [loading, setLoading] = useState(false);
+
   useEffect(() => {
     return () => {
       imagePreviews.forEach((url) => URL.revokeObjectURL(url));
-
-      if (videoPreview) {
-        URL.revokeObjectURL(videoPreview);
-      }
+      if (videoPreview) URL.revokeObjectURL(videoPreview);
     };
   }, [imagePreviews, videoPreview]);
 
+  const coverImage = imagePreviews[0] || "/icons.svg";
+
+  const descriptionCount = useMemo(
+    () => formData.description.length,
+    [formData.description]
+  );
+
   function handleChange(e) {
+    const { name, value } = e.target;
+
+    if (name === "description" && value.length > 500) return;
+
     setFormData((prev) => ({
       ...prev,
-      [e.target.name]: e.target.value,
+      [name]: value,
     }));
   }
 
   function handleImages(e) {
     const files = Array.from(e.target.files || []);
+
     if (!files.length) return;
 
-    setImages(files);
-    setImagePreviews(files.map((file) => URL.createObjectURL(file)));
+    const validFiles = files.filter((file) => file.type.startsWith("image/"));
+
+    if (validFiles.length !== files.length) {
+      toast.error("Only image files are allowed");
+      return;
+    }
+
+    if (validFiles.length > 5) {
+      toast.error("Maximum 5 images allowed");
+      return;
+    }
+
+    imagePreviews.forEach((url) => URL.revokeObjectURL(url));
+
+    setImages(validFiles);
+    setImagePreviews(validFiles.map((file) => URL.createObjectURL(file)));
+  }
+
+  function removeImage(index) {
+    const nextImages = images.filter((_, i) => i !== index);
+    const nextPreviews = imagePreviews.filter((_, i) => i !== index);
+
+    URL.revokeObjectURL(imagePreviews[index]);
+
+    setImages(nextImages);
+    setImagePreviews(nextPreviews);
   }
 
   function handleVideo(e) {
     const file = e.target.files?.[0];
+
     if (!file) return;
+
+    if (!file.type.startsWith("video/")) {
+      toast.error("Only video file is allowed");
+      return;
+    }
+
+    if (videoPreview) URL.revokeObjectURL(videoPreview);
 
     setVideo(file);
     setVideoPreview(URL.createObjectURL(file));
   }
 
+  function removeVideo() {
+    if (videoPreview) URL.revokeObjectURL(videoPreview);
+
+    setVideo(null);
+    setVideoPreview("");
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
 
+    console.log("Publish button clicked");
+    console.log("Form Data:", formData);
+    console.log("Images:", images);
+    console.log("Video:", video);
+
     if (!formData.title.trim()) {
-      toast.error("Item title is required");
+      toast.error("Please enter item title");
+      return;
+    }
+
+    if (!formData.brand.trim()) {
+      toast.error("Please enter brand name");
       return;
     }
 
     if (!formData.size.trim()) {
-      toast.error("Size is required");
+      toast.error("Please select size");
       return;
     }
 
-    if (images.length === 0) {
-      toast.error("Upload at least 1 image");
+    if (!formData.location.trim()) {
+      toast.error("Please enter location");
       return;
     }
 
-    setLoading(true);
-    const {
-     data: { user },
-    } = await supabase.auth.getUser();
+    if (images.length < 1) {
+      toast.error("Upload at least 1 product image");
+      return;
+    }
 
-const listingPayload = {
-  ...formData,
-  owner_name:
-    user?.user_metadata?.full_name ||
-    user?.email?.split("@")[0] ||
-    "SwapWear User",
-  user_id: user?.id || null,
-};
+    try {
+      setLoading(true);
 
-const response = await createListing(listingPayload, images, video);
+      const response = await createListing(formData, images, video);
 
-    if (!response.success) {
-      toast.error(response.error);
+      console.log("Create listing response:", response);
+
+      if (!response.success) {
+        toast.error(response.error || "Unable to publish listing");
+        return;
+      }
+
+      toast.success("Listing published successfully");
+      navigate("/dashboard");
+    } catch (error) {
+      console.error("Publish error:", error);
+      toast.error(error.message || "Something went wrong");
+    } finally {
       setLoading(false);
-      return;
     }
-    imagePreviews.forEach((url) => URL.revokeObjectURL(url));
-
-    if (videoPreview) {
-      URL.revokeObjectURL(videoPreview);
-    }
-
-    toast.success("Listing published successfully");
-    setFormData(initialForm);
-    setImages([]);
-    setVideo(null);
-    setImagePreviews([]);
-    setVideoPreview("");
-    setLoading(false);
-    navigate("/dashboard");
   }
 
   return (
-    <section className="section-space pt-28">
+    <section className="section-space pt-24 md:pt-28">
       <div className="container-main">
         <div className="max-w-4xl">
-          <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-pink-400/20 backdrop-blur-xl border border-white/50 text-[var(--accent)] font-black">
+          <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-pink-400/20 backdrop-blur-xl border border-white/60 text-[var(--accent)] font-black">
             <Sparkles size={16} />
-            Create Listing
+            Premium Upload Studio
           </div>
 
-          <h1 className="mt-6 text-5xl md:text-6xl xl:text-7xl font-black tracking-[-3px] leading-[1]">
-            Upload your fashion item.
+          <h1 className="mt-5 text-4xl md:text-6xl xl:text-7xl font-black tracking-[-3px] leading-[1]">
+            Add your swap item.
           </h1>
 
-          <p className="mt-6 text-xl text-[var(--muted)] leading-relaxed max-w-3xl">
-            Add images, size, category, points and optional video to publish a
-            real marketplace listing.
+          <p className="mt-5 text-lg md:text-xl text-[var(--muted)] leading-relaxed max-w-3xl">
+            Upload same-product images, add item details, and publish your
+            listing to the SwapWear marketplace.
           </p>
         </div>
 
-        <div className="mt-14 grid xl:grid-cols-[0.88fr_1.12fr] gap-10">
-          <div className="rounded-[42px] bg-white/55 backdrop-blur-2xl border border-white/50 shadow-[0_25px_80px_rgba(15,23,42,0.08)] p-7">
-            <div className="space-y-6">
-              {imagePreviews.length > 0 && (
-                <div className="grid grid-cols-2 gap-4">
+        <div className="mt-10 grid xl:grid-cols-[0.95fr_1.05fr] gap-8">
+          <div className="space-y-8">
+            <div className="rounded-[38px] bg-white/60 backdrop-blur-2xl border border-white/60 shadow-[0_24px_80px_rgba(15,23,42,0.08)] p-6 md:p-7">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-2xl md:text-3xl font-black">
+                    Product Media
+                  </h2>
+                  <p className="mt-1 text-[var(--muted)] font-semibold">
+                    {images.length}/5 images uploaded
+                  </p>
+                </div>
+
+                {images.length > 0 && (
+                  <span className="px-4 py-2 rounded-full bg-pink-100 text-pink-600 text-sm font-black">
+                    First image is cover
+                  </span>
+                )}
+              </div>
+
+              {imagePreviews.length === 0 ? (
+                <label className="mt-7 min-h-[380px] rounded-[34px] border-2 border-dashed border-pink-200 bg-white/40 backdrop-blur-xl flex flex-col items-center justify-center text-center p-8 cursor-pointer hover:bg-pink-50/40 transition">
+                  <div className="w-24 h-24 rounded-full bg-pink-400/20 border border-pink-300/30 text-[var(--accent)] flex items-center justify-center shadow-lg">
+                    <ImagePlus size={42} />
+                  </div>
+
+                  <h3 className="mt-7 text-3xl font-black">
+                    Upload product photos
+                  </h3>
+
+                  <p className="mt-3 text-[var(--muted)] leading-relaxed max-w-md">
+                    Add front, back, side, close-up and wearing photo of the
+                    same product.
+                  </p>
+
+                  <span className="mt-6 h-13 px-6 rounded-full bg-pink-400/35 border border-white/60 font-black inline-flex items-center gap-2">
+                    <Upload size={18} />
+                    Choose Images
+                  </span>
+
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    hidden
+                    onChange={handleImages}
+                  />
+                </label>
+              ) : (
+                <div className="mt-7 grid grid-cols-2 gap-4">
                   {imagePreviews.map((img, index) => (
                     <div
                       key={img}
-                      className="rounded-[28px] overflow-hidden border border-white/50 bg-white/40"
+                      className="relative rounded-[28px] overflow-hidden border border-white/60 bg-white/50 group"
                     >
                       <img
                         src={img}
                         alt={`Preview ${index + 1}`}
-                        className="w-full h-[240px] object-cover"
+                        className="w-full h-[220px] object-cover"
                       />
+
+                      {index === 0 && (
+                        <span className="absolute left-3 top-3 px-3 py-1 rounded-full bg-black/70 text-white text-xs font-black flex items-center gap-1">
+                          <Crown size={13} />
+                          Cover
+                        </span>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => removeImage(index)}
+                        className="absolute right-3 top-3 w-9 h-9 rounded-full bg-white/90 text-red-500 flex items-center justify-center opacity-100 md:opacity-0 group-hover:opacity-100 transition"
+                      >
+                        <X size={17} />
+                      </button>
                     </div>
                   ))}
+
+                  {images.length < 5 && (
+                    <label className="h-[220px] rounded-[28px] border-2 border-dashed border-pink-200 bg-white/35 flex flex-col items-center justify-center cursor-pointer hover:bg-pink-50/40 transition">
+                      <ImagePlus size={34} className="text-pink-500" />
+                      <p className="mt-3 font-black">Add More</p>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        hidden
+                        onChange={(e) => {
+                          const newFiles = Array.from(e.target.files || []);
+                          const combined = [...images, ...newFiles].slice(0, 5);
+
+                          if (images.length + newFiles.length > 5) {
+                            toast.error("Only 5 images allowed");
+                          }
+
+                          imagePreviews.forEach((url) =>
+                            URL.revokeObjectURL(url)
+                          );
+
+                          setImages(combined);
+                          setImagePreviews(
+                            combined.map((file) => URL.createObjectURL(file))
+                          );
+                        }}
+                      />
+                    </label>
+                  )}
                 </div>
               )}
 
-              {videoPreview && (
-                <div className="rounded-[32px] overflow-hidden border border-white/50 bg-white/40">
-                  <video
-                    src={videoPreview}
-                    controls
-                    className="w-full h-[320px] object-cover"
-                  />
-                </div>
-              )}
+              <div className="mt-6">
+                {!videoPreview ? (
+                  <label className="w-full h-16 rounded-full bg-white/55 backdrop-blur-xl border border-white/60 font-black hover:border-pink-300 transition flex items-center justify-center gap-3 cursor-pointer">
+                    <Video size={18} />
+                    Upload Video Optional
+                    <input
+                      type="file"
+                      accept="video/*"
+                      hidden
+                      onChange={handleVideo}
+                    />
+                  </label>
+                ) : (
+                  <div className="relative rounded-[30px] overflow-hidden border border-white/60 bg-white/50">
+                    <video
+                      src={videoPreview}
+                      controls
+                      className="w-full h-[280px] object-cover"
+                    />
 
-              {imagePreviews.length === 0 && (
-                <div className="min-h-[500px] rounded-[36px] border-2 border-dashed border-white/50 bg-white/35 backdrop-blur-xl flex flex-col items-center justify-center text-center p-8">
-                  <div className="w-28 h-28 rounded-full bg-pink-400/20 border border-pink-300/30 text-[var(--accent)] flex items-center justify-center shadow-lg">
-                    <ImagePlus size={46} />
+                    <button
+                      type="button"
+                      onClick={removeVideo}
+                      className="absolute right-4 top-4 w-10 h-10 rounded-full bg-white/90 text-red-500 flex items-center justify-center"
+                    >
+                      <X size={18} />
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="rounded-[38px] bg-white/60 backdrop-blur-2xl border border-white/60 shadow-[0_24px_80px_rgba(15,23,42,0.08)] p-6 md:p-7">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-pink-400/20 font-black">
+                <Eye size={17} />
+                Live Preview
+              </div>
+
+              <div className="mt-6 rounded-[32px] bg-white/70 border border-white/60 overflow-hidden shadow-lg">
+                <img
+                  src={coverImage}
+                  alt="Preview"
+                  onError={(e) => {
+                    e.currentTarget.src = "/icons.svg";
+                  }}
+                  className="w-full h-[340px] object-cover bg-white"
+                />
+
+                <div className="p-6">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <h3 className="text-2xl font-black">
+                        {formData.title || "Product title"}
+                      </h3>
+
+                      <p className="mt-1 text-[var(--muted)] font-semibold">
+                        {formData.brand || "Brand"} •{" "}
+                        {formData.category || "Category"}
+                      </p>
+                    </div>
+
+                    <span className="px-4 py-2 rounded-full bg-pink-100 text-pink-600 font-black">
+                      {formData.points || 0} pts
+                    </span>
                   </div>
 
-                  <h2 className="mt-8 text-4xl font-black">
-                    Upload Images & Video
-                  </h2>
+                  <div className="mt-5 flex flex-wrap gap-2">
+                    <PreviewPill label={formData.size || "Size"} />
+                    <PreviewPill label={formData.condition || "Condition"} />
+                    <PreviewPill label={formData.location || "Location"} />
+                  </div>
 
-                  <p className="mt-5 text-[17px] text-[var(--muted)] leading-relaxed max-w-md">
-                    Add 3-5 premium images and optional showcase video.
+                  <p className="mt-5 text-[var(--muted)] leading-relaxed line-clamp-3">
+                    {formData.description ||
+                      "Your item description will appear here."}
                   </p>
                 </div>
-              )}
-
-              <label className="w-full h-[64px] rounded-full bg-pink-400/35 backdrop-blur-xl border border-white/50 font-black shadow-[0_12px_34px_rgba(255,105,180,0.20)] hover:bg-pink-400/50 transition flex items-center justify-center gap-3 cursor-pointer">
-                <Upload size={18} />
-                Upload Images
-                <input type="file" accept="image/*" multiple hidden onChange={handleImages} />
-              </label>
-
-              <label className="w-full h-[64px] rounded-full bg-white/50 backdrop-blur-xl border border-white/50 font-black hover:border-pink-300 transition flex items-center justify-center gap-3 cursor-pointer">
-                <Video size={18} />
-                Upload Video (Optional)
-                <input type="file" accept="video/*" hidden onChange={handleVideo} />
-              </label>
+              </div>
             </div>
           </div>
 
-          <div className="rounded-[42px] bg-white/55 backdrop-blur-2xl border border-white/50 shadow-[0_25px_80px_rgba(15,23,42,0.08)] p-7">
-            <form onSubmit={handleSubmit} className="space-y-7">
+          <div className="rounded-[38px] bg-white/60 backdrop-blur-2xl border border-white/60 shadow-[0_24px_80px_rgba(15,23,42,0.08)] p-6 md:p-7 h-fit">
+            <form onSubmit={handleSubmit} className="space-y-6">
               <InputBlock icon={Shirt} label="Item Title">
                 <input
                   type="text"
@@ -235,25 +437,24 @@ const response = await createListing(listingPayload, images, video);
                     onChange={handleChange}
                     className="input-premium"
                   >
-                    <option>Jackets</option>
-                    <option>Hoodies</option>
-                    <option>Sneakers</option>
-                    <option>Ethnic</option>
-                    <option>Dresses</option>
-                    <option>Streetwear</option>
-                    <option>Vintage</option>
+                    {categories.map((cat) => (
+                      <option key={cat}>{cat}</option>
+                    ))}
                   </select>
                 </InputBlock>
 
                 <InputBlock icon={Ruler} label="Size">
-                  <input
-                    type="text"
+                  <select
                     name="size"
                     value={formData.size}
                     onChange={handleChange}
-                    placeholder="M, L, XL, XXL, 42, 32"
                     className="input-premium"
-                  />
+                  >
+                    <option value="">Select Size</option>
+                    {sizes.map((size) => (
+                      <option key={size}>{size}</option>
+                    ))}
+                  </select>
                 </InputBlock>
 
                 <InputBlock label="Condition">
@@ -263,10 +464,9 @@ const response = await createListing(listingPayload, images, video);
                     onChange={handleChange}
                     className="input-premium"
                   >
-                    <option>New</option>
-                    <option>Like New</option>
-                    <option>Good</option>
-                    <option>Used</option>
+                    {conditions.map((condition) => (
+                      <option key={condition}>{condition}</option>
+                    ))}
                   </select>
                 </InputBlock>
               </div>
@@ -283,14 +483,16 @@ const response = await createListing(listingPayload, images, video);
                   />
                 </InputBlock>
 
-                <InputBlock label="Swap Points">
+                <InputBlock label={`Swap Points: ${formData.points}`}>
                   <input
-                    type="number"
+                    type="range"
                     name="points"
+                    min="0"
+                    max="5000"
+                    step="50"
                     value={formData.points}
                     onChange={handleChange}
-                    placeholder="1200"
-                    className="input-premium"
+                    className="mt-5 w-full accent-pink-400"
                   />
                 </InputBlock>
               </div>
@@ -302,16 +504,20 @@ const response = await createListing(listingPayload, images, video);
                   value={formData.description}
                   onChange={handleChange}
                   placeholder="Describe item, fit, condition and swap preferences..."
-                  className="mt-3 w-full p-6 rounded-[28px] bg-white/55 backdrop-blur-xl border border-white/50 outline-none resize-none"
+                  className="mt-3 w-full p-6 rounded-[28px] bg-white/55 backdrop-blur-xl border border-white/60 outline-none resize-none font-semibold"
                 />
+
+                <div className="mt-2 text-right text-sm font-black text-[var(--muted)]">
+                  {descriptionCount}/500
+                </div>
               </InputBlock>
 
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full h-[68px] rounded-full bg-pink-400/35 backdrop-blur-xl border border-white/50 font-black text-lg hover:bg-pink-400/50 transition shadow-[0_14px_40px_rgba(255,105,180,0.22)] disabled:opacity-60"
+                className="w-full h-[68px] rounded-full bg-pink-500 text-white font-black text-lg hover:bg-pink-600 transition shadow-[0_14px_40px_rgba(255,105,180,0.30)] disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                {loading ? "Publishing..." : "Publish Premium Listing"}
+                {loading ? "Publishing Listing..." : "Publish Listing"}
               </button>
             </form>
           </div>
@@ -330,5 +536,13 @@ function InputBlock({ icon: Icon, label, children }) {
       </label>
       {children}
     </div>
+  );
+}
+
+function PreviewPill({ label }) {
+  return (
+    <span className="px-4 py-2 rounded-full bg-white/70 border border-white/60 text-sm font-black">
+      {label}
+    </span>
   );
 }

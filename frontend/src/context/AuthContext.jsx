@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
+import { createProfile } from "../lib/profile";
 
 const AuthContext = createContext(null);
 
@@ -20,8 +21,15 @@ export function AuthProvider({ children }) {
         console.error("Auth session error:", error.message);
       }
 
-      setSession(data?.session || null);
-      setUser(data?.session?.user || null);
+      const currentSession = data?.session || null;
+      const currentUser = currentSession?.user || null;
+
+      if (currentUser) {
+        await createProfile(currentUser);
+      }
+
+      setSession(currentSession);
+      setUser(currentUser);
       setLoading(false);
     }
 
@@ -29,11 +37,18 @@ export function AuthProvider({ children }) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      setSession(nextSession || null);
-      setUser(nextSession?.user || null);
-      setLoading(false);
-    });
+    } = supabase.auth.onAuthStateChange(async (_event, nextSession) => {
+        const nextUser = nextSession?.user || null;
+
+        if (nextUser) {
+          await createProfile(nextUser);
+        }
+
+        setSession(nextSession || null);
+        setUser(nextUser);
+        setLoading(false);
+      });
+    
 
     return () => {
       mounted = false;

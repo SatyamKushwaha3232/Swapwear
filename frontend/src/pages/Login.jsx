@@ -71,6 +71,7 @@ export default function Login() {
       provider,
       options: {
         redirectTo: `${window.location.origin}/dashboard`,
+        scopes: provider === "azure" ? "openid email profile" : undefined,
       },
     });
 

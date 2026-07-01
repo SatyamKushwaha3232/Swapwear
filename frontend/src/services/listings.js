@@ -1,4 +1,4 @@
-const API_URL = "http://localhost:5000/api/listings";
+import { supabase } from "../lib/supabase";
 
 function formatListing(item = {}) {
   const imageList =
@@ -20,11 +20,11 @@ function formatListing(item = {}) {
     category: item.category || "Fashion",
     points: Number(item.points) || 0,
     likes: Number(item.likes) || 0,
-    views: item.views || "0",
+    views: Number(item.views) || 0,
     hasVideo: Boolean(item.video),
     video: item.video || "",
     images: imageList,
-    image: imageList[0] || "",
+    image: imageList[0] || "/icons.svg",
     description: item.description || "",
     user_id: item.user_id || null,
     created_at: item.created_at || null,
@@ -33,95 +33,173 @@ function formatListing(item = {}) {
 
 export async function getListings(userId = null) {
   try {
-    const url = userId ? `${API_URL}?userId=${userId}` : API_URL;
-    const res = await fetch(url);
-    const result = await res.json();
+    let query = supabase
+      .from("listings")
+      .select("*")
+      .order("created_at", { ascending: false });
 
-    if (!res.ok || !result.success) {
-      throw new Error(result.error || "Failed to fetch listings");
+    if (userId) {
+      query = query.eq("user_id", userId);
     }
+
+    const { data, error } = await query;
+
+    if (error) throw error;
 
     return {
       success: true,
-      data: (result.data || []).map(formatListing),
+      data: (data || []).map(formatListing),
     };
   } catch (err) {
-    return { success: false, error: err.message, data: [] };
+    return {
+      success: false,
+      error: err.message || "Failed to fetch listings",
+      data: [],
+    };
   }
 }
 
 export async function getListingById(id) {
   try {
-    const res = await fetch(`${API_URL}/${id}`);
-    const result = await res.json();
+    const { data, error } = await supabase
+      .from("listings")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
 
-    if (!res.ok || !result.success) {
-      throw new Error(result.error || "Failed to fetch listing");
-    }
+    if (error) throw error;
 
     return {
       success: true,
-      data: result.data ? formatListing(result.data) : null,
+      data: data ? formatListing(data) : null,
     };
   } catch (err) {
-    return { success: false, error: err.message, data: null };
+    return {
+      success: false,
+      error: err.message || "Failed to fetch listing",
+      data: null,
+    };
   }
 }
 
-export async function createListing(data, imageFiles, videoFile) {
+export async function createListing(data, imageFiles = [], videoFile = null) {
   try {
-    const form = new FormData();
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
 
-    form.append("title", data.title || "");
-    form.append("brand", data.brand || "");
-    form.append("category", data.category || "Fashion");
-    form.append("size", data.size || "");
-    form.append("condition", data.condition || "Good");
-    form.append("location", data.location || "");
-    form.append("points", Number(data.points) || 0);
-    form.append("description", data.description || "");
-    form.append("owner_name", data.owner_name || "SwapWear User");
-    form.append("user_id", data.user_id || "");
+    if (userError) throw userError;
+    if (!user) throw new Error("User not logged in");
 
-    Array.from(imageFiles || []).forEach((file) => {
-      form.append("images", file);
-    });
+    const uploadedImages = [];
+
+    for (const file of Array.from(imageFiles || [])) {
+      const ext = file.name.split(".").pop() || "jpg";
+      const filePath = `${user.id}/images/${Date.now()}-${Math.random()
+        .toString(36)
+        .slice(2)}.${ext}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("listings")
+        .upload(filePath, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: publicData } = supabase.storage
+        .from("listings")
+        .getPublicUrl(filePath);
+
+      uploadedImages.push(publicData.publicUrl);
+    }
+
+    let videoUrl = "";
 
     if (videoFile) {
-      form.append("video", videoFile);
+      const ext = videoFile.name.split(".").pop() || "mp4";
+      const videoPath = `${user.id}/videos/${Date.now()}-${Math.random()
+        .toString(36)
+        .slice(2)}.${ext}`;
+
+      const { error: videoUploadError } = await supabase.storage
+        .from("listings")
+        .upload(videoPath, videoFile, { upsert: true });
+
+      if (videoUploadError) throw videoUploadError;
+
+      const { data: videoPublicData } = supabase.storage
+        .from("listings")
+        .getPublicUrl(videoPath);
+
+      videoUrl = videoPublicData.publicUrl;
     }
 
-    const res = await fetch(API_URL, {
-      method: "POST",
-      body: form,
-    });
+    const payload = {
+      title: data.title || "",
+      brand: data.brand || "",
+      category: data.category || "Fashion",
+      size: data.size || "",
+      condition: data.condition || "Good",
+      location: data.location || "",
+      points: Number(data.points) || 0,
+      description: data.description || "",
+      owner_name:
+        data.owner_name ||
+        user.user_metadata?.full_name ||
+        user.user_metadata?.name ||
+        user.email?.split("@")[0] ||
+        "SwapWear User",
+      user_id: user.id,
+      image: uploadedImages[0] || data.image || "",
+      images: uploadedImages,
+      video: videoUrl,
+      views: 0,
+      likes: 0,
+    };
 
-    const result = await res.json();
+    const { data: created, error } = await supabase
+      .from("listings")
+      .insert([payload])
+      .select("*")
+      .single();
 
-    if (!res.ok || !result.success) {
-      throw new Error(result.error || "Failed to create listing");
-    }
+    if (error) throw error;
 
-    return { success: true, data: result.data };
+    return {
+      success: true,
+      data: formatListing(created),
+    };
   } catch (err) {
-    return { success: false, error: err.message };
+    return {
+      success: false,
+      error: err.message || "Failed to create listing",
+    };
   }
 }
 
 export async function deleteListing(id) {
   try {
-    const res = await fetch(`${API_URL}/${id}`, {
-      method: "DELETE",
-    });
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
 
-    const result = await res.json();
+    if (userError) throw userError;
+    if (!user) throw new Error("User not logged in");
 
-    if (!res.ok || !result.success) {
-      throw new Error(result.error || "Failed to delete listing");
-    }
+    const { error } = await supabase
+      .from("listings")
+      .delete()
+      .eq("id", id)
+      .eq("user_id", user.id);
+
+    if (error) throw error;
 
     return { success: true };
   } catch (err) {
-    return { success: false, error: err.message };
+    return {
+      success: false,
+      error: err.message || "Failed to delete listing",
+    };
   }
 }

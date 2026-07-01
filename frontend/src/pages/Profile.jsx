@@ -23,7 +23,12 @@ export default function Profile() {
 
   const [formData, setFormData] = useState({
     full_name: "",
+    username: "",
+    email: "",
+    phone: "",
     city: "",
+    location: "",
+    website: "",
     bio: "",
     avatar_url: "",
   });
@@ -37,7 +42,12 @@ export default function Profile() {
         setProfile(response.data);
         setFormData({
           full_name: response.data.full_name || "",
+          username: response.data.username || "",
+          email: response.data.email || "",
+          phone: response.data.phone || "",
           city: response.data.city || "",
+          location: response.data.location || "",
+          website: response.data.website || "",
           bio: response.data.bio || "",
           avatar_url: response.data.avatar_url || "",
         });
@@ -166,6 +176,65 @@ export default function Profile() {
                     value={formData.full_name}
                     onChange={handleChange}
                     placeholder="Your full name"
+                    className="mt-3 w-full h-16 px-6 rounded-[24px] bg-white/55 backdrop-blur-xl border border-white/50 outline-none focus:border-pink-300/50 transition font-bold"
+                  />
+                </div>
+
+                <div>
+                  <label className="font-black">Username</label>
+                  <input
+                    type="text"
+                    name="username"
+                    value={formData.username}
+                    onChange={handleChange}
+                    placeholder="satyamkushwaha"
+                    className="mt-3 w-full h-16 px-6 rounded-[24px] bg-white/55 backdrop-blur-xl border border-white/50 outline-none focus:border-pink-300/50 transition font-bold"
+                  />
+                </div>
+
+                <div>
+                  <label className="font-black">Email</label>
+                  <input
+                    type="email"
+                    name="email"
+                    value={formData.email}
+                    readOnly
+                    className="mt-3 w-full h-16 px-6 rounded-[24px] bg-slate-100/70 backdrop-blur-xl border border-white/50 outline-none font-bold text-slate-500 cursor-not-allowed"
+                  />
+                </div>
+
+                <div>
+                  <label className="font-black">Phone</label>
+                  <input
+                    type="text"
+                    name="phone"
+                    value={formData.phone}
+                    onChange={handleChange}
+                    placeholder="+91 98765 43210"
+                    className="mt-3 w-full h-16 px-6 rounded-[24px] bg-white/55 backdrop-blur-xl border border-white/50 outline-none focus:border-pink-300/50 transition font-bold"
+                  />
+                </div>
+
+                <div>
+                  <label className="font-black">Location</label>
+                  <input
+                    type="text"
+                    name="location"
+                    value={formData.location}
+                    onChange={handleChange}
+                    placeholder="Jabalpur, India"
+                    className="mt-3 w-full h-16 px-6 rounded-[24px] bg-white/55 backdrop-blur-xl border border-white/50 outline-none focus:border-pink-300/50 transition font-bold"
+                  />
+                </div>
+
+                <div>
+                  <label className="font-black">Website</label>
+                  <input
+                    type="url"
+                    name="website"
+                    value={formData.website}
+                    onChange={handleChange}
+                    placeholder="https://yourwebsite.com"
                     className="mt-3 w-full h-16 px-6 rounded-[24px] bg-white/55 backdrop-blur-xl border border-white/50 outline-none focus:border-pink-300/50 transition font-bold"
                   />
                 </div>

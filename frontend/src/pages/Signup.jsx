@@ -111,13 +111,13 @@ export default function Signup() {
   async function handleOAuth(provider) {
     setOauthLoading(provider);
 
-    const { error } =
-      await supabase.auth.signInWithOAuth({
-        provider,
-        options: {
-          redirectTo: `${window.location.origin}/dashboard`,
-        },
-      });
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: {
+        redirectTo: `${window.location.origin}/dashboard`,
+        scopes: provider === "azure" ? "openid email profile" : undefined,
+      },
+    });
 
     if (error) {
       toast.error(error.message);
