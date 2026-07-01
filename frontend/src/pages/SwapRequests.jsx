@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import {
   CheckCircle2,
@@ -19,11 +19,13 @@ import {
   getMySwaps,
   rejectSwap,
 } from "../services/swaps";
+import { getOrCreateConversation } from "../services/chat";
 
 const tabs = ["all", "incoming", "outgoing", "pending", "accepted", "completed"];
 
 export default function SwapRequests() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [swaps, setSwaps] = useState([]);
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState(null);
@@ -58,6 +60,25 @@ export default function SwapRequests() {
     }
 
     setUpdatingId(null);
+  }
+  async function handleOpenChat(swap) {
+    if (!user?.id) {
+      toast.error("Please login first");
+      return;
+    }
+
+    const response = await getOrCreateConversation({
+      swapId: swap.id,
+      user1Id: swap.requester_id,
+      user2Id: swap.owner_id,
+    });
+
+    if (!response.success) {
+      toast.error(response.error || "Unable to open chat");
+      return;
+    }
+
+    navigate(`/chat/${response.data.id}`);
   }
 
   const filteredSwaps = useMemo(() => {
@@ -138,6 +159,7 @@ export default function SwapRequests() {
                 swap={swap}
                 userId={user.id}
                 updating={updatingId === swap.id}
+                onOpenChat={() => handleOpenChat(swap)}
                 onAccept={() =>
                   handleAction(swap.id, acceptSwap, "Swap accepted")
                 }
@@ -163,6 +185,7 @@ function SwapCard({
   swap,
   userId,
   updating,
+  onOpenChat,
   onAccept,
   onReject,
   onCancel,
@@ -239,13 +262,14 @@ function SwapCard({
 
             {swap.status === "accepted" && (
               <>
-                <Link
-                  to="/chat"
+                <button
+                  type="button"
+                  onClick={onOpenChat}
                   className="flex h-11 items-center justify-center gap-2 rounded-full bg-pink-500 font-black text-white hover:bg-pink-600"
                 >
                   <MessageCircle size={17} />
                   Open Chat
-                </Link>
+                </button>
 
                 <ActionButton disabled={updating} onClick={onComplete}>
                   Mark Completed

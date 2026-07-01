@@ -106,6 +106,15 @@ export default function App() {
         />
 
         <Route
+          path="/chat/:conversationId"
+          element={
+            <ProtectedRoute>
+              <Chat />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
           path="/admin"
           element={
             <ProtectedRoute>
