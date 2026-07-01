@@ -12,6 +12,7 @@ const defaultFilters = {
   category: "All",
   size: "All",
   condition: "All",
+  maxPoints: 5000,
 };
 
 export default function Explore() {
@@ -20,6 +21,7 @@ export default function Explore() {
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState("newest");
   const [filters, setFilters] = useState(defaultFilters);
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
   useEffect(() => {
     async function loadListings() {
@@ -48,6 +50,7 @@ export default function Explore() {
         item.location,
         item.description,
         item.size,
+        item.condition,
       ]
         .join(" ")
         .toLowerCase();
@@ -56,7 +59,9 @@ export default function Explore() {
         (!q || searchable.includes(q)) &&
         (filters.category === "All" || item.category === filters.category) &&
         (filters.size === "All" || item.size === filters.size) &&
-        (filters.condition === "All" || item.condition === filters.condition)
+        (filters.condition === "All" ||
+          item.condition === filters.condition) &&
+        Number(item.points || 0) <= Number(filters.maxPoints || 5000)
       );
     });
 
@@ -73,6 +78,10 @@ export default function Explore() {
         return String(a.brand || "").localeCompare(String(b.brand || ""));
       }
 
+      if (sort === "liked") {
+        return Number(b.likes || 0) - Number(a.likes || 0);
+      }
+
       return new Date(b.created_at || 0) - new Date(a.created_at || 0);
     });
   }, [items, query, sort, filters]);
@@ -81,27 +90,29 @@ export default function Explore() {
     setFilters((prev) => ({ ...prev, [key]: value }));
   }
 
+  function resetFilters() {
+    setFilters(defaultFilters);
+    setQuery("");
+    setSort("newest");
+  }
+
   return (
     <section className="section-space pt-4 md:pt-6">
       <div className="container-main">
         <ExploreHero />
 
-        <div className="mt-6">
+        <div className="mt-6 md:mt-8">
           <CollectionBanner />
         </div>
 
-        <div className="mt-7 grid gap-7 min-[1150px]:grid-cols-[280px_minmax(0,1fr)] min-[1450px]:grid-cols-[300px_minmax(0,1fr)]">
-          <div className="min-w-0">
-            <ProductFilters
-              filters={filters}
-              onChange={updateFilter}
-              onReset={() => {
-                setFilters(defaultFilters);
-                setQuery("");
-                setSort("newest");
-              }}
-            />
-          </div>
+        <div className="mt-7 grid min-w-0 gap-7 min-[1180px]:grid-cols-[285px_minmax(0,1fr)]">
+          <ProductFilters
+            filters={filters}
+            onChange={updateFilter}
+            onReset={resetFilters}
+            mobileOpen={mobileFiltersOpen}
+            setMobileOpen={setMobileFiltersOpen}
+          />
 
           <div className="min-w-0">
             <ExploreToolbar
@@ -110,13 +121,15 @@ export default function Explore() {
               sort={sort}
               setSort={setSort}
               resultCount={filteredItems.length}
+              totalCount={items.length}
+              onOpenFilters={() => setMobileFiltersOpen(true)}
             />
 
             <div className="mt-6 min-w-0">
               {loading ? (
                 <ProductGrid loading />
               ) : filteredItems.length === 0 ? (
-                <EmptyProductState />
+                <EmptyProductState onReset={resetFilters} />
               ) : (
                 <ProductGrid items={filteredItems} />
               )}

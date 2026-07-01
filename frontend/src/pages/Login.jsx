@@ -1,10 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
-import GoogleIcon from "../assets/auth-icons/google.svg";
-import MicrosoftIcon from "../assets/auth-icons/microsoft.svg";
-import GithubIcon from "../assets/auth-icons/github.svg";
-import PhoneIcon from "../assets/auth-icons/phone.svg";
 import {
   Mail,
   Lock,
@@ -12,6 +8,11 @@ import {
   ArrowRight,
   ShieldCheck,
 } from "lucide-react";
+
+import GoogleIcon from "../assets/auth-icons/google.svg";
+import MicrosoftIcon from "../assets/auth-icons/microsoft.svg";
+import GithubIcon from "../assets/auth-icons/github.svg";
+import PhoneIcon from "../assets/auth-icons/phone.svg";
 import { supabase } from "../lib/supabase";
 
 export default function Login() {
@@ -27,8 +28,9 @@ export default function Login() {
 
   function handleChange(e) {
     const { name, value, type, checked } = e.target;
-    setForm((p) => ({
-      ...p,
+
+    setForm((prev) => ({
+      ...prev,
       [name]: type === "checkbox" ? checked : value,
     }));
   }
@@ -36,76 +38,72 @@ export default function Login() {
   async function handleSubmit(e) {
     e.preventDefault();
 
-    if (!form.email.trim()) {
-      toast.error("Email is required");
-      return;
+    if (!form.email.trim()) return toast.error("Email is required");
+    if (!form.password.trim()) return toast.error("Password is required");
+
+    try {
+      setLoading(true);
+
+      const { error } = await supabase.auth.signInWithPassword({
+        email: form.email.trim(),
+        password: form.password,
+      });
+
+      if (error) throw error;
+
+      toast.success("Welcome back");
+      navigate("/dashboard", { replace: true });
+    } catch (error) {
+      toast.error(error.message || "Login failed");
+    } finally {
+      setLoading(false);
     }
-
-    if (!form.password.trim()) {
-      toast.error("Password is required");
-      return;
-    }
-
-    setLoading(true);
-
-    const { error } = await supabase.auth.signInWithPassword({
-      email: form.email,
-      password: form.password,
-    });
-
-    setLoading(false);
-
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
-
-    toast.success("Welcome back");
-    navigate("/dashboard");
   }
 
   async function handleOAuth(provider) {
-    setOauthLoading(provider);
+    try {
+      setOauthLoading(provider);
 
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider,
-      options: {
-        redirectTo: `${window.location.origin}/dashboard`,
-        scopes: provider === "azure" ? "openid email profile" : undefined,
-      },
-    });
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo: `${window.location.origin}/dashboard`,
+          scopes: provider === "azure" ? "openid email profile" : undefined,
+        },
+      });
 
-    if (error) {
-      toast.error(error.message);
+      if (error) throw error;
+    } catch (error) {
+      toast.error(error.message || "Social login failed");
       setOauthLoading("");
     }
   }
 
   return (
-    <section className="pt-10 lg:pt-14">
-      <div className="mx-auto grid max-w-[1450px] lg:grid-cols-[1fr_0.9fr] gap-6 xl:gap-8 items-center">
-        <div className="relative overflow-hidden rounded-[46px] bg-white/60 backdrop-blur-2xl border border-white/50 p-10 shadow-[0_25px_80px_rgba(15,23,42,0.08)]">
+    <section className="pt-8 lg:pt-12">
+      <div className="mx-auto grid max-w-[1320px] items-center gap-6 lg:grid-cols-[1fr_0.9fr]">
+        <div className="relative overflow-hidden rounded-[38px] border border-white/60 bg-white/60 p-8 shadow-[0_22px_70px_rgba(15,23,42,0.08)] backdrop-blur-2xl md:p-10">
           <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-pink-300/40 blur-3xl" />
           <div className="absolute -left-24 bottom-0 h-72 w-72 rounded-full bg-fuchsia-300/30 blur-3xl" />
 
           <div className="relative">
-            <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-pink-400/20 font-black text-pink-500">
+            <div className="inline-flex items-center gap-2 rounded-full bg-pink-400/20 px-5 py-2 font-black text-pink-500">
               <Sparkles size={16} />
               Welcome Back
             </div>
 
-            <h1 className="mt-6 text-[66px] xl:text-[78px] font-black tracking-[-3px] leading-[0.95]">
+            <h1 className="mt-6 text-[clamp(44px,6vw,74px)] font-black leading-[0.95] tracking-[-3px]">
               Login to
               <br />
               SwapWear.
             </h1>
 
-            <p className="mt-6 text-lg text-[var(--muted)] max-w-xl leading-relaxed">
+            <p className="mt-6 max-w-xl text-lg leading-relaxed text-[var(--muted)]">
               Continue your sustainable fashion journey, manage listings, send
               swap requests, save wishlist items and chat with real swappers.
             </p>
 
-            <div className="mt-10 grid sm:grid-cols-3 gap-4">
+            <div className="mt-10 grid gap-4 sm:grid-cols-3">
               <MiniStat value="100%" label="Secure auth" />
               <MiniStat value="Live" label="Marketplace" />
               <MiniStat value="Eco" label="Fashion swaps" />
@@ -115,32 +113,18 @@ export default function Login() {
 
         <form
           onSubmit={handleSubmit}
-          className="rounded-[46px] bg-white/70 backdrop-blur-2xl border border-white/60 shadow-[0_25px_80px_rgba(15,23,42,0.08)] p-8 md:p-10 space-y-6"
+          className="space-y-6 rounded-[38px] border border-white/60 bg-white/70 p-7 shadow-[0_22px_70px_rgba(15,23,42,0.08)] backdrop-blur-2xl md:p-9"
         >
           <div>
-            <h2 className="text-4xl font-black tracking-[-1px]">
-              Sign in
-            </h2>
-            <p className="mt-2 text-[var(--muted)] font-semibold">
+            <h2 className="text-4xl font-black tracking-[-1px]">Sign in</h2>
+            <p className="mt-2 font-semibold text-[var(--muted)]">
               Enter your details to access your account.
             </p>
           </div>
 
-          <div className="grid sm:grid-cols-2 gap-3">
+          <AuthButtons oauthLoading={oauthLoading} onOAuth={handleOAuth} />
 
-             <AuthButtons
-  oauthLoading={oauthLoading}
-  onOAuth={handleOAuth}
-/>
-          </div>
-
-          <div className="relative flex items-center gap-4">
-            <div className="h-px flex-1 bg-pink-100" />
-            <span className="text-sm font-black text-[var(--muted)]">
-              OR LOGIN WITH EMAIL
-            </span>
-            <div className="h-px flex-1 bg-pink-100" />
-          </div>
+          <Divider text="OR LOGIN WITH EMAIL" />
 
           <Field icon={Mail} label="Email">
             <input
@@ -150,6 +134,7 @@ export default function Login() {
               onChange={handleChange}
               className="input-premium"
               placeholder="you@example.com"
+              autoComplete="email"
               required
             />
           </Field>
@@ -162,12 +147,13 @@ export default function Login() {
               onChange={handleChange}
               className="input-premium"
               placeholder="••••••••"
+              autoComplete="current-password"
               required
             />
           </Field>
 
           <div className="flex items-center justify-between gap-4 text-sm font-bold">
-            <label className="inline-flex items-center gap-2 cursor-pointer">
+            <label className="inline-flex cursor-pointer items-center gap-2">
               <input
                 type="checkbox"
                 name="remember"
@@ -184,18 +170,19 @@ export default function Login() {
           </div>
 
           <button
-            disabled={loading}
-            className="w-full h-14 rounded-full bg-slate-950 !text-white font-black flex items-center justify-center gap-2 disabled:opacity-60 hover:bg-pink-500 transition"
+            type="submit"
+            disabled={loading || Boolean(oauthLoading)}
+            className="flex h-14 w-full items-center justify-center gap-2 rounded-full bg-slate-950 font-black !text-white transition hover:bg-pink-500 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {loading ? "Logging in..." : "Login"}
             <ArrowRight size={18} />
           </button>
 
-          <div className="rounded-[26px] bg-pink-50/70 border border-pink-100 p-4 flex items-start gap-3">
-            <ShieldCheck className="text-pink-500 shrink-0" size={20} />
-            <p className="text-sm text-slate-600 font-semibold leading-relaxed">
-              Your session is protected by Supabase Auth. Social login requires
-              provider setup in Supabase before it works.
+          <div className="flex items-start gap-3 rounded-[24px] border border-pink-100 bg-pink-50/70 p-4">
+            <ShieldCheck className="shrink-0 text-pink-500" size={20} />
+            <p className="text-sm font-semibold leading-relaxed text-slate-600">
+              Email, Google, Microsoft and GitHub login are supported. Social
+              providers must be enabled in Supabase.
             </p>
           </div>
 
@@ -214,7 +201,7 @@ export default function Login() {
 function Field({ icon: Icon, label, children }) {
   return (
     <div>
-      <label className="font-black flex items-center gap-2 mb-2">
+      <label className="mb-2 flex items-center gap-2 font-black">
         <Icon size={18} />
         {label}
       </label>
@@ -223,9 +210,21 @@ function Field({ icon: Icon, label, children }) {
   );
 }
 
+function Divider({ text }) {
+  return (
+    <div className="relative flex items-center gap-4">
+      <div className="h-px flex-1 bg-pink-100" />
+      <span className="text-xs font-black text-[var(--muted)] sm:text-sm">
+        {text}
+      </span>
+      <div className="h-px flex-1 bg-pink-100" />
+    </div>
+  );
+}
+
 function MiniStat({ value, label }) {
   return (
-    <div className="rounded-[28px] bg-white/60 border border-white/50 p-5">
+    <div className="rounded-[24px] border border-white/60 bg-white/60 p-5">
       <h3 className="text-3xl font-black text-pink-500">{value}</h3>
       <p className="mt-1 text-sm font-bold text-[var(--muted)]">{label}</p>
     </div>
@@ -234,28 +233,24 @@ function MiniStat({ value, label }) {
 
 function AuthButtons({ oauthLoading, onOAuth }) {
   const providers = [
-    { id: "google", title: "Continue with Google", icon: GoogleIcon },
-    { id: "azure", title: "Continue with Microsoft", icon: MicrosoftIcon },
-    { id: "github", title: "Continue with GitHub", icon: GithubIcon },
+    { id: "google", title: "Google", icon: GoogleIcon },
+    { id: "azure", title: "Microsoft", icon: MicrosoftIcon },
+    { id: "github", title: "GitHub", icon: GithubIcon },
   ];
 
   return (
-    <div className="space-y-5">
-      <div className="flex justify-center gap-5">
+    <div>
+      <div className="grid grid-cols-4 gap-3">
         {providers.map((provider) => (
           <button
             key={provider.id}
             type="button"
-            title={provider.title}
+            title={`Continue with ${provider.title}`}
             disabled={Boolean(oauthLoading)}
             onClick={() => onOAuth(provider.id)}
-            className="group flex h-14 w-14 items-center justify-center rounded-2xl border border-pink-100 bg-white/80 shadow-[0_12px_30px_rgba(15,23,42,0.08)] backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:border-pink-300 hover:shadow-[0_18px_40px_rgba(255,79,163,0.22)] disabled:opacity-60"
+            className="flex h-14 items-center justify-center rounded-2xl border border-pink-100 bg-white/85 shadow-[0_10px_25px_rgba(15,23,42,0.08)] transition hover:-translate-y-1 hover:border-pink-300 disabled:opacity-60"
           >
-            <img
-              src={provider.icon}
-              alt={provider.title}
-              className="h-7 w-7 transition group-hover:scale-110"
-            />
+            <img src={provider.icon} alt={provider.title} className="h-7 w-7" />
           </button>
         ))}
 
@@ -263,30 +258,17 @@ function AuthButtons({ oauthLoading, onOAuth }) {
           type="button"
           disabled
           title="Phone OTP coming soon"
-          className="flex h-14 w-14 cursor-not-allowed items-center justify-center rounded-2xl border border-pink-100 bg-pink-50 opacity-60"
+          className="flex h-14 cursor-not-allowed items-center justify-center rounded-2xl border border-pink-100 bg-pink-50 opacity-60"
         >
           <img src={PhoneIcon} alt="Phone OTP" className="h-7 w-7" />
         </button>
       </div>
 
-      <p className="text-center text-xs font-semibold text-slate-400">
-        Google, Microsoft & GitHub login available.
-        <br />
-        Phone OTP login coming soon.
-      </p>
+      {oauthLoading && (
+        <p className="mt-3 text-center text-sm font-black text-pink-500">
+          Redirecting to {oauthLoading}...
+        </p>
+      )}
     </div>
   );
-}
-
-async function loginWithGoogle() {
-  const { error } = await supabase.auth.signInWithOAuth({
-    provider: "google",
-    options: {
-      redirectTo: "http://localhost:5173/dashboard",
-    },
-  });
-
-  if (error) {
-    toast.error(error.message);
-  }
 }

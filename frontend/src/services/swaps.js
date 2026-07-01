@@ -1,4 +1,20 @@
-const API_URL = "http://localhost:5000/api/swaps";
+import { supabase } from "../lib/supabase";
+
+function formatSwap(item = {}) {
+  return {
+    id: item.id,
+    requester_id: item.requester_id,
+    owner_id: item.owner_id,
+    requester_name: item.requester_name || "Requester",
+    owner_name: item.owner_name || "Owner",
+    requester_item: item.requester_item || null,
+    owner_item: item.owner_item || null,
+    status: item.status || "pending",
+    message: item.message || "",
+    created_at: item.created_at,
+    updated_at: item.updated_at,
+  };
+}
 
 export async function createSwapRequest(payload) {
   try {
@@ -7,92 +23,60 @@ export async function createSwapRequest(payload) {
       owner_id: payload.ownerId,
       requester_name: payload.requesterName,
       owner_name: payload.ownerName,
-      requester_item_id: payload.requesterItem?.id,
-      owner_item_id: payload.ownerItem?.id,
-      requester_item_title: payload.requesterItem?.title,
-      owner_item_title: payload.ownerItem?.title,
-      requester_item_image:
-        payload.requesterItem?.image || payload.requesterItem?.images?.[0] || "",
-      owner_item_image:
-        payload.ownerItem?.image || payload.ownerItem?.images?.[0] || "",
-      requester_points: Number(payload.requesterItem?.points) || 0,
-      owner_points: Number(payload.ownerItem?.points) || 0,
+      requester_item: payload.requesterItem,
+      owner_item: payload.ownerItem,
+      status: "pending",
+      message: payload.message || "",
     };
 
-    const res = await fetch(API_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-    });
+    const { data, error } = await supabase
+      .from("swaps")
+      .insert([body])
+      .select("*")
+      .single();
 
-    const result = await res.json();
+    if (error) throw error;
 
-    if (!res.ok || !result.success) {
-      throw new Error(result.error || "Failed to send swap request");
-    }
-
-    return { success: true, data: result.data };
-  } catch (err) {
-    return { success: false, error: err.message };
+    return { success: true, data: formatSwap(data) };
+  } catch (error) {
+    return { success: false, error: error.message || "Unable to create swap request" };
   }
 }
 
-export async function getSwapRequests(userId = null) {
+export async function getMySwaps(userId) {
   try {
-    let safeUserId = userId;
+    const { data, error } = await supabase
+      .from("swaps")
+      .select("*")
+      .or(`requester_id.eq.${userId},owner_id.eq.${userId}`)
+      .order("created_at", { ascending: false });
 
-    if (!safeUserId) {
-      const raw = localStorage.getItem("supabase.auth.token");
-      safeUserId = raw ? JSON.parse(raw)?.currentSession?.user?.id : null;
-    }
+    if (error) throw error;
 
-    const res = await fetch(`${API_URL}?userId=${safeUserId || ""}`);
-    const result = await res.json();
-
-    if (!res.ok || !result.success) {
-      throw new Error(result.error || "Failed to fetch swap requests");
-    }
-
-    return { success: true, data: result.data || [] };
-  } catch (err) {
-    return { success: false, error: err.message, data: [] };
+    return { success: true, data: (data || []).map(formatSwap) };
+  } catch (error) {
+    return { success: false, error: error.message || "Unable to fetch swaps", data: [] };
   }
 }
 
-export async function acceptSwap(id) {
+export async function updateSwapStatus(id, status) {
   try {
-    const res = await fetch(`${API_URL}/${id}/accept`, {
-      method: "PATCH",
-    });
+    const { data, error } = await supabase
+      .from("swaps")
+      .update({ status, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .select("*")
+      .single();
 
-    const result = await res.json();
+    if (error) throw error;
 
-    if (!res.ok || !result.success) {
-      throw new Error(result.error || "Failed to accept swap");
-    }
-
-    return { success: true, data: result.data };
-  } catch (err) {
-    return { success: false, error: err.message };
+    return { success: true, data: formatSwap(data) };
+  } catch (error) {
+    return { success: false, error: error.message || "Unable to update swap status" };
   }
 }
 
-export async function declineSwap(id) {
-  try {
-    const res = await fetch(`${API_URL}/${id}/reject`, {
-      method: "PATCH",
-    });
-
-    const result = await res.json();
-
-    if (!res.ok || !result.success) {
-      throw new Error(result.error || "Failed to decline swap");
-    }
-
-    return { success: true, data: result.data };
-  } catch (err) {
-    return { success: false, error: err.message };
-  }
-}
+export const acceptSwap = (id) => updateSwapStatus(id, "accepted");
+export const rejectSwap = (id) => updateSwapStatus(id, "rejected");
+export const cancelSwap = (id) => updateSwapStatus(id, "cancelled");
+export const completeSwap = (id) => updateSwapStatus(id, "completed");

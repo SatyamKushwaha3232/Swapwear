@@ -9,7 +9,7 @@ export default function MainLayout() {
     <div className="min-h-screen w-full overflow-x-clip bg-[var(--bg)] text-[var(--text)]">
       <Navbar />
 
-      <main className="w-full pt-[112px] md:pt-[118px]">
+      <main className="w-full pt-[96px] md:pt-[104px]">
         <Outlet />
       </main>
 

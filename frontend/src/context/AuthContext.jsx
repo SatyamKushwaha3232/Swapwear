@@ -9,46 +9,59 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  async function safeCreateProfile(currentUser) {
+    try {
+      if (!currentUser?.id) return;
+      await createProfile(currentUser);
+    } catch (error) {
+      console.error("Profile sync failed:", error);
+    }
+  }
+
   useEffect(() => {
     let mounted = true;
 
     async function initAuth() {
-      const { data, error } = await supabase.auth.getSession();
+      try {
+        const { data, error } = await supabase.auth.getSession();
 
-      if (!mounted) return;
+        if (error) {
+          console.error("Auth session error:", error.message);
+        }
 
-      if (error) {
-        console.error("Auth session error:", error.message);
+        const currentSession = data?.session || null;
+        const currentUser = currentSession?.user || null;
+
+        if (!mounted) return;
+
+        setSession(currentSession);
+        setUser(currentUser);
+
+        if (currentUser) {
+          safeCreateProfile(currentUser);
+        }
+      } catch (error) {
+        console.error("Auth init failed:", error);
+      } finally {
+        if (mounted) setLoading(false);
       }
-
-      const currentSession = data?.session || null;
-      const currentUser = currentSession?.user || null;
-
-      if (currentUser) {
-        await createProfile(currentUser);
-      }
-
-      setSession(currentSession);
-      setUser(currentUser);
-      setLoading(false);
     }
 
     initAuth();
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, nextSession) => {
-        const nextUser = nextSession?.user || null;
+    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      const nextUser = nextSession?.user || null;
 
-        if (nextUser) {
-          await createProfile(nextUser);
-        }
+      setSession(nextSession || null);
+      setUser(nextUser);
+      setLoading(false);
 
-        setSession(nextSession || null);
-        setUser(nextUser);
-        setLoading(false);
-      });
-    
+      if (nextUser) {
+        safeCreateProfile(nextUser);
+      }
+    });
 
     return () => {
       mounted = false;

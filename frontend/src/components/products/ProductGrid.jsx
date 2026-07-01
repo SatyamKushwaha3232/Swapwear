@@ -2,12 +2,10 @@ import ProductCard from "./ProductCard";
 import ProductSkeleton from "./ProductSkeleton";
 
 export default function ProductGrid({ items = [], loading = false }) {
-  const skeletons = Array.from({ length: 8 });
-
   if (loading) {
     return (
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 min-[1180px]:grid-cols-3 min-[1540px]:grid-cols-4">
-        {skeletons.map((_, index) => (
+      <div className="grid min-w-0 grid-cols-1 gap-6 sm:grid-cols-2 min-[1380px]:grid-cols-3">
+        {Array.from({ length: 6 }).map((_, index) => (
           <ProductSkeleton key={index} />
         ))}
       </div>
@@ -15,7 +13,7 @@ export default function ProductGrid({ items = [], loading = false }) {
   }
 
   return (
-    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 min-[1180px]:grid-cols-3 min-[1540px]:grid-cols-4">
+    <div className="grid min-w-0 grid-cols-1 gap-6 sm:grid-cols-2 min-[1380px]:grid-cols-3">
       {items.map((item) => (
         <ProductCard key={item.id} item={item} />
       ))}

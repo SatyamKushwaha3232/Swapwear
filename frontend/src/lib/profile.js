@@ -1,40 +1,35 @@
 import { supabase } from "./supabase";
 
 export async function createProfile(user) {
-  if (!user) return;
+  try {
+    if (!user?.id) return { success: false };
 
-  // check profile exists
-  const { data } = await supabase
-    .from("profiles")
-    .select("id")
-    .eq("id", user.id)
-    .maybeSingle();
+    const meta = user.user_metadata || {};
 
-  if (data) return;
+    const payload = {
+      id: user.id,
+      full_name: meta.full_name || meta.name || meta.user_name || "",
+      username: meta.user_name || meta.preferred_username || "",
+      email: user.email || "",
+      avatar_url: meta.avatar_url || meta.picture || "",
+      provider: user.app_metadata?.provider || "email",
+      updated_at: new Date().toISOString(),
+    };
 
-  const meta = user.user_metadata || {};
+    const { data, error } = await supabase
+      .from("profiles")
+      .upsert(payload, { onConflict: "id" })
+      .select("*")
+      .single();
 
-  await supabase.from("profiles").insert({
-    id: user.id,
-    full_name:
-      meta.full_name ||
-      meta.name ||
-      meta.user_name ||
-      "",
+    if (error) {
+      console.error("Profile upsert error:", error.message);
+      return { success: false, error: error.message };
+    }
 
-    username:
-      meta.user_name ||
-      meta.preferred_username ||
-      "",
-
-    email: user.email,
-
-    avatar_url:
-      meta.avatar_url ||
-      meta.picture ||
-      "",
-
-    provider:
-      user.app_metadata?.provider || "email",
-  });
+    return { success: true, data };
+  } catch (error) {
+    console.error("Profile create failed:", error);
+    return { success: false, error: error.message };
+  }
 }
