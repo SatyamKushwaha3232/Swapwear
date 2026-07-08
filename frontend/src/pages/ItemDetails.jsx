@@ -75,6 +75,8 @@ export default function ItemDetails() {
       owner: item.owner || item.owner_name || "SwapWear User",
       ownerId: item.ownerId || item.user_id || null,
       views: Number(item.views || 0),
+      swap_status: item.swap_status || "available",
+      is_available_for_swap: item.is_available_for_swap !== false,
       description:
         item.description ||
         "Premium pre-loved fashion item available for sustainable swapping.",
@@ -89,6 +91,11 @@ export default function ItemDetails() {
 
     if (safeItem.ownerId && safeItem.ownerId === user.id) {
       toast.error("You cannot request swap on your own listing");
+      return;
+    }
+
+    if (!safeItem.is_available_for_swap) {
+      toast.error("This item is already reserved or swapped");
       return;
     }
 

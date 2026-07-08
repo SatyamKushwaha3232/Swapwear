@@ -83,3 +83,179 @@ for all
 to anon, authenticated
 using (bucket_id = 'avatars')
 with check (bucket_id = 'avatars');
+
+-- Chat module V4 tables / columns
+create table if not exists chat_conversations (
+  id bigint generated always as identity primary key,
+  swap_id bigint,
+  user1_id uuid,
+  user2_id uuid,
+  last_message text default '',
+  last_message_at timestamptz default now(),
+  created_at timestamptz default now()
+);
+
+create table if not exists chat_messages (
+  id bigint generated always as identity primary key,
+  conversation_id bigint references chat_conversations(id) on delete cascade,
+  sender_id uuid,
+  message text default '',
+  image_url text default '',
+  file_url text default '',
+  file_name text default '',
+  file_type text default '',
+  message_type text default 'text',
+  reply_to_id bigint,
+  reply_to_text text default '',
+  reply_to_sender_id uuid,
+  reactions jsonb default '{}'::jsonb,
+  is_deleted boolean default false,
+  is_pinned boolean default false,
+  is_starred boolean default false,
+  seen boolean default false,
+  voice_url text default '',
+  voice_duration integer default 0,
+  edited_at timestamptz,
+  deleted_at timestamptz,
+  created_at timestamptz default now()
+);
+
+create table if not exists chat_typing (
+  conversation_id bigint references chat_conversations(id) on delete cascade,
+  user_id uuid,
+  is_typing boolean default false,
+  updated_at timestamptz default now(),
+  primary key (conversation_id, user_id)
+);
+
+alter table chat_conversations add column if not exists last_message text default '';
+alter table chat_conversations add column if not exists last_message_at timestamptz default now();
+alter table chat_messages add column if not exists image_url text default '';
+alter table chat_messages add column if not exists file_url text default '';
+alter table chat_messages add column if not exists file_name text default '';
+alter table chat_messages add column if not exists file_type text default '';
+alter table chat_messages add column if not exists message_type text default 'text';
+alter table chat_messages add column if not exists reply_to_id bigint;
+alter table chat_messages add column if not exists reply_to_text text default '';
+alter table chat_messages add column if not exists reply_to_sender_id uuid;
+alter table chat_messages add column if not exists reactions jsonb default '{}'::jsonb;
+alter table chat_messages add column if not exists is_deleted boolean default false;
+alter table chat_messages add column if not exists is_pinned boolean default false;
+alter table chat_messages add column if not exists is_starred boolean default false;
+alter table chat_messages add column if not exists seen boolean default false;
+alter table chat_messages add column if not exists voice_url text default '';
+alter table chat_messages add column if not exists voice_duration integer default 0;
+alter table chat_messages add column if not exists edited_at timestamptz;
+alter table chat_messages add column if not exists deleted_at timestamptz;
+
+create index if not exists chat_conversations_user1_idx on chat_conversations(user1_id);
+create index if not exists chat_conversations_user2_idx on chat_conversations(user2_id);
+create index if not exists chat_messages_conversation_idx on chat_messages(conversation_id, created_at);
+
+alter table chat_conversations disable row level security;
+alter table chat_messages disable row level security;
+alter table chat_typing disable row level security;
+
+grant all on table chat_conversations to anon, authenticated;
+grant all on table chat_messages to anon, authenticated;
+grant all on table chat_typing to anon, authenticated;
+DO $$
+BEGIN
+  GRANT USAGE, SELECT ON SEQUENCE chat_conversations_id_seq TO anon, authenticated;
+EXCEPTION
+  WHEN undefined_table THEN NULL;
+END $$;
+
+DO $$
+BEGIN
+  GRANT USAGE, SELECT ON SEQUENCE chat_messages_id_seq TO anon, authenticated;
+EXCEPTION
+  WHEN undefined_table THEN NULL;
+END $$;
+
+-- Storage bucket required: chat-files (create as a public bucket in Supabase Storage)
+drop policy if exists "Allow chat file uploads" on storage.objects;
+create policy "Allow chat file uploads"
+on storage.objects
+for all
+to anon, authenticated
+using (bucket_id = 'chat-files')
+with check (bucket_id = 'chat-files');
+
+-- Enable Supabase realtime for chat tables
+DO $$
+BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE chat_conversations;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$
+BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE chat_messages;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$
+BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE chat_typing;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
+
+-- Swap lifecycle / product availability mechanism
+create table if not exists swaps (
+  id bigint generated always as identity primary key,
+  requester_id uuid,
+  owner_id uuid,
+  requester_name text,
+  owner_name text,
+  requester_item_id bigint,
+  owner_item_id bigint,
+  requester_item jsonb,
+  owner_item jsonb,
+  status text default 'pending',
+  message text default '',
+  accepted_at timestamptz,
+  completed_at timestamptz,
+  delete_eligible_at timestamptz,
+  items_deleted_at timestamptz,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+alter table swaps add column if not exists requester_item_id bigint;
+alter table swaps add column if not exists owner_item_id bigint;
+alter table swaps add column if not exists requester_item jsonb;
+alter table swaps add column if not exists owner_item jsonb;
+alter table swaps add column if not exists accepted_at timestamptz;
+alter table swaps add column if not exists completed_at timestamptz;
+alter table swaps add column if not exists delete_eligible_at timestamptz;
+alter table swaps add column if not exists items_deleted_at timestamptz;
+alter table swaps add column if not exists updated_at timestamptz default now();
+
+alter table listings add column if not exists swap_status text default 'available';
+alter table listings add column if not exists active_swap_id bigint;
+alter table listings add column if not exists swap_completed_at timestamptz;
+alter table listings add column if not exists delete_eligible_at timestamptz;
+
+update listings
+set swap_status = 'available'
+where swap_status is null;
+
+create index if not exists listings_swap_status_idx on listings(swap_status);
+create index if not exists listings_active_swap_idx on listings(active_swap_id);
+create index if not exists swaps_requester_item_idx on swaps(requester_item_id);
+create index if not exists swaps_owner_item_idx on swaps(owner_item_id);
+create index if not exists swaps_status_idx on swaps(status);
+
+alter table swaps disable row level security;
+grant all on table swaps to anon, authenticated;
+
+DO $$
+BEGIN
+  GRANT USAGE, SELECT ON SEQUENCE swaps_id_seq TO anon, authenticated;
+EXCEPTION
+  WHEN undefined_table THEN NULL;
+END $$;

@@ -35,7 +35,7 @@ export default function SwapRequestModal({
       const response = await getListings(user.id);
 
       if (response.success) {
-        const listings = response.data || [];
+        const listings = (response.data || []).filter((listing) => listing.is_available_for_swap !== false);
         setMyListings(listings);
         setSelectedItem(listings[0] || null);
       } else {
@@ -63,6 +63,16 @@ export default function SwapRequestModal({
 
     if (ownerItem?.ownerId && String(ownerItem.ownerId) === String(user.id)) {
       toast.error("You cannot request swap on your own item");
+      return;
+    }
+
+    if (ownerItem?.is_available_for_swap === false) {
+      toast.error("This item is already reserved or swapped");
+      return;
+    }
+
+    if (selectedItem?.is_available_for_swap === false) {
+      toast.error("Your selected item is already reserved or swapped");
       return;
     }
 
@@ -177,8 +187,7 @@ export default function SwapRequestModal({
                         {listing.title || "Untitled Item"}
                       </h4>
                       <p className="mt-1 truncate text-sm font-bold text-slate-500">
-                        Size {listing.size || "Free"} •{" "}
-                        {listing.condition || "Good"} • {listing.points || 0} pts
+                        Size {listing.size || "Free"} / {listing.condition || "Good"} / {listing.points || 0} pts
                       </p>
                     </div>
 
@@ -205,7 +214,7 @@ export default function SwapRequestModal({
                 onChange={(e) => setMessage(e.target.value)}
                 rows={4}
                 maxLength={280}
-                placeholder="Hi, I’m interested in swapping this item..."
+                placeholder="Hi, I am interested in swapping this item..."
                 className="w-full resize-none rounded-[26px] border border-pink-100 bg-pink-50/45 p-4 font-semibold outline-none focus:border-pink-400"
               />
 
@@ -264,7 +273,7 @@ function PreviewCard({ label, item }) {
             {item?.title || "No item selected"}
           </h4>
           <p className="mt-1 truncate text-sm font-bold text-slate-500">
-            {item?.brand || "Brand"} • {item?.points || 0} pts
+            {item?.brand || "Brand"} / {item?.points || 0} pts
           </p>
         </div>
       </div>

@@ -22,12 +22,14 @@ export default function OwnerSwapCard({
     user?.id && item?.ownerId && String(user.id) === String(item.ownerId);
 
   const ownerName = item?.owner || item?.owner_name || "SwapWear User";
+  const availableForSwap = item?.is_available_for_swap !== false;
+  const availabilityLabel = item?.swap_status === "completed" ? "Already Swapped" : item?.swap_status === "locked" ? "Reserved In Swap" : "Swap Ready Item";
 
   return (
     <aside className="min-w-0 rounded-[36px] border border-pink-100 bg-white/90 p-6 shadow-[0_24px_75px_rgba(15,23,42,0.07)] backdrop-blur-2xl md:p-7 xl:sticky xl:top-32 xl:h-fit">
       <div className="inline-flex max-w-full items-center gap-2 rounded-full bg-pink-50 px-5 py-2 font-black text-pink-500">
         <Sparkles size={16} className="shrink-0" />
-        <span className="truncate">Swap Ready Item</span>
+        <span className="truncate">{availabilityLabel}</span>
       </div>
 
       <div className="mt-5 min-w-0">
@@ -77,6 +79,15 @@ export default function OwnerSwapCard({
         </div>
       </div>
 
+      {!availableForSwap && (
+        <div className="mt-5 rounded-[24px] border border-slate-200 bg-slate-50 p-4">
+          <p className="font-black text-slate-700">This item is not available</p>
+          <p className="mt-1 text-sm font-semibold text-slate-500">
+            It is already reserved in an accepted swap or has been swapped.
+          </p>
+        </div>
+      )}
+
       {isOwnListing && (
         <div className="mt-5 rounded-[24px] border border-yellow-100 bg-yellow-50 p-4">
           <p className="font-black text-yellow-700">This is your listing</p>
@@ -89,7 +100,7 @@ export default function OwnerSwapCard({
       <div className="mt-6 space-y-3">
         <button
           type="button"
-          disabled={requesting || isOwnListing}
+          disabled={requesting || isOwnListing || !availableForSwap}
           onClick={onRequestSwap}
           className="flex h-14 w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-pink-500 to-fuchsia-500 font-black text-white shadow-[0_16px_38px_rgba(255,79,163,0.32)] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
         >
@@ -98,6 +109,8 @@ export default function OwnerSwapCard({
             ? "Sending Request..."
             : isOwnListing
             ? "Own Listing"
+            : !availableForSwap
+            ? "Unavailable"
             : "Request Swap"}
         </button>
 

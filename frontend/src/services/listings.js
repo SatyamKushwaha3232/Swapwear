@@ -1,5 +1,12 @@
 import { supabase } from "../lib/supabase";
 
+export const LISTING_SWAP_STATUS = {
+  AVAILABLE: "available",
+  LOCKED: "locked",
+  COMPLETED: "completed",
+  REMOVED: "removed",
+};
+
 function formatListing(item = {}) {
   const imageList =
     Array.isArray(item.images) && item.images.length > 0
@@ -7,6 +14,8 @@ function formatListing(item = {}) {
       : item.image
       ? [item.image]
       : [];
+
+  const swapStatus = item.swap_status || LISTING_SWAP_STATUS.AVAILABLE;
 
   return {
     id: item.id,
@@ -28,11 +37,35 @@ function formatListing(item = {}) {
     description: item.description || "",
     user_id: item.user_id || null,
     created_at: item.created_at || null,
+    swap_status: swapStatus,
+    active_swap_id: item.active_swap_id || null,
+    swap_completed_at: item.swap_completed_at || null,
+    delete_eligible_at: item.delete_eligible_at || null,
+    is_available_for_swap: swapStatus === LISTING_SWAP_STATUS.AVAILABLE,
   };
 }
 
-export async function getListings(userId = null) {
+export async function cleanupExpiredCompletedListings() {
   try {
+    const { error } = await supabase
+      .from("listings")
+      .delete()
+      .eq("swap_status", LISTING_SWAP_STATUS.COMPLETED)
+      .lte("delete_eligible_at", new Date().toISOString());
+
+    if (error) throw error;
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message || "Cleanup failed" };
+  }
+}
+
+export async function getListings(userId = null, options = {}) {
+  try {
+    if (!userId && options.onlyAvailable !== false) {
+      cleanupExpiredCompletedListings();
+    }
+
     let query = supabase
       .from("listings")
       .select("*")
@@ -40,6 +73,10 @@ export async function getListings(userId = null) {
 
     if (userId) {
       query = query.eq("user_id", userId);
+    }
+
+    if (options.onlyAvailable !== false) {
+      query = query.or("swap_status.is.null,swap_status.eq.available");
     }
 
     const { data, error } = await query;
@@ -59,7 +96,7 @@ export async function getListings(userId = null) {
   }
 }
 
-export async function getListingById(id) {
+export async function getListingById(id, options = {}) {
   try {
     const { data, error } = await supabase
       .from("listings")
@@ -69,9 +106,15 @@ export async function getListingById(id) {
 
     if (error) throw error;
 
+    const listing = data ? formatListing(data) : null;
+
+    if (listing && options.onlyAvailable && !listing.is_available_for_swap) {
+      return { success: true, data: null };
+    }
+
     return {
       success: true,
-      data: data ? formatListing(data) : null,
+      data: listing,
     };
   } catch (err) {
     return {
@@ -79,6 +122,108 @@ export async function getListingById(id) {
       error: err.message || "Failed to fetch listing",
       data: null,
     };
+  }
+}
+
+export async function getListingsByIds(ids = []) {
+  try {
+    const cleanIds = ids.filter(Boolean);
+    if (cleanIds.length === 0) return { success: true, data: [] };
+
+    const { data, error } = await supabase
+      .from("listings")
+      .select("*")
+      .in("id", cleanIds);
+
+    if (error) throw error;
+
+    return { success: true, data: (data || []).map(formatListing) };
+  } catch (err) {
+    return { success: false, error: err.message || "Unable to load listings", data: [] };
+  }
+}
+
+export async function markListingsLockedForSwap(listingIds = [], swapId) {
+  try {
+    const cleanIds = listingIds.filter(Boolean);
+    if (cleanIds.length === 0) return { success: true };
+
+    const { error } = await supabase
+      .from("listings")
+      .update({
+        swap_status: LISTING_SWAP_STATUS.LOCKED,
+        active_swap_id: swapId,
+        swap_completed_at: null,
+        delete_eligible_at: null,
+      })
+      .in("id", cleanIds);
+
+    if (error) throw error;
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message || "Unable to lock listings" };
+  }
+}
+
+export async function releaseListingsFromSwap(listingIds = [], swapId) {
+  try {
+    const cleanIds = listingIds.filter(Boolean);
+    if (cleanIds.length === 0) return { success: true };
+
+    const { error } = await supabase
+      .from("listings")
+      .update({
+        swap_status: LISTING_SWAP_STATUS.AVAILABLE,
+        active_swap_id: null,
+        swap_completed_at: null,
+        delete_eligible_at: null,
+      })
+      .in("id", cleanIds)
+      .eq("active_swap_id", swapId);
+
+    if (error) throw error;
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message || "Unable to release listings" };
+  }
+}
+
+export async function markListingsCompletedForSwap(listingIds = [], swapId) {
+  try {
+    const cleanIds = listingIds.filter(Boolean);
+    if (cleanIds.length === 0) return { success: true };
+
+    const completedAt = new Date();
+    const deleteEligibleAt = new Date(completedAt.getTime() + 3 * 24 * 60 * 60 * 1000);
+
+    const { error } = await supabase
+      .from("listings")
+      .update({
+        swap_status: LISTING_SWAP_STATUS.COMPLETED,
+        active_swap_id: swapId,
+        swap_completed_at: completedAt.toISOString(),
+        delete_eligible_at: deleteEligibleAt.toISOString(),
+      })
+      .in("id", cleanIds);
+
+    if (error) throw error;
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message || "Unable to complete listings" };
+  }
+}
+
+export async function deleteSwapListings(listingIds = []) {
+  try {
+    const cleanIds = listingIds.filter(Boolean);
+    if (cleanIds.length === 0) return { success: true };
+
+    const { error } = await supabase.from("listings").delete().in("id", cleanIds);
+
+    if (error) throw error;
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message || "Unable to delete completed listings" };
   }
 }
 
@@ -155,6 +300,8 @@ export async function createListing(data, imageFiles = [], videoFile = null) {
       video: videoUrl,
       views: 0,
       likes: 0,
+      swap_status: LISTING_SWAP_STATUS.AVAILABLE,
+      active_swap_id: null,
     };
 
     const { data: created, error } = await supabase

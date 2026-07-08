@@ -41,6 +41,8 @@ export default function ProductCard({ item }) {
 
   const hasVideo = Boolean(item?.video);
   const currentImage = images[activeImage] || "/icons.svg";
+  const availableForSwap = item?.is_available_for_swap !== false;
+  const availabilityLabel = item?.swap_status === "completed" ? "Swapped" : item?.swap_status === "locked" ? "Reserved" : "Swap Ready";
 
   useEffect(() => {
     if (hasVideo || images.length <= 1) return;
@@ -205,9 +207,15 @@ export default function ProductCard({ item }) {
               {item.category || "Fashion"}
             </span>
 
-            <span className="inline-flex max-w-[52%] items-center gap-1 truncate rounded-full bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-600 shadow">
+            <span
+              className={`inline-flex max-w-[52%] items-center gap-1 truncate rounded-full px-3 py-2 text-xs font-black shadow ${
+                availableForSwap
+                  ? "bg-emerald-50 text-emerald-600"
+                  : "bg-slate-950/80 text-white"
+              }`}
+            >
               <Repeat2 size={13} className="shrink-0" />
-              <span className="truncate">Swap Ready</span>
+              <span className="truncate">{availabilityLabel}</span>
             </span>
           </div>
 
@@ -292,10 +300,15 @@ export default function ProductCard({ item }) {
 
           <Link
             to={`/item/${item.id}`}
-            className="flex h-11 items-center justify-center gap-2 rounded-full bg-pink-500 text-sm font-black text-white hover:bg-pink-600"
+            className={`flex h-11 items-center justify-center gap-2 rounded-full text-sm font-black ${
+              availableForSwap
+                ? "bg-pink-500 text-white hover:bg-pink-600"
+                : "cursor-not-allowed bg-slate-100 text-slate-400"
+            }`}
+            aria-disabled={!availableForSwap}
           >
             <MessageCircle size={16} />
-            Swap
+            {availableForSwap ? "Swap" : "Unavailable"}
           </Link>
         </div>
       </div>

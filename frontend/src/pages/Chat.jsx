@@ -1,32 +1,53 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
-import { MessageCircle, Repeat2, Sparkles } from "lucide-react";
 
-import ChatSidebar from "../components/chat/ChatSidebar";
-import ChatWindow from "../components/chat/ChatWindow";
+import useDevice from "../hooks/useDevice";
+import ChatDesktop from "../components/chat/desktop/ChatDesktop";
+import ChatTablet from "../components/chat/tablet/ChatTablet";
+import ChatMobile from "../components/chat/mobile/ChatMobile";
+import ForwardMessageModal from "../components/chat/shared/ForwardMessageModal";
 import { useAuth } from "../context/AuthContext";
+
 import {
+  deleteMessage,
+  editMessage,
+  forwardMessage,
   getMessages,
   getMyConversations,
+  markConversationSeen,
+  reactToMessage,
   sendMessage,
+  setTyping,
   subscribeToConversationMessages,
   subscribeToMyConversations,
+  subscribeToTyping,
+  toggleMessagePin,
+  toggleMessageStar,
 } from "../services/chat";
 
 export default function Chat() {
   const { conversationId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { isDesktop, isTablet } = useDevice();
 
   const [conversations, setConversations] = useState([]);
   const [activeConversation, setActiveConversation] = useState(null);
   const [messages, setMessages] = useState([]);
+  const [typingUsers, setTypingUsers] = useState([]);
   const [input, setInput] = useState("");
+  const [replyTo, setReplyTo] = useState(null);
+  const [conversationSearch, setConversationSearch] = useState("");
+  const [messageSearch, setMessageSearch] = useState("");
+  const [messageView, setMessageView] = useState("all");
+  const [forwardingMessage, setForwardingMessage] = useState(null);
+  const [forwarding, setForwarding] = useState(false);
   const [loadingChats, setLoadingChats] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [sending, setSending] = useState(false);
 
+  const typingTimerRef = useRef(null);
   const activeId = activeConversation?.id || conversationId || "";
 
   useEffect(() => {
@@ -40,35 +61,41 @@ export default function Chat() {
       (chat) => String(chat.id) === String(conversationId)
     );
 
-    if (found) {
-      setActiveConversation(found);
-    }
+    if (found) setActiveConversation(found);
   }, [conversationId, conversations]);
 
   useEffect(() => {
     if (!activeId) {
       setMessages([]);
-      return;
+      return undefined;
     }
 
-    loadMessages(activeId);
+    loadMessagesById(activeId);
 
-    const channel = subscribeToConversationMessages(activeId, (newMessage) => {
-      setMessages((prev) => {
-        if (prev.some((msg) => msg.id === newMessage.id)) return prev;
-        return [...prev, newMessage];
-      });
+    const messageChannel = subscribeToConversationMessages(
+      activeId,
+      (changedMessage) => {
+        upsertMessage(changedMessage);
+        loadConversations(false);
+      }
+    );
 
-      loadConversations(false);
-    });
+    if (user?.id) {
+      markConversationSeen(activeId, user.id);
+      setConversations((prev) =>
+        prev.map((chat) =>
+          String(chat.id) === String(activeId) ? { ...chat, unread_count: 0 } : chat
+        )
+      );
+    }
 
     return () => {
-      channel?.unsubscribe?.();
+      messageChannel?.unsubscribe?.();
     };
-  }, [activeId]);
+  }, [activeId, user?.id]);
 
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.id) return undefined;
 
     const channel = subscribeToMyConversations(user.id, () => {
       loadConversations(false);
@@ -78,6 +105,35 @@ export default function Chat() {
       channel?.unsubscribe?.();
     };
   }, [user?.id]);
+
+  useEffect(() => {
+    if (!activeId || !user?.id) return undefined;
+
+    const channel = subscribeToTyping(activeId, (typingRow) => {
+      if (!typingRow || typingRow.user_id === user.id) return;
+
+      setTypingUsers((prev) => {
+        const filtered = prev.filter((id) => id !== typingRow.user_id);
+        return typingRow.is_typing ? [...filtered, typingRow.user_id] : filtered;
+      });
+    });
+
+    return () => {
+      channel?.unsubscribe?.();
+    };
+  }, [activeId, user?.id]);
+
+  function upsertMessage(nextMessage) {
+    setMessages((prev) => {
+      const exists = prev.some((msg) => msg.id === nextMessage.id);
+
+      if (exists) {
+        return prev.map((msg) => (msg.id === nextMessage.id ? nextMessage : msg));
+      }
+
+      return [...prev, nextMessage];
+    });
+  }
 
   async function loadConversations(showLoader = true) {
     if (!user?.id) {
@@ -96,17 +152,18 @@ export default function Chat() {
       return;
     }
 
-    setConversations(response.data || []);
+    const list = response.data || [];
+    setConversations(list);
 
-    if (!conversationId && !activeConversation && response.data?.[0]) {
-      setActiveConversation(response.data[0]);
-      navigate(`/chat/${response.data[0].id}`, { replace: true });
+    if (!conversationId && !activeConversation && list[0]) {
+      setActiveConversation(list[0]);
+      navigate(`/chat/${list[0].id}`, { replace: true });
     }
 
     setLoadingChats(false);
   }
 
-  async function loadMessages(id) {
+  async function loadMessagesById(id) {
     setLoadingMessages(true);
 
     const response = await getMessages(id);
@@ -121,13 +178,39 @@ export default function Chat() {
     setLoadingMessages(false);
   }
 
-  async function handleSelectConversation(chat) {
+  function handleSelectConversation(chat) {
     setActiveConversation(chat);
+    setReplyTo(null);
+    setTypingUsers([]);
+    setMessageSearch("");
+    setMessageView("all");
+
+    if (user?.id) markConversationSeen(chat.id, user.id);
+
+    setConversations((prev) =>
+      prev.map((item) =>
+        String(item.id) === String(chat.id) ? { ...item, unread_count: 0 } : item
+      )
+    );
+
     navigate(`/chat/${chat.id}`);
   }
 
-  async function handleSendMessage() {
-    if (!input.trim()) return;
+  function handleInputChange(value) {
+    setInput(value);
+
+    if (!activeId || !user?.id) return;
+
+    setTyping(activeId, user.id, true);
+
+    clearTimeout(typingTimerRef.current);
+    typingTimerRef.current = setTimeout(() => {
+      setTyping(activeId, user.id, false);
+    }, 1200);
+  }
+
+  async function handleSendMessage(file = null, voiceDuration = 0) {
+    if (!input.trim() && !file) return;
 
     if (!user?.id) {
       toast.error("Please login first");
@@ -143,10 +226,15 @@ export default function Chat() {
     setInput("");
     setSending(true);
 
+    await setTyping(activeId, user.id, false);
+
     const response = await sendMessage({
       conversationId: activeId,
       senderId: user.id,
       message: text,
+      file,
+      replyTo,
+      voiceDuration,
     });
 
     if (!response.success) {
@@ -156,15 +244,163 @@ export default function Chat() {
       return;
     }
 
-    setMessages((prev) => {
-      if (prev.some((msg) => msg.id === response.data.id)) return prev;
-      return [...prev, response.data];
+    upsertMessage(response.data);
+    setReplyTo(null);
+    setSending(false);
+    loadConversations(false);
+  }
+
+  async function handleDeleteMessage(message) {
+    if (!message?.id) return;
+
+    if (String(message.sender_id) !== String(user?.id)) {
+      toast.error("You can delete only your own message");
+      return;
+    }
+
+    const response = await deleteMessage(message.id);
+
+    if (!response.success) {
+      toast.error(response.error || "Unable to delete message");
+      return;
+    }
+
+    upsertMessage(response.data);
+    toast.success("Message deleted");
+  }
+
+  async function handleEditMessage(message) {
+    if (!message?.id || String(message.sender_id) !== String(user?.id)) return;
+
+    const nextMessage = window.prompt("Edit message", message.message || "");
+    if (nextMessage === null || nextMessage.trim() === message.message) return;
+
+    const response = await editMessage(message.id, nextMessage);
+
+    if (!response.success) {
+      toast.error(response.error || "Unable to edit message");
+      return;
+    }
+
+    upsertMessage(response.data);
+    toast.success("Message edited");
+  }
+
+  async function handleReactToMessage(message, emoji) {
+    const response = await reactToMessage(message, emoji);
+
+    if (!response.success) {
+      toast.error(response.error || "Unable to react");
+      return;
+    }
+
+    upsertMessage(response.data);
+  }
+
+  async function handlePinMessage(message) {
+    const response = await toggleMessagePin(message);
+
+    if (!response.success) {
+      toast.error(response.error || "Unable to pin message");
+      return;
+    }
+
+    upsertMessage(response.data);
+  }
+
+  async function handleStarMessage(message) {
+    const response = await toggleMessageStar(message);
+
+    if (!response.success) {
+      toast.error(response.error || "Unable to star message");
+      return;
+    }
+
+    upsertMessage(response.data);
+  }
+
+  async function handleCopyMessage(message) {
+    const text = message.message || message.file_name || message.image_url || message.file_url || "";
+
+    if (!text) {
+      toast.error("Nothing to copy");
+      return;
+    }
+
+    await navigator.clipboard.writeText(text);
+    toast.success("Copied");
+  }
+
+  function handleForwardMessage(message) {
+    if (!message?.id) return;
+    setForwardingMessage(message);
+  }
+
+  async function handleForwardToConversation(chat) {
+    if (!forwardingMessage || !chat?.id || !user?.id) return;
+
+    setForwarding(true);
+
+    const response = await forwardMessage({
+      sourceMessage: forwardingMessage,
+      targetConversationId: chat.id,
+      senderId: user.id,
     });
 
-    setSending(false);
+    setForwarding(false);
 
+    if (!response.success) {
+      toast.error(response.error || "Unable to forward message");
+      return;
+    }
 
+    setForwardingMessage(null);
+    toast.success("Message forwarded");
+    loadConversations(false);
   }
+
+  function handleCallAction(type) {
+    toast(`${type} call UI is ready; live calling needs a calling provider.`);
+  }
+
+  function handleHeaderMenu(view = "all") {
+    setMessageView(view);
+  }
+
+  const filteredConversations = useMemo(() => {
+    const query = conversationSearch.trim().toLowerCase();
+    if (!query) return conversations;
+
+    return conversations.filter((chat) => {
+      const swapLabel = `swap #${String(chat.swap_id || "").slice(0, 6)}`;
+      return `${swapLabel} ${chat.last_message || ""}`.toLowerCase().includes(query);
+    });
+  }, [conversationSearch, conversations]);
+
+  const messageCounts = useMemo(
+    () => ({
+      all: messages.length,
+      pinned: messages.filter((message) => message.is_pinned && !message.is_deleted).length,
+      starred: messages.filter((message) => message.is_starred && !message.is_deleted).length,
+    }),
+    [messages]
+  );
+
+  const visibleMessages = useMemo(() => {
+    const query = messageSearch.trim().toLowerCase();
+
+    return messages.filter((message) => {
+      if (messageView === "pinned" && !message.is_pinned) return false;
+      if (messageView === "starred" && !message.is_starred) return false;
+      if (!query) return true;
+
+      return [message.message, message.file_name, message.reply_to_text]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(query);
+    });
+  }, [messageSearch, messageView, messages]);
 
   const headerText = useMemo(() => {
     if (loadingChats) return "Loading conversations...";
@@ -174,51 +410,65 @@ export default function Chat() {
     }`;
   }, [loadingChats, conversations.length]);
 
+  const chatProps = {
+    user,
+    conversations: filteredConversations,
+    allConversations: conversations,
+    totalConversations: conversations.length,
+    conversationSearch,
+    messageSearch,
+    messageView,
+    messageCounts,
+    onConversationSearchChange: setConversationSearch,
+    onMessageSearchChange: setMessageSearch,
+    onMessageViewChange: setMessageView,
+    activeConversationId: activeId,
+    activeConversation,
+    messages: visibleMessages,
+    allMessagesCount: messages.length,
+    typingUsers,
+    input,
+    replyTo,
+    loadingMessages,
+    onInputChange: handleInputChange,
+    onSelectConversation: handleSelectConversation,
+    onSend: handleSendMessage,
+    onReply: setReplyTo,
+    onCancelReply: () => setReplyTo(null),
+    onDeleteMessage: handleDeleteMessage,
+    onEditMessage: handleEditMessage,
+    onCopyMessage: handleCopyMessage,
+    onForwardMessage: handleForwardMessage,
+    onPinMessage: handlePinMessage,
+    onStarMessage: handleStarMessage,
+    onReactToMessage: handleReactToMessage,
+    onCall: () => handleCallAction("Audio"),
+    onVideo: () => handleCallAction("Video"),
+    onHeaderMenu: handleHeaderMenu,
+    sending,
+    headerText,
+  };
+
+  const content = isDesktop ? (
+    <ChatDesktop {...chatProps} />
+  ) : isTablet ? (
+    <ChatTablet {...chatProps} />
+  ) : (
+    <ChatMobile {...chatProps} />
+  );
+
   return (
-    <section className="pt-5 pb-8">
-      <div className="container-main">
-        <div className="mb-6 rounded-[34px] border border-white/70 bg-white/75 p-6 shadow-[0_24px_70px_rgba(15,23,42,0.08)] backdrop-blur-2xl md:p-8">
-          <div className="inline-flex items-center gap-2 rounded-full bg-pink-50 px-5 py-2 font-black text-pink-500">
-            <Sparkles size={17} />
-            Realtime Chat
-          </div>
-
-          <h1 className="mt-5 text-[clamp(42px,6vw,76px)] font-black leading-[0.96] tracking-[-3px]">
-            Chat before you swap.
-          </h1>
-
-          <p className="mt-5 flex items-center gap-2 font-semibold text-[var(--muted)] md:text-lg">
-            <Repeat2 size={20} className="text-pink-500" />
-            {headerText}
-          </p>
-        </div>
-
-        <div className="flex h-[calc(100vh-225px)] min-h-[620px] flex-col overflow-hidden rounded-[34px] border border-pink-100 bg-white shadow-[0_24px_80px_rgba(15,23,42,0.08)] md:flex-row">
-          <ChatSidebar
-            conversations={conversations}
-            activeConversationId={activeId}
-            onSelect={handleSelectConversation}
-          />
-
-          <div className="flex min-w-0 flex-1 flex-col">
-            {loadingMessages ? (
-              <div className="flex flex-1 items-center justify-center">
-                <p className="font-black text-pink-500">Loading messages...</p>
-              </div>
-            ) : (
-              <ChatWindow
-                user={user}
-                conversation={activeConversation}
-                messages={messages}
-                input={input}
-                onInputChange={setInput}
-                onSend={handleSendMessage}
-                sending={sending}
-              />
-            )}
-          </div>
-        </div>
-      </div>
-    </section>
+    <>
+      {content}
+      <ForwardMessageModal
+        open={Boolean(forwardingMessage)}
+        message={forwardingMessage}
+        conversations={conversations}
+        activeConversationId={activeId}
+        forwarding={forwarding}
+        onClose={() => setForwardingMessage(null)}
+        onForward={handleForwardToConversation}
+      />
+    </>
   );
 }
