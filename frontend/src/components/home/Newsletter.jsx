@@ -2,14 +2,14 @@ import { Mail } from "lucide-react";
 
 export default function Newsletter() {
   return (
-    <section className="container-main py-16 md:py-20">
-      <div className="relative overflow-hidden rounded-[38px] bg-gradient-to-br from-pink-500 via-fuchsia-500 to-violet-500 p-8 text-white shadow-[0_30px_90px_rgba(255,79,163,0.30)] md:p-14">
+    <section className="container-main py-12 md:py-16">
+      <div className="relative overflow-hidden rounded-[34px] bg-gradient-to-br from-pink-500 via-fuchsia-500 to-violet-500 p-8 text-white shadow-[0_30px_90px_rgba(255,79,163,0.30)] md:p-12">
         <div className="absolute inset-0 bg-[linear-gradient(120deg,rgba(255,255,255,0.18),transparent_36%)]" />
 
         <div className="relative">
           <div className="max-w-3xl">
             <h2 className="text-4xl font-black leading-tight md:text-5xl">
-              Get fashion drops and swap updates.
+              Never miss the next good swap.
             </h2>
             <p className="mt-4 text-lg font-medium leading-relaxed text-white/82">
               Join the SwapWear community and discover new listings first.

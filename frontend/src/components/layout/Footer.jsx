@@ -1,4 +1,4 @@
-import { Recycle, Mail, ArrowUpRight, Sparkles } from "lucide-react";
+import { ArrowUpRight, Mail, Recycle, Sparkles } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const footerLinks = [
@@ -15,9 +15,9 @@ const footerLinks = [
     title: "Account",
     links: [
       { label: "Dashboard", path: "/dashboard" },
-      { label: "Login", path: "/login" },
-      { label: "Admin Panel", path: "/admin" },
-      { label: "Saved Items", path: "/explore" },
+      { label: "Profile", path: "/profile" },
+      { label: "Wishlist", path: "/wishlist" },
+      { label: "Settings", path: "/settings" },
     ],
   },
   {
@@ -25,8 +25,8 @@ const footerLinks = [
     links: [
       { label: "Eco Impact", path: "/explore" },
       { label: "Reuse Fashion", path: "/explore" },
-      { label: "Groups", path: "/explore" },
       { label: "Swap Guide", path: "/explore" },
+      { label: "Admin Panel", path: "/admin" },
     ],
   },
 ];
@@ -35,57 +35,101 @@ const socialLinks = ["IG", "X", "IN", "GH"];
 
 export default function Footer() {
   return (
-    <footer className="relative overflow-hidden pt-10 pb-8">
-      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-pink-50/60 to-white/70"></div>
-      <div className="absolute -top-40 right-[-120px] w-[420px] h-[420px] rounded-full bg-pink-300 blur-3xl opacity-25"></div>
-      <div className="absolute bottom-[-160px] left-[-120px] w-[420px] h-[420px] rounded-full bg-yellow-200 blur-3xl opacity-30"></div>
+    <footer className="relative overflow-hidden px-3 pb-4 pt-5 md:px-5 md:pb-5">
+      <div className="relative mx-auto max-w-[1500px] overflow-hidden rounded-[38px] bg-slate-950 text-white shadow-[0_42px_120px_rgba(15,23,42,0.28)] md:rounded-[48px]">
+        <img
+          src="https://images.unsplash.com/photo-1496747611176-843222e1e57c?auto=format&fit=crop&w=1900&q=85"
+          alt="SwapWear footer editorial"
+          className="absolute inset-0 h-full w-full object-cover opacity-20"
+        />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_10%,rgba(255,79,163,0.30),transparent_34%),radial-gradient(circle_at_85%_82%,rgba(139,92,246,0.22),transparent_34%),linear-gradient(180deg,rgba(7,7,25,0.92),rgba(7,7,25,0.98))]" />
 
-      <div className="container-main relative">
-        <div className="rounded-[48px] bg-white/55 backdrop-blur-2xl border border-white/50 shadow-[0_30px_100px_rgba(15,23,42,0.08)] p-8 md:p-12">
-          <div className="grid lg:grid-cols-[1.1fr_1.9fr] gap-14">
+        <div className="relative p-6 md:p-10 xl:p-12">
+          <div className="grid gap-10 lg:grid-cols-[1.15fr_0.85fr] lg:items-end">
             <div>
-              <Link to="/" className="inline-flex items-center gap-4">
-                <div className="w-16 h-16 rounded-full bg-[var(--accent)] text-white flex items-center justify-center shadow-[0_14px_40px_rgba(255,105,180,0.32)]">
-                  <Recycle size={28} />
-                </div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-white/14 bg-white/10 px-5 py-2 text-sm font-black text-pink-200 backdrop-blur-xl">
+                <Sparkles size={15} />
+                SwapWear Marketplace
+              </div>
 
-                <div>
-                  <h2 className="text-5xl font-black tracking-tight">
-                    SwapWear
-                  </h2>
+              <h2 className="mt-6 max-w-4xl text-[clamp(42px,6vw,86px)] font-black leading-[0.9]">
+                Make your wardrobe feel new again.
+              </h2>
 
-                  <p className="text-[var(--muted)] font-semibold mt-1">
-                    Sustainable Fashion Marketplace
-                  </p>
-                </div>
-              </Link>
-
-              <p className="mt-8 text-lg text-[var(--muted)] leading-relaxed max-w-lg">
-                SwapWear helps people exchange fashion items sustainably through
-                modern clothing swaps, verified communities, negotiation chat,
-                and premium multi-angle product listings.
+              <p className="mt-5 max-w-2xl text-lg font-semibold leading-relaxed text-white/66">
+                SwapWear brings product listings, swap requests, chat, wishlist,
+                and sustainability impact into one polished fashion exchange.
               </p>
 
-              <Link
-                to="/add-listing"
-                className="mt-8 inline-flex items-center gap-2 px-7 py-4 rounded-full bg-pink-400/35 backdrop-blur-xl border border-white/50 font-black hover:bg-pink-400/50 transition shadow-[0_12px_34px_rgba(255,105,180,0.20)]"
-              >
-                Start Swapping
-                <ArrowUpRight size={19} />
-              </Link>
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+                <Link to="/add-listing" className="button-primary h-14 px-7">
+                  Start Swapping
+                  <ArrowUpRight size={19} />
+                </Link>
+                <Link
+                  to="/explore"
+                  className="inline-flex h-14 items-center justify-center rounded-full border border-white/14 bg-white/10 px-7 font-black text-white backdrop-blur-xl transition hover:bg-white hover:text-slate-950"
+                >
+                  Explore Items
+                </Link>
+              </div>
             </div>
 
-            <div className="grid sm:grid-cols-3 gap-10">
+            <div className="rounded-[30px] border border-white/14 bg-white/10 p-4 shadow-2xl backdrop-blur-2xl md:p-5">
+              <div className="flex items-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-pink-300/18 text-pink-200">
+                  <Mail size={22} />
+                </div>
+                <div>
+                  <h3 className="text-xl font-black">Weekly fashion drops</h3>
+                  <p className="text-sm font-semibold text-white/54">
+                    New swaps, nearby items, and eco tips.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-5 flex flex-col gap-3 rounded-[26px] bg-white p-2 sm:rounded-full md:flex-row">
+                <div className="flex h-12 min-w-0 flex-1 items-center px-4">
+                  <Mail size={18} className="shrink-0 text-pink-500" />
+                  <input
+                    type="email"
+                    placeholder="Enter your email"
+                    className="min-w-0 flex-1 bg-transparent px-3 font-bold text-slate-900 outline-none placeholder:text-slate-400"
+                  />
+                </div>
+
+                <button className="h-12 rounded-full bg-slate-950 px-6 font-black text-white transition hover:bg-pink-500">
+                  Subscribe
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-12 grid gap-8 border-t border-white/10 pt-9 lg:grid-cols-[1fr_1.35fr]">
+            <Link to="/" className="group inline-flex max-w-max items-center gap-4">
+              <div className="flex h-16 w-16 items-center justify-center rounded-[22px] bg-gradient-to-br from-pink-500 via-fuchsia-500 to-violet-500 text-white shadow-[0_18px_46px_rgba(255,79,163,0.28)] transition group-hover:scale-105">
+                <Recycle size={29} />
+              </div>
+
+              <div>
+                <h3 className="text-4xl font-black">SwapWear</h3>
+                <p className="mt-1 font-semibold text-white/56">
+                  Sustainable Fashion Marketplace
+                </p>
+              </div>
+            </Link>
+
+            <div className="grid gap-8 sm:grid-cols-3">
               {footerLinks.map((group) => (
                 <div key={group.title}>
-                  <h3 className="text-xl font-black mb-5">{group.title}</h3>
+                  <h4 className="font-black text-white">{group.title}</h4>
 
-                  <div className="space-y-4">
+                  <div className="mt-4 space-y-3">
                     {group.links.map((link) => (
                       <Link
                         key={link.label}
                         to={link.path}
-                        className="block text-[var(--muted)] hover:text-[var(--accent)] transition font-semibold"
+                        className="block font-semibold text-white/56 transition hover:translate-x-1 hover:text-pink-200"
                       >
                         {link.label}
                       </Link>
@@ -96,49 +140,18 @@ export default function Footer() {
             </div>
           </div>
 
-          <div className="mt-16 rounded-[40px] bg-pink-400/16 backdrop-blur-2xl border border-white/50 p-7 md:p-9 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-            <div>
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/55 border border-white/50 font-black text-sm">
-                <Sparkles size={15} />
-                Weekly fashion updates
-              </div>
-
-              <h3 className="mt-5 text-4xl font-black tracking-tight">
-                Join the fashion swap movement.
-              </h3>
-
-              <p className="mt-3 text-[var(--muted)] text-lg">
-                Get updates on new drops, nearby swaps, and sustainability tips.
-              </p>
-            </div>
-
-            <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto">
-              <div className="h-16 bg-white/60 backdrop-blur-xl border border-white/50 rounded-full flex items-center px-5 min-w-0 sm:min-w-[340px]">
-                <Mail size={19} className="text-[var(--muted)] shrink-0" />
-
-                <input
-                  type="email"
-                  placeholder="Enter your email"
-                  className="w-full bg-transparent outline-none px-3"
-                />
-              </div>
-
-              <button className="h-16 px-8 rounded-full bg-pink-400/35 backdrop-blur-xl border border-white/50 font-black hover:bg-pink-400/50 transition shadow-[0_12px_34px_rgba(255,105,180,0.20)]">
-                Subscribe
-              </button>
-            </div>
-          </div>
-
-          <div className="mt-12 pt-8 border-t border-white/50 flex flex-col md:flex-row md:items-center md:justify-between gap-5">
-            <p className="text-[var(--muted)] font-semibold">
-              © 2026 SwapWear — Designed & Developed by Satyam Kushwaha
+          <div className="mt-10 flex flex-col gap-5 border-t border-white/10 pt-7 md:flex-row md:items-center md:justify-between">
+            <p className="font-semibold text-white/48">
+              © 2026 SwapWear - Designed & Developed by Satyam Kushwaha
             </p>
 
             <div className="flex items-center gap-3">
               {socialLinks.map((label) => (
                 <button
                   key={label}
-                  className="w-12 h-12 rounded-full bg-white/60 backdrop-blur-xl border border-white/50 flex items-center justify-center hover:bg-pink-400/30 transition font-black"
+                  type="button"
+                  title={label}
+                  className="flex h-12 w-12 items-center justify-center rounded-full border border-white/12 bg-white/10 text-sm font-black text-white/70 backdrop-blur-xl transition hover:-translate-y-1 hover:bg-white hover:text-slate-950"
                 >
                   {label}
                 </button>
