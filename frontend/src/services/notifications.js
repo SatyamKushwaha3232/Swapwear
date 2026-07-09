@@ -130,8 +130,13 @@ export async function deleteNotification(id) {
 export function subscribeToNotifications(userId, callback) {
   if (!userId) return null;
 
+  const channelId =
+    typeof crypto !== "undefined" && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `${Date.now()}_${Math.random().toString(16).slice(2)}`;
+
   return supabase
-    .channel(`notifications_${userId}`)
+    .channel(`notifications_${userId}_${channelId}`)
     .on(
       "postgres_changes",
       {
