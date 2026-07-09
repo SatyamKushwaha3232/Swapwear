@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, NavLink } from "react-router-dom";
 import {
-  Bell,
   Heart,
   Menu,
   MessageCircle,
@@ -13,13 +12,9 @@ import {
 import { useAuth } from "../../context/AuthContext";
 import { supabase } from "../../lib/supabase";
 import { getCurrentProfile } from "../../services/profile";
-import {
-  getNotifications,
-  markNotificationRead,
-} from "../../services/notifications";
-
 import Logo from "./Logo";
 import NavLinks from "./NavLinks";
+import NotificationBell from "./NotificationBell";
 import SearchBar from "./SearchBar";
 import UserMenu from "./UserMenu";
 
@@ -41,11 +36,7 @@ export default function Navbar() {
   const [profileOpen, setProfileOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [categoryOpen, setCategoryOpen] = useState(false);
-  const [notifyOpen, setNotifyOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const [notifications, setNotifications] = useState([]);
-
-  const unreadCount = notifications.filter((n) => !n.is_read).length;
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 15);
@@ -71,23 +62,6 @@ export default function Navbar() {
     }
 
     loadProfile();
-  }, [user]);
-
-  useEffect(() => {
-    async function loadNotifications() {
-      if (!user?.id) {
-        setNotifications([]);
-        return;
-      }
-
-      const response = await getNotifications(user.id);
-
-      if (response.success) {
-        setNotifications(response.data || []);
-      }
-    }
-
-    loadNotifications();
   }, [user]);
 
   async function handleLogout() {
@@ -150,67 +124,11 @@ export default function Navbar() {
               <IconButton to="/wishlist" icon={Heart} />
               <IconButton to="/chat" icon={MessageCircle} />
 
-              <div className="relative hidden min-[1280px]:block">
-                <button
-                  type="button"
-                  onClick={() => setNotifyOpen((prev) => !prev)}
-                  className="relative flex h-11 w-11 items-center justify-center rounded-full border border-pink-100 bg-white shadow-[0_10px_24px_rgba(15,23,42,0.08)] transition hover:-translate-y-0.5 hover:bg-pink-50"
-                >
-                  <Bell size={19} />
-
-                  {unreadCount > 0 && (
-                    <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-pink-500 px-1 text-[11px] font-black text-white ring-2 ring-white">
-                      {unreadCount}
-                    </span>
-                  )}
-                </button>
-
-                {notifyOpen && (
-                  <div className="absolute right-0 top-[62px] w-[min(360px,calc(100vw-32px))] rounded-[28px] border border-pink-100 bg-white/95 p-4 shadow-[0_28px_80px_rgba(255,79,163,0.2)]">
-                    <h3 className="text-lg font-black">Notifications</h3>
-
-                    <div className="mt-4 space-y-3">
-                      {notifications.length === 0 ? (
-                        <div className="rounded-2xl bg-pink-50/70 p-4">
-                          <h4 className="text-sm font-black">
-                            No notifications
-                          </h4>
-                          <p className="mt-1 text-sm text-slate-500">
-                            Updates will appear here.
-                          </p>
-                        </div>
-                      ) : (
-                        notifications.slice(0, 6).map((notice) => (
-                          <button
-                            key={notice.id}
-                            onClick={async () => {
-                              await markNotificationRead(notice.id);
-
-                              setNotifications((prev) =>
-                                prev.map((item) =>
-                                  item.id === notice.id
-                                    ? { ...item, is_read: true }
-                                    : item
-                                )
-                              );
-                            }}
-                            className={`w-full rounded-2xl p-4 text-left transition ${
-                              notice.is_read ? "bg-slate-50" : "bg-pink-50"
-                            }`}
-                          >
-                            <h4 className="text-sm font-black">
-                              {notice.title}
-                            </h4>
-                            <p className="mt-1 text-sm text-slate-500">
-                              {notice.message}
-                            </p>
-                          </button>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
+              {user && (
+                <div className="hidden min-[1280px]:block">
+                  <NotificationBell userId={user.id} />
+                </div>
+              )}
 
               <NavLink
                 to="/add-listing"
@@ -320,6 +238,14 @@ export default function Navbar() {
             )}
 
             <div className="space-y-3">
+              {user && (
+                <NotificationBell
+                  userId={user.id}
+                  variant="sheet"
+                  onNavigate={() => setMobileOpen(false)}
+                />
+              )}
+
               {[
                 ["/", "Discover"],
                 ["/explore", "Browse"],

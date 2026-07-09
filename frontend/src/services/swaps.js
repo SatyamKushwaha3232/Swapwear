@@ -7,6 +7,7 @@ import {
   markListingsLockedForSwap,
   releaseListingsFromSwap,
 } from "./listings";
+import { notifySwapRequest, notifySwapStatus } from "./notifications";
 
 function itemId(item) {
   return item?.id || item?.listing_id || null;
@@ -146,7 +147,17 @@ export async function createSwapRequest(payload) {
 
     if (error) throw error;
 
-    return { success: true, data: formatSwap(data) };
+    const createdSwap = formatSwap(data);
+
+    await notifySwapRequest({
+      ownerId: createdSwap.owner_id,
+      requesterId: createdSwap.requester_id,
+      requesterName: createdSwap.requester_name,
+      ownerItem: createdSwap.owner_item,
+      swapId: createdSwap.id,
+    });
+
+    return { success: true, data: createdSwap };
   } catch (error) {
     return { success: false, error: error.message || "Unable to create swap request" };
   }
@@ -207,6 +218,24 @@ export async function updateSwapStatus(id, status) {
 
     if (nextStatus === "completed") {
       await markListingsCompletedForSwap(listingIds, id);
+    }
+
+    if (["accepted", "rejected", "cancelled", "completed"].includes(nextStatus)) {
+      const recipientId =
+        nextStatus === "cancelled" ? updatedSwap.owner_id : updatedSwap.requester_id;
+      const actorId =
+        nextStatus === "cancelled" ? updatedSwap.requester_id : updatedSwap.owner_id;
+
+      await notifySwapStatus({
+        userId: recipientId,
+        actorId,
+        status: nextStatus,
+        itemTitle:
+          nextStatus === "cancelled"
+            ? updatedSwap.owner_item?.title
+            : updatedSwap.requester_item?.title || updatedSwap.owner_item?.title,
+        swapId: updatedSwap.id,
+      });
     }
 
     return { success: true, data: updatedSwap };

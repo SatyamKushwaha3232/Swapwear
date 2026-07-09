@@ -1,4 +1,5 @@
 import { supabase } from "../lib/supabase";
+import { notifyNewMessage } from "./notifications";
 
 function formatConversation(item = {}) {
   return {
@@ -45,6 +46,26 @@ function lastMessageLabel(messageType, cleanMessage) {
   if (messageType === "image") return "Image";
   if (messageType === "voice") return "Voice note";
   return "File";
+}
+
+async function notifyConversationRecipient(conversationId, senderId, preview) {
+  const { data, error } = await supabase
+    .from("chat_conversations")
+    .select("user1_id,user2_id")
+    .eq("id", conversationId)
+    .maybeSingle();
+
+  if (error || !data) return;
+
+  const recipientId =
+    String(data.user1_id) === String(senderId) ? data.user2_id : data.user1_id;
+
+  await notifyNewMessage({
+    userId: recipientId,
+    actorId: senderId,
+    conversationId,
+    preview,
+  });
 }
 
 async function updateMessageRow(messageId, patch) {
@@ -253,6 +274,12 @@ export async function sendMessage({
       })
       .eq("id", conversationId);
 
+    await notifyConversationRecipient(
+      conversationId,
+      senderId,
+      lastMessageLabel(messageType, cleanMessage)
+    );
+
     return { success: true, data: formatMessage(data) };
   } catch (error) {
     return { success: false, error: error.message || "Unable to send message" };
@@ -300,6 +327,12 @@ export async function forwardMessage({ sourceMessage, targetConversationId, send
         last_message_at: new Date().toISOString(),
       })
       .eq("id", targetConversationId);
+
+    await notifyConversationRecipient(
+      targetConversationId,
+      senderId,
+      `Forwarded: ${lastMessageLabel(messageType, cleanMessage)}`
+    );
 
     return { success: true, data: formatMessage(data) };
   } catch (error) {

@@ -259,3 +259,49 @@ BEGIN
 EXCEPTION
   WHEN undefined_table THEN NULL;
 END $$;
+
+-- Notifications module
+create table if not exists notifications (
+  id bigint generated always as identity primary key,
+  user_id uuid not null,
+  actor_id uuid,
+  type text default 'general',
+  title text default 'SwapWear update',
+  message text default '',
+  link text default '',
+  data jsonb default '{}'::jsonb,
+  is_read boolean default false,
+  read_at timestamptz,
+  created_at timestamptz default now()
+);
+
+alter table notifications add column if not exists actor_id uuid;
+alter table notifications add column if not exists type text default 'general';
+alter table notifications add column if not exists title text default 'SwapWear update';
+alter table notifications add column if not exists message text default '';
+alter table notifications add column if not exists link text default '';
+alter table notifications add column if not exists data jsonb default '{}'::jsonb;
+alter table notifications add column if not exists is_read boolean default false;
+alter table notifications add column if not exists read_at timestamptz;
+alter table notifications add column if not exists created_at timestamptz default now();
+
+create index if not exists notifications_user_created_idx on notifications(user_id, created_at desc);
+create index if not exists notifications_user_unread_idx on notifications(user_id, is_read);
+create index if not exists notifications_type_idx on notifications(type);
+
+alter table notifications disable row level security;
+grant all on table notifications to anon, authenticated;
+
+DO $$
+BEGIN
+  GRANT USAGE, SELECT ON SEQUENCE notifications_id_seq TO anon, authenticated;
+EXCEPTION
+  WHEN undefined_table THEN NULL;
+END $$;
+
+DO $$
+BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE notifications;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;

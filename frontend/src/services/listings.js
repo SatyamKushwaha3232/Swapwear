@@ -7,6 +7,16 @@ export const LISTING_SWAP_STATUS = {
   REMOVED: "removed",
 };
 
+function isMissingSwapColumns(error) {
+  const message = String(error?.message || error || "").toLowerCase();
+  return (
+    message.includes("swap_status") ||
+    message.includes("active_swap_id") ||
+    message.includes("delete_eligible_at") ||
+    message.includes("schema cache")
+  );
+}
+
 function formatListing(item = {}) {
   const imageList =
     Array.isArray(item.images) && item.images.length > 0
@@ -45,6 +55,20 @@ function formatListing(item = {}) {
   };
 }
 
+async function runLegacyListingQuery(userId = null) {
+  let query = supabase
+    .from("listings")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (userId) query = query.eq("user_id", userId);
+
+  const { data, error } = await query;
+  if (error) throw error;
+
+  return (data || []).map(formatListing);
+}
+
 export async function cleanupExpiredCompletedListings() {
   try {
     const { error } = await supabase
@@ -56,6 +80,7 @@ export async function cleanupExpiredCompletedListings() {
     if (error) throw error;
     return { success: true };
   } catch (err) {
+    if (isMissingSwapColumns(err)) return { success: true, skipped: true };
     return { success: false, error: err.message || "Cleanup failed" };
   }
 }
@@ -81,7 +106,12 @@ export async function getListings(userId = null, options = {}) {
 
     const { data, error } = await query;
 
-    if (error) throw error;
+    if (error) {
+      if (isMissingSwapColumns(error)) {
+        return { success: true, data: await runLegacyListingQuery(userId) };
+      }
+      throw error;
+    }
 
     return {
       success: true,
@@ -310,7 +340,23 @@ export async function createListing(data, imageFiles = [], videoFile = null) {
       .select("*")
       .single();
 
-    if (error) throw error;
+    if (error) {
+      if (isMissingSwapColumns(error)) {
+        delete payload.swap_status;
+        delete payload.active_swap_id;
+
+        const fallback = await supabase
+          .from("listings")
+          .insert([payload])
+          .select("*")
+          .single();
+
+        if (fallback.error) throw fallback.error;
+        return { success: true, data: formatListing(fallback.data) };
+      }
+
+      throw error;
+    }
 
     return {
       success: true,
