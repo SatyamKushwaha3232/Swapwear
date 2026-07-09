@@ -18,7 +18,6 @@ import {
 } from "lucide-react";
 
 import Sidebar from "../components/layout/Sidebar";
-import SectionTitle from "../components/common/SectionTitle";
 
 import { getListings, deleteListing } from "../services/listings";
 
@@ -137,26 +136,34 @@ export default function Dashboard() {
         <Sidebar />
 
         <div className="flex-1 min-w-0">
-          <div className="flex flex-col xl:flex-row xl:items-end xl:justify-between gap-6">
-            <SectionTitle
-              badge="User Dashboard"
-              title={
-                <>
-                  Welcome back,
-                  <br />
-                  {userName}.
-                </>
-              }
-              description="Manage your listings, swap activity, saved items, and sustainability impact from one clean dashboard."
+          <div className="relative overflow-hidden rounded-[42px] bg-slate-950 p-7 text-white shadow-[0_38px_110px_rgba(15,23,42,0.24)] md:p-10">
+            <img
+              src="https://images.unsplash.com/photo-1529139574466-a303027c1d8b?auto=format&fit=crop&w=1500&q=85"
+              alt="Dashboard fashion workspace"
+              className="absolute inset-0 h-full w-full object-cover opacity-28"
             />
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_16%,rgba(255,79,163,0.32),transparent_32%),linear-gradient(90deg,rgba(7,7,25,0.96),rgba(7,7,25,0.68),rgba(7,7,25,0.30))]" />
 
-            <Link
-              to="/add-listing"
-              className="button-primary h-14 px-7"
-            >
-              <Plus size={20} />
-              Add Listing
-            </Link>
+            <div className="relative flex flex-col gap-8 xl:flex-row xl:items-end xl:justify-between">
+              <div className="max-w-4xl">
+                <div className="inline-flex items-center gap-2 rounded-full border border-white/14 bg-white/12 px-5 py-2 font-black text-pink-200 backdrop-blur-xl">
+                  <Sparkles size={16} />
+                  User Dashboard
+                </div>
+                <h1 className="mt-5 max-w-4xl text-[clamp(42px,6vw,82px)] font-black leading-[0.9]">
+                  Welcome back, {userName}.
+                </h1>
+                <p className="mt-5 max-w-2xl text-lg font-semibold leading-relaxed text-white/68">
+                  Manage listings, swap activity, saved items, and sustainability
+                  impact from one polished command center.
+                </p>
+              </div>
+
+              <Link to="/add-listing" className="button-primary h-14 px-7">
+                <Plus size={20} />
+                Add Listing
+              </Link>
+            </div>
           </div>
 
           <div className="mt-10 grid gap-5 sm:grid-cols-2 2xl:grid-cols-4">

@@ -162,7 +162,7 @@ function SwapDesktop(props) {
   return (
     <section className="min-h-[calc(100vh-90px)] px-5 py-6">
       <div className="mx-auto grid max-w-[1500px] grid-cols-[360px_minmax(0,1fr)] gap-6">
-        <aside className="sticky top-24 h-[calc(100vh-120px)] overflow-hidden rounded-[32px] border border-white/70 bg-white/80 shadow-[0_24px_80px_rgba(15,23,42,0.08)] backdrop-blur-2xl">
+        <aside className="sticky top-24 h-[calc(100vh-120px)] overflow-hidden rounded-[34px] bg-slate-950 text-white shadow-[0_34px_100px_rgba(15,23,42,0.22)]">
           <SwapSidebar {...props} />
         </aside>
 
@@ -229,22 +229,28 @@ function SwapMobile(props) {
 
 function SwapHero({ stats, compact }) {
   return (
-    <div className="rounded-[34px] border border-white/70 bg-white/80 p-6 shadow-[0_24px_80px_rgba(15,23,42,0.08)] backdrop-blur-2xl md:p-7">
+    <div className="relative overflow-hidden rounded-[38px] bg-slate-950 p-6 text-white shadow-[0_34px_100px_rgba(15,23,42,0.22)] md:p-8">
+      <img
+        src="https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=1400&q=85"
+        alt="Swap request workflow"
+        className="absolute inset-0 h-full w-full object-cover opacity-30"
+      />
+      <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(7,7,25,0.94),rgba(7,7,25,0.66),rgba(7,7,25,0.24))]" />
       <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
-        <div className="min-w-0">
-          <div className="inline-flex items-center gap-2 rounded-full bg-pink-50 px-5 py-2 text-sm font-black text-pink-500">
+        <div className="relative min-w-0">
+          <div className="inline-flex items-center gap-2 rounded-full border border-white/14 bg-white/12 px-5 py-2 text-sm font-black text-pink-200 backdrop-blur-xl">
             <Repeat2 size={17} />
             Swap Center
           </div>
-          <h1 className={`${compact ? "mt-4 text-4xl" : "mt-5 text-6xl"} max-w-3xl font-black leading-[0.95] tracking-[-2px]`}>
-            Manage your swap requests.
+          <h1 className={`${compact ? "mt-4 text-4xl" : "mt-5 text-7xl"} max-w-3xl font-black leading-[0.9]`}>
+            Swap requests, under control.
           </h1>
-          <p className="mt-4 max-w-2xl font-semibold leading-relaxed text-slate-500">
+          <p className="mt-4 max-w-2xl font-semibold leading-relaxed text-white/68">
             Review offers, open chats after acceptance, and complete successful exchanges.
           </p>
         </div>
 
-        <div className="grid min-w-[280px] grid-cols-2 gap-3">
+        <div className="relative grid min-w-[280px] grid-cols-2 gap-3">
           <Stat label="Total" value={stats.total} />
           <Stat label="Pending" value={stats.pending} />
           <Stat label="Accepted" value={stats.accepted} />
@@ -259,21 +265,22 @@ function SwapSidebar(props) {
   const { stats } = props;
 
   return (
-    <div className="flex h-full flex-col p-5">
-      <div className="rounded-[26px] bg-gradient-to-r from-pink-500 to-fuchsia-500 p-5 text-white">
+    <div className="relative flex h-full flex-col p-5">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(255,79,163,0.28),transparent_34%),radial-gradient(circle_at_90%_80%,rgba(139,92,246,0.20),transparent_34%)]" />
+      <div className="relative rounded-[28px] border border-white/12 bg-white/10 p-5 text-white backdrop-blur-2xl">
         <ShieldCheck size={26} />
         <h2 className="mt-4 text-2xl font-black">Swap workflow</h2>
-        <p className="mt-2 text-sm font-semibold text-white/80">
+        <p className="mt-2 text-sm font-semibold text-white/68">
           Accept only when item details and meeting plan feel clear.
         </p>
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-3">
+      <div className="relative mt-4 grid grid-cols-2 gap-3">
         <Stat label="Incoming" value={stats.incoming} />
         <Stat label="Outgoing" value={stats.outgoing} />
       </div>
 
-      <div className="mt-4 min-h-0 flex-1 overflow-y-auto">
+      <div className="relative mt-4 min-h-0 flex-1 overflow-y-auto">
         <SearchAndTabs {...props} vertical />
       </div>
     </div>
@@ -281,15 +288,23 @@ function SwapSidebar(props) {
 }
 
 function SearchAndTabs({ tab, query, onTabChange, onQueryChange, vertical = false, mobile = false }) {
+  const dark = vertical;
+
   return (
     <div>
-      <div className="flex h-12 items-center rounded-full bg-pink-50 px-4">
+      <div
+        className={`flex h-12 items-center rounded-full px-4 backdrop-blur-xl ${
+          dark ? "border border-white/12 bg-white/12" : "border border-pink-100 bg-pink-50"
+        }`}
+      >
         <Search size={18} className="shrink-0 text-pink-500" />
         <input
           value={query}
           onChange={(event) => onQueryChange(event.target.value)}
           placeholder="Search swaps..."
-          className="min-w-0 flex-1 bg-transparent px-3 text-sm font-bold outline-none placeholder:text-slate-400"
+          className={`min-w-0 flex-1 bg-transparent px-3 text-sm font-bold outline-none ${
+            dark ? "text-white placeholder:text-white/40" : "text-slate-900 placeholder:text-slate-400"
+          }`}
         />
       </div>
 
@@ -302,6 +317,8 @@ function SearchAndTabs({ tab, query, onTabChange, onQueryChange, vertical = fals
             className={`${vertical ? "w-full" : "shrink-0"} ${mobile ? "px-4 py-2.5 text-xs" : "px-5 py-3 text-sm"} rounded-full font-black capitalize transition ${
               tab === item
                 ? "bg-pink-500 text-white shadow-[0_14px_34px_rgba(255,79,163,0.24)]"
+                : dark
+                ? "bg-white/10 text-white/72 hover:bg-white/16"
                 : "bg-white text-slate-600 hover:bg-pink-50"
             }`}
           >
@@ -334,7 +351,7 @@ function SwapCard(props) {
   const updating = updatingId === swap.id;
 
   return (
-    <article className="overflow-hidden rounded-[30px] border border-pink-100 bg-white shadow-[0_20px_60px_rgba(15,23,42,0.06)]">
+    <article className="premium-card interactive-lift overflow-hidden rounded-[30px]">
       <div className="flex flex-col gap-4 p-4 md:p-5 xl:flex-row xl:items-start xl:justify-between">
         <div className="min-w-0 flex-1">
           <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
@@ -452,7 +469,7 @@ function SwapItem({ label, item }) {
   const image = item?.image || (Array.isArray(item?.images) ? item.images[0] : "") || "/icons.svg";
 
   return (
-    <div className="min-w-0 rounded-[24px] bg-pink-50/60 p-4">
+    <div className="min-w-0 rounded-[24px] border border-white/80 bg-white/72 p-4 shadow-sm">
       <p className="mb-3 truncate text-xs font-black uppercase tracking-widest text-pink-500">{label}</p>
       <div className="flex min-w-0 items-center gap-4">
         <img
@@ -484,7 +501,7 @@ function SwapTimeline({ status }) {
   const activeIndex = status === "completed" ? 2 : status === "accepted" ? 1 : status === "pending" ? 0 : -1;
 
   return (
-    <div className="mt-5 rounded-[24px] border border-pink-50 bg-white p-4">
+    <div className="mt-5 rounded-[24px] border border-white/80 bg-white/72 p-4 shadow-sm">
       <div className="grid grid-cols-3 gap-3">
         {steps.map((step, index) => (
           <div key={step.key} className="min-w-0 text-center">
@@ -524,7 +541,7 @@ function ActionButton({ children, onClick, disabled, variant = "primary" }) {
       onClick={onClick}
       disabled={disabled}
       className={`h-11 rounded-full px-4 font-black transition disabled:opacity-60 ${
-        variant === "danger" ? "bg-red-50 text-red-600 hover:bg-red-100" : "bg-slate-950 text-white hover:bg-pink-500"
+        variant === "danger" ? "bg-red-50 text-red-600 hover:bg-red-100" : "button-primary min-h-0"
       }`}
     >
       {children}
@@ -534,9 +551,9 @@ function ActionButton({ children, onClick, disabled, variant = "primary" }) {
 
 function Stat({ label, value }) {
   return (
-    <div className="rounded-[22px] border border-white/70 bg-white/70 p-4">
-      <p className="text-xs font-black text-slate-500">{label}</p>
-      <h3 className="mt-1 text-3xl font-black text-pink-500">{value}</h3>
+    <div className="rounded-[22px] border border-white/14 bg-white/12 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.10)] backdrop-blur-xl">
+      <p className="text-xs font-black text-white/58">{label}</p>
+      <h3 className="mt-1 text-3xl font-black text-pink-200">{value}</h3>
     </div>
   );
 }
