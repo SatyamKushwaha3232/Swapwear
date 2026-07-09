@@ -9,6 +9,8 @@ import {
   Sparkles,
 } from "lucide-react";
 
+import useRotatingListings, { listingImage } from "../../hooks/useRotatingListings";
+
 const tags = ["Jackets", "Hoodies", "Sneakers", "Vintage"];
 
 export default function Hero() {
@@ -94,19 +96,30 @@ function MiniFeature({ icon: Icon, label }) {
 }
 
 function HeroPanel() {
+  const { items } = useRotatingListings(2);
+  const primary = items[0];
+  const secondary = items[1] || items[0];
+
   return (
     <div className="hidden lg:block">
       <div className="relative min-h-[560px]">
         <div className="absolute right-0 top-0 w-[82%] overflow-hidden rounded-[34px] border border-white/14 bg-white/10 p-3 shadow-[0_28px_90px_rgba(0,0,0,0.28)] backdrop-blur-2xl">
           <img
-            src="https://images.unsplash.com/photo-1529139574466-a303027c1d8b?auto=format&fit=crop&w=900&q=85"
-            alt="Curated fashion"
+            src={primary ? listingImage(primary) : "/icons.svg"}
+            alt={primary?.title || "Curated uploaded product"}
+            onError={(event) => {
+              event.currentTarget.src = "/icons.svg";
+            }}
             className="h-[420px] w-full rounded-[26px] object-cover"
           />
           <div className="flex items-center justify-between p-4">
             <div>
-              <h3 className="text-2xl font-black">Curated Drops</h3>
-              <p className="mt-1 font-semibold text-white/60">Premium swaps updated live</p>
+              <h3 className="line-clamp-1 text-2xl font-black">
+                {primary?.title || "Uploaded Drops"}
+              </h3>
+              <p className="mt-1 font-semibold text-white/60">
+                {primary?.brand || primary?.category || "Products rotate every 5 minutes"}
+              </p>
             </div>
             <span className="rounded-full bg-emerald-300 px-4 py-2 text-sm font-black text-emerald-950">
               Live
@@ -116,11 +129,16 @@ function HeroPanel() {
 
         <div className="absolute left-0 top-24 w-[230px] rotate-[-7deg] overflow-hidden rounded-[28px] border border-white/14 bg-white/12 p-3 shadow-2xl backdrop-blur-2xl">
           <img
-            src="https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=520&q=85"
-            alt="Streetwear swap"
+            src={secondary ? listingImage(secondary) : "/icons.svg"}
+            alt={secondary?.title || "Uploaded product"}
+            onError={(event) => {
+              event.currentTarget.src = "/icons.svg";
+            }}
             className="h-[210px] w-full rounded-[22px] object-cover"
           />
-          <p className="mt-3 font-black">Streetwear Picks</p>
+          <p className="mt-3 line-clamp-1 font-black">
+            {secondary?.category || "Uploaded Picks"}
+          </p>
         </div>
 
         <div className="absolute bottom-16 left-10 rounded-[24px] border border-white/14 bg-white/14 p-5 shadow-2xl backdrop-blur-2xl">

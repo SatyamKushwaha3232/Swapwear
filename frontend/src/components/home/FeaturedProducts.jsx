@@ -1,29 +1,20 @@
-import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 
 import EmptyState from "../common/EmptyState";
 import SectionHeader from "../common/SectionHeader";
 import ProductCard from "../products/ProductCard";
-import { getListings } from "../../services/listings";
+import useRotatingListings from "../../hooks/useRotatingListings";
 
 export default function FeaturedProducts() {
-  const [items, setItems] = useState([]);
-
-  useEffect(() => {
-    async function load() {
-      const res = await getListings();
-      if (res.success) setItems(res.data.slice(0, 6));
-    }
-
-    load();
-  }, []);
+  const { items, loading } = useRotatingListings(6);
 
   return (
     <section className="container-main py-16 md:py-20">
       <SectionHeader
         eyebrow="Featured Swaps"
-        title="Fresh items from the community."
+        title="Fresh rotating items from the community."
+        text="This product set is powered by uploaded listings and refreshes every 5 minutes."
         action={
           <Link
             to="/explore"
@@ -34,7 +25,13 @@ export default function FeaturedProducts() {
         }
       />
 
-      {items.length === 0 ? (
+      {loading ? (
+        <div className="mt-10 grid gap-7 md:grid-cols-2 xl:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, index) => (
+            <div key={index} className="h-[520px] animate-pulse rounded-[30px] bg-pink-50" />
+          ))}
+        </div>
+      ) : items.length === 0 ? (
         <div className="mt-10">
           <EmptyState />
         </div>
