@@ -18,9 +18,9 @@ export default function ExploreToolbar({
   onOpenFilters,
 }) {
   return (
-    <div className="min-w-0 rounded-[28px] border border-pink-100 bg-white/85 p-4 shadow-[0_20px_60px_rgba(15,23,42,0.07)] backdrop-blur-2xl">
+    <div className="premium-surface min-w-0 rounded-[28px] p-4">
       <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-center">
-        <div className="flex h-13 min-w-0 flex-1 items-center rounded-full bg-slate-50 px-4">
+        <div className="flex h-13 min-w-0 flex-1 items-center rounded-full border border-white/80 bg-white/80 px-4 shadow-inner shadow-pink-100/40 backdrop-blur-xl">
           <Search size={19} className="shrink-0 text-pink-500" />
 
           <input
@@ -35,7 +35,7 @@ export default function ExploreToolbar({
           <button
             type="button"
             onClick={onOpenFilters}
-            className="flex h-13 shrink-0 items-center gap-2 rounded-full border border-pink-100 bg-white px-4 font-black text-pink-500 min-[1180px]:hidden"
+            className="flex h-13 shrink-0 items-center gap-2 rounded-full border border-white/80 bg-white/80 px-4 font-black text-pink-500 shadow-sm transition hover:bg-pink-50 min-[1180px]:hidden"
           >
             <SlidersHorizontal size={18} />
             Filters
@@ -49,7 +49,7 @@ export default function ExploreToolbar({
           <select
             value={sort}
             onChange={(e) => setSort(e.target.value)}
-            className="h-13 min-w-[150px] rounded-full border border-pink-100 bg-white px-4 text-sm font-black outline-none sm:min-w-[180px]"
+            className="h-13 min-w-[150px] rounded-full border border-white/80 bg-white/85 px-4 text-sm font-black shadow-sm outline-none backdrop-blur-xl sm:min-w-[180px]"
           >
             {sortOptions.map((option) => (
               <option key={option.value} value={option.value}>

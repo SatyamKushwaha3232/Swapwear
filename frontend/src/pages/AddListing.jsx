@@ -216,7 +216,7 @@ export default function AddListing() {
 
         <div className="mt-10 grid xl:grid-cols-[0.95fr_1.05fr] gap-8">
           <div className="space-y-8">
-            <div className="rounded-[38px] bg-white/60 backdrop-blur-2xl border border-white/60 shadow-[0_24px_80px_rgba(15,23,42,0.08)] p-6 md:p-7">
+            <div className="premium-surface rounded-[38px] p-6 md:p-7">
               <div className="flex items-center justify-between gap-4">
                 <div>
                   <h2 className="text-2xl md:text-3xl font-black">
@@ -249,7 +249,7 @@ export default function AddListing() {
                     same product.
                   </p>
 
-                  <span className="mt-6 h-13 px-6 rounded-full bg-pink-400/35 border border-white/60 font-black inline-flex items-center gap-2">
+                  <span className="button-primary mt-6 h-13 px-6">
                     <Upload size={18} />
                     Choose Images
                   </span>
@@ -356,7 +356,7 @@ export default function AddListing() {
               </div>
             </div>
 
-            <div className="rounded-[38px] bg-white/60 backdrop-blur-2xl border border-white/60 shadow-[0_24px_80px_rgba(15,23,42,0.08)] p-6 md:p-7">
+            <div className="premium-surface rounded-[38px] p-6 md:p-7">
               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-pink-400/20 font-black">
                 <Eye size={17} />
                 Live Preview
@@ -380,7 +380,7 @@ export default function AddListing() {
                       </h3>
 
                       <p className="mt-1 text-[var(--muted)] font-semibold">
-                        {formData.brand || "Brand"} •{" "}
+                        {formData.brand || "Brand"} -{" "}
                         {formData.category || "Category"}
                       </p>
                     </div>
@@ -405,7 +405,7 @@ export default function AddListing() {
             </div>
           </div>
 
-          <div className="rounded-[38px] bg-white/60 backdrop-blur-2xl border border-white/60 shadow-[0_24px_80px_rgba(15,23,42,0.08)] p-6 md:p-7 h-fit">
+          <div className="premium-surface h-fit rounded-[38px] p-6 md:p-7">
             <form onSubmit={handleSubmit} className="space-y-6">
               <InputBlock icon={Shirt} label="Item Title">
                 <input
@@ -515,7 +515,7 @@ export default function AddListing() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full h-[68px] rounded-full bg-pink-500 text-white font-black text-lg hover:bg-pink-600 transition shadow-[0_14px_40px_rgba(255,105,180,0.30)] disabled:opacity-60 disabled:cursor-not-allowed"
+                className="button-primary h-[68px] w-full text-lg disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {loading ? "Publishing Listing..." : "Publish Listing"}
               </button>

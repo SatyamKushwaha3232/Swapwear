@@ -149,10 +149,10 @@ export default function ProductCard({ item }) {
     <article
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      className="group min-w-0 overflow-hidden rounded-[26px] border border-slate-100 bg-white shadow-[0_16px_45px_rgba(15,23,42,0.07)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_24px_65px_rgba(255,79,163,0.15)]"
+      className="premium-card interactive-lift group min-w-0 overflow-hidden rounded-[30px]"
     >
       <Link to={`/item/${item.id}`} className="block min-w-0">
-        <div className="relative m-3 h-[252px] overflow-hidden rounded-[22px] bg-pink-50 sm:h-[270px] xl:h-[285px]">
+        <div className="shine-overlay relative m-3 h-[252px] overflow-hidden rounded-[24px] bg-gradient-to-br from-pink-50 via-white to-violet-50 sm:h-[270px] xl:h-[285px]">
           {hovered && hasVideo ? (
             <video
               ref={videoRef}
@@ -160,7 +160,7 @@ export default function ProductCard({ item }) {
               muted
               loop
               playsInline
-              className="h-full w-full object-cover"
+              className="h-full w-full object-cover transition duration-700 group-hover:scale-[1.035]"
             />
           ) : (
             <img
@@ -169,20 +169,20 @@ export default function ProductCard({ item }) {
               onError={(e) => {
                 e.currentTarget.src = "/icons.svg";
               }}
-              className="h-full w-full object-cover transition duration-700 group-hover:scale-105"
+              className="h-full w-full object-cover transition duration-700 group-hover:scale-[1.055]"
             />
           )}
 
-          <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/48 via-slate-950/5 to-white/0" />
 
           <div className="absolute left-3 top-3 flex max-w-[calc(100%-64px)] flex-wrap gap-2">
-            <span className="inline-flex max-w-full items-center gap-1 truncate rounded-full bg-white/95 px-3 py-1.5 text-[11px] font-black text-pink-500 shadow">
+            <span className="inline-flex max-w-full items-center gap-1 truncate rounded-full border border-white/70 bg-white/90 px-3 py-1.5 text-[11px] font-black text-pink-500 shadow backdrop-blur-xl">
               <Sparkles size={12} className="shrink-0" />
               <span className="truncate">Featured</span>
             </span>
 
             {hasVideo && (
-              <span className="inline-flex max-w-full items-center gap-1 truncate rounded-full bg-slate-950/75 px-3 py-1.5 text-[11px] font-black text-white shadow">
+              <span className="inline-flex max-w-full items-center gap-1 truncate rounded-full border border-white/20 bg-slate-950/75 px-3 py-1.5 text-[11px] font-black text-white shadow backdrop-blur-xl">
                 <Play size={12} className="shrink-0" />
                 <span className="truncate">Video</span>
               </span>
@@ -195,23 +195,23 @@ export default function ProductCard({ item }) {
             onClick={handleWishlist}
             className={`absolute right-3 top-3 flex h-10 w-10 shrink-0 items-center justify-center rounded-full shadow transition disabled:opacity-60 ${
               liked
-                ? "bg-pink-500 text-white"
-                : "bg-white/95 text-slate-700 hover:text-pink-500"
+                ? "bg-pink-500 text-white shadow-[0_12px_28px_rgba(255,79,163,0.34)]"
+                : "border border-white/70 bg-white/90 text-slate-700 backdrop-blur-xl hover:text-pink-500"
             }`}
           >
             <Heart size={19} fill={liked ? "currentColor" : "none"} />
           </button>
 
           <div className="absolute bottom-3 left-3 right-3 flex min-w-0 items-center justify-between gap-2">
-            <span className="max-w-[48%] truncate rounded-full bg-white/95 px-3 py-2 text-xs font-black shadow">
+            <span className="max-w-[48%] truncate rounded-full border border-white/70 bg-white/92 px-3 py-2 text-xs font-black shadow backdrop-blur-xl">
               {item.category || "Fashion"}
             </span>
 
             <span
               className={`inline-flex max-w-[52%] items-center gap-1 truncate rounded-full px-3 py-2 text-xs font-black shadow ${
                 availableForSwap
-                  ? "bg-emerald-50 text-emerald-600"
-                  : "bg-slate-950/80 text-white"
+                  ? "border border-emerald-100 bg-emerald-50/95 text-emerald-600"
+                  : "border border-white/20 bg-slate-950/80 text-white"
               }`}
             >
               <Repeat2 size={13} className="shrink-0" />
@@ -220,7 +220,7 @@ export default function ProductCard({ item }) {
           </div>
 
           {images.length > 1 && (
-            <div className="absolute bottom-[54px] left-1/2 flex -translate-x-1/2 gap-1.5 rounded-full bg-white/75 px-2 py-1.5 backdrop-blur-xl">
+            <div className="absolute bottom-[54px] left-1/2 flex -translate-x-1/2 gap-1.5 rounded-full border border-white/60 bg-white/75 px-2 py-1.5 backdrop-blur-xl">
               {images.map((_, index) => (
                 <span
                   key={index}
@@ -248,7 +248,7 @@ export default function ProductCard({ item }) {
             </Link>
           </div>
 
-          <div className="shrink-0 rounded-[16px] bg-pink-50 px-3 py-2 text-center">
+          <div className="shrink-0 rounded-[18px] border border-pink-100 bg-pink-50/90 px-3 py-2 text-center shadow-sm">
             <p className="text-[9px] font-black uppercase text-slate-400">
               Points
             </p>
@@ -264,9 +264,9 @@ export default function ProductCard({ item }) {
           <Chip label={item.location || "India"} icon={MapPin} />
         </div>
 
-        <div className="mt-4 flex min-w-0 items-center justify-between gap-3 border-t border-slate-100 pt-4">
+        <div className="mt-4 flex min-w-0 items-center justify-between gap-3 border-t border-pink-50 pt-4">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-r from-pink-500 to-fuchsia-500 font-black text-white">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-pink-500 via-fuchsia-500 to-violet-500 font-black text-white shadow-[0_10px_24px_rgba(255,79,163,0.25)]">
               {(item.owner || item.owner_name || "S").charAt(0).toUpperCase()}
             </div>
 
@@ -284,7 +284,7 @@ export default function ProductCard({ item }) {
             </div>
           </div>
 
-          <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-yellow-50 px-3 py-2 text-sm font-black">
+          <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-yellow-100 bg-yellow-50 px-3 py-2 text-sm font-black">
             <Star size={14} fill="currentColor" className="text-yellow-400" />
             4.8
           </span>
@@ -293,16 +293,16 @@ export default function ProductCard({ item }) {
         <div className="mt-4 grid grid-cols-2 gap-3">
           <Link
             to={`/item/${item.id}`}
-            className="flex h-11 items-center justify-center rounded-full border border-slate-300 text-sm font-black hover:border-pink-400 hover:text-pink-500"
+            className="button-quiet h-11 min-h-0 text-sm"
           >
             View Item
           </Link>
 
           <Link
             to={`/item/${item.id}`}
-            className={`flex h-11 items-center justify-center gap-2 rounded-full text-sm font-black ${
+            className={`flex h-11 items-center justify-center gap-2 rounded-full text-sm font-black transition ${
               availableForSwap
-                ? "bg-pink-500 text-white hover:bg-pink-600"
+                ? "button-primary min-h-0"
                 : "cursor-not-allowed bg-slate-100 text-slate-400"
             }`}
             aria-disabled={!availableForSwap}
@@ -318,7 +318,7 @@ export default function ProductCard({ item }) {
 
 function Chip({ label, icon: Icon }) {
   return (
-    <span className="inline-flex max-w-full items-center gap-1 truncate rounded-full bg-slate-100 px-3 py-1.5 text-[11px] font-black text-slate-600">
+    <span className="inline-flex max-w-full items-center gap-1 truncate rounded-full border border-white/80 bg-slate-50/90 px-3 py-1.5 text-[11px] font-black text-slate-600 shadow-sm">
       {Icon && <Icon size={12} className="shrink-0" />}
       <span className="truncate">{label}</span>
     </span>

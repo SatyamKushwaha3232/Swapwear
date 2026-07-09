@@ -1,3 +1,20 @@
 import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
-export default function HomeCTA() { return <section className="container-main py-16"><div className="rounded-[46px] bg-white border border-pink-100 p-10 md:p-14 text-center shadow-[0_30px_90px_rgba(15,23,42,0.08)]"><h2 className="text-5xl font-black tracking-[-2px]">Ready to list your first item?</h2><p className="mt-4 text-lg font-semibold text-slate-500">Upload your clothes, set swap points, and start exchanging with real users.</p><Link to="/add-listing" className="mt-8 inline-flex h-14 items-center gap-3 rounded-full bg-slate-950 px-8 font-black text-white">Start Listing <ArrowRight size={20} /></Link></div></section>; }
+
+export default function HomeCTA() {
+  return (
+    <section className="container-main py-16 md:py-20">
+      <div className="premium-surface rounded-[38px] p-8 text-center md:p-14">
+        <h2 className="mx-auto max-w-3xl text-4xl font-black leading-tight md:text-5xl">
+          Ready to list your first item?
+        </h2>
+        <p className="mx-auto mt-4 max-w-2xl text-lg font-semibold leading-relaxed text-slate-500">
+          Upload your clothes, set swap points, and start exchanging with real users.
+        </p>
+        <Link to="/add-listing" className="button-primary mt-8 h-14 px-8">
+          Start Listing <ArrowRight size={20} />
+        </Link>
+      </div>
+    </section>
+  );
+}

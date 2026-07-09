@@ -4,8 +4,8 @@ export default function Settings() {
   return (
     <section className="section-space pt-28">
       <div className="container-main">
-        <div className="rounded-[42px] bg-white/60 backdrop-blur-2xl border border-white/50 p-10 shadow-[0_24px_80px_rgba(15,23,42,0.08)]">
-          <div className="w-16 h-16 rounded-2xl bg-pink-100 text-pink-500 flex items-center justify-center">
+        <div className="premium-surface rounded-[38px] p-10">
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-pink-100 text-pink-500 shadow-sm">
             <SettingsIcon size={28} />
           </div>
 

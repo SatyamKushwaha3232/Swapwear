@@ -120,7 +120,7 @@ export default function Profile() {
   return (
     <section className="section-space pt-28">
       <div className="container-main">
-        <div className="rounded-[46px] bg-white/60 backdrop-blur-2xl border border-white/50 shadow-[0_30px_100px_rgba(15,23,42,0.08)] p-8 md:p-12">
+        <div className="premium-surface rounded-[42px] p-8 md:p-12">
           <div className="flex flex-col lg:flex-row gap-10 lg:items-start">
             <div className="relative w-32 h-32 shrink-0">
               <div className="w-32 h-32 rounded-full bg-pink-400/25 border border-white/50 overflow-hidden flex items-center justify-center text-5xl font-black text-[var(--accent)]">
@@ -268,7 +268,7 @@ export default function Profile() {
                 type="button"
                 onClick={handleSave}
                 disabled={saving || uploading}
-                className="mt-8 h-14 px-8 rounded-full bg-pink-400/35 backdrop-blur-xl border border-white/50 font-black flex items-center gap-3 hover:bg-pink-400/50 transition shadow-[0_12px_34px_rgba(255,105,180,0.20)] disabled:opacity-60"
+                className="button-primary mt-8 h-14 px-8 disabled:opacity-60"
               >
                 <Save size={20} />
                 {saving ? "Saving..." : uploading ? "Uploading..." : "Save Profile"}

@@ -45,7 +45,7 @@ export default function ProductFilters({
 }) {
   return (
     <>
-      <aside className="sticky top-32 hidden h-fit min-w-0 rounded-[30px] border border-pink-100 bg-white/85 p-5 shadow-[0_20px_60px_rgba(15,23,42,0.07)] backdrop-blur-2xl min-[1180px]:block">
+      <aside className="premium-surface sticky top-32 hidden h-fit min-w-0 rounded-[30px] p-5 min-[1180px]:block">
         <FilterContent
           filters={filters}
           onChange={onChange}
@@ -64,7 +64,7 @@ export default function ProductFilters({
         />
 
         <aside
-          className={`absolute right-0 top-0 h-full w-[88%] max-w-[390px] overflow-y-auto bg-white p-5 shadow-2xl transition-transform duration-300 ${
+          className={`absolute right-0 top-0 h-full w-[88%] max-w-[390px] overflow-y-auto border-l border-white/70 bg-white/95 p-5 shadow-2xl backdrop-blur-2xl transition-transform duration-300 ${
             mobileOpen ? "translate-x-0" : "translate-x-full"
           }`}
         >
@@ -74,7 +74,7 @@ export default function ProductFilters({
             <button
               type="button"
               onClick={() => setMobileOpen(false)}
-              className="flex h-11 w-11 items-center justify-center rounded-full bg-pink-50 text-pink-500"
+              className="flex h-11 w-11 items-center justify-center rounded-full bg-pink-50 text-pink-500 shadow-sm"
             >
               <X size={22} />
             </button>
@@ -105,7 +105,7 @@ function FilterContent({ filters, onChange, onReset }) {
           <h3 className="mt-1 truncate text-2xl font-black">Refine picks</h3>
         </div>
 
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-pink-50 text-pink-500">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-pink-50 text-pink-500 shadow-sm">
           <SlidersHorizontal size={21} />
         </div>
       </div>
@@ -153,7 +153,7 @@ function FilterContent({ filters, onChange, onReset }) {
       <button
         type="button"
         onClick={onReset}
-        className="mt-7 flex h-12 w-full items-center justify-center gap-2 rounded-full bg-slate-950 font-black !text-white transition hover:-translate-y-0.5 hover:bg-pink-500"
+        className="button-primary mt-7 h-12 min-h-0 w-full"
       >
         <RotateCcw size={17} /> Reset Filters
       </button>
@@ -175,7 +175,7 @@ function FilterGroup({ title, options, value, onSelect }) {
             className={`max-w-full truncate rounded-full px-3.5 py-2 text-xs font-black transition ${
               value === option
                 ? "bg-pink-500 !text-white shadow-[0_10px_24px_rgba(255,79,163,0.22)]"
-                : "bg-pink-50 text-pink-500 hover:bg-pink-100"
+                : "border border-white/80 bg-white/70 text-pink-500 shadow-sm hover:bg-pink-50"
             }`}
           >
             {option}

@@ -133,7 +133,7 @@ export default function Dashboard() {
 
   return (
     <section className="section-space pt-24 md:pt-28">
-      <div className="container-main flex flex-col lg:flex-row gap-8 lg:gap-10">
+      <div className="container-main flex flex-col gap-8 lg:flex-row lg:gap-10">
         <Sidebar />
 
         <div className="flex-1 min-w-0">
@@ -152,24 +152,24 @@ export default function Dashboard() {
 
             <Link
               to="/add-listing"
-              className="h-14 px-7 rounded-full bg-pink-400/40 backdrop-blur-xl border border-white/60 font-black flex items-center gap-2 hover:bg-pink-400/55 transition shadow-[0_12px_34px_rgba(255,105,180,0.20)] w-fit"
+              className="button-primary h-14 px-7"
             >
               <Plus size={20} />
               Add Listing
             </Link>
           </div>
 
-          <div className="mt-10 grid sm:grid-cols-2 2xl:grid-cols-4 gap-5">
+          <div className="mt-10 grid gap-5 sm:grid-cols-2 2xl:grid-cols-4">
             {stats.map((stat) => {
               const Icon = stat.icon;
 
               return (
                 <div
                   key={stat.title}
-                  className="bg-white/60 backdrop-blur-2xl rounded-[30px] border border-white/60 shadow-[0_18px_55px_rgba(15,23,42,0.07)] p-6"
+                  className="premium-card interactive-lift rounded-[30px] p-6"
                 >
                   <div
-                    className={`w-13 h-13 rounded-2xl flex items-center justify-center ${stat.color}`}
+                    className={`flex h-13 w-13 items-center justify-center rounded-2xl shadow-sm ${stat.color}`}
                   >
                     <Icon size={24} />
                   </div>
@@ -186,17 +186,17 @@ export default function Dashboard() {
             })}
           </div>
 
-          <div className="mt-8 rounded-[38px] bg-white/60 backdrop-blur-2xl border border-white/60 shadow-[0_22px_70px_rgba(15,23,42,0.07)] p-7 md:p-9 relative overflow-hidden">
-            <div className="absolute -right-20 -top-20 w-72 h-72 rounded-full bg-pink-400 blur-3xl opacity-20" />
+          <div className="premium-surface relative mt-8 overflow-hidden rounded-[38px] p-7 md:p-9">
+            <div className="absolute inset-0 -z-10 bg-[linear-gradient(125deg,rgba(17,163,127,0.10),transparent_34%),linear-gradient(305deg,rgba(255,79,163,0.10),transparent_40%)]" />
 
             <div className="relative flex flex-col xl:flex-row xl:items-center xl:justify-between gap-7">
               <div className="max-w-2xl">
-                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-pink-400/20 border border-white/60 font-black">
+                <div className="inline-flex items-center gap-2 rounded-full border border-white/70 bg-white/70 px-4 py-2 font-black text-pink-500 shadow-sm backdrop-blur-xl">
                   <Leaf size={18} />
                   Sustainability Impact
                 </div>
 
-                <h2 className="mt-5 text-3xl md:text-5xl font-black tracking-[-1px] leading-tight">
+                <h2 className="mt-5 text-3xl font-black leading-tight md:text-5xl">
                   Your swaps helped reduce fashion waste.
                 </h2>
 
@@ -206,9 +206,9 @@ export default function Dashboard() {
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-4 w-full xl:w-[320px]">
-                <div className="rounded-[26px] bg-white/60 backdrop-blur-xl border border-white/60 p-5">
-                  <h3 className="text-4xl md:text-5xl font-black">
+              <div className="grid w-full grid-cols-2 gap-4 xl:w-[320px]">
+                <div className="premium-card rounded-[26px] p-5">
+                  <h3 className="text-4xl font-black md:text-5xl">
                     {listings.length * 4}kg
                   </h3>
 
@@ -217,8 +217,8 @@ export default function Dashboard() {
                   </p>
                 </div>
 
-                <div className="rounded-[26px] bg-white/60 backdrop-blur-xl border border-white/60 p-5">
-                  <h3 className="text-4xl md:text-5xl font-black">
+                <div className="premium-card rounded-[26px] p-5">
+                  <h3 className="text-4xl font-black md:text-5xl">
                     {listings.length}
                   </h3>
 
@@ -230,9 +230,9 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="mt-8 grid 2xl:grid-cols-[1.35fr_0.65fr] gap-8">
-            <div className="bg-white/60 backdrop-blur-2xl rounded-[38px] border border-white/60 shadow-[0_22px_70px_rgba(15,23,42,0.07)] overflow-hidden">
-              <div className="p-6 md:p-7 border-b border-white/60 flex items-center justify-between gap-5">
+          <div className="mt-8 grid gap-8 2xl:grid-cols-[1.35fr_0.65fr]">
+            <div className="premium-surface overflow-hidden rounded-[38px]">
+              <div className="flex items-center justify-between gap-5 border-b border-white/60 p-6 md:p-7">
                 <div>
                   <h2 className="text-2xl md:text-3xl font-black">
                     Your Listings
@@ -245,7 +245,7 @@ export default function Dashboard() {
 
                 <Link
                   to="/explore"
-                  className="w-12 h-12 rounded-full bg-white/60 backdrop-blur-xl border border-white/60 flex items-center justify-center hover:bg-pink-400/20 transition"
+                  className="button-quiet h-12 min-h-0 w-12 rounded-full p-0"
                 >
                   <ArrowUpRight size={20} />
                 </Link>
@@ -256,7 +256,7 @@ export default function Dashboard() {
                   {[1, 2, 3].map((item) => (
                     <div
                       key={item}
-                      className="h-28 rounded-[28px] bg-white/45 animate-pulse"
+                          className="h-28 animate-pulse rounded-[28px] bg-white/45"
                     />
                   ))}
                 </div>
@@ -270,7 +270,7 @@ export default function Dashboard() {
 
                   <Link
                     to="/add-listing"
-                    className="inline-flex mt-6 px-6 py-3 rounded-full bg-pink-400/35 border border-white/60 font-black"
+                    className="button-primary mt-6 px-6 py-3"
                   >
                     Create Listing
                   </Link>
@@ -298,15 +298,15 @@ export default function Dashboard() {
                           </h3>
 
                           <p className="mt-1 text-[var(--muted)] font-semibold">
-                            {item.brand || "Brand"} • {item.points || 0} pts
+                            {item.brand || "Brand"} - {item.points || 0} pts
                           </p>
 
                           <div className="mt-3 flex flex-wrap gap-2">
-                            <span className="inline-flex px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 text-sm font-black">
+                            <span className="inline-flex rounded-full bg-emerald-100 px-3 py-1 text-sm font-black text-emerald-700">
                               Active
                             </span>
 
-                            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-white/65 border border-white/60 text-sm font-black">
+                            <span className="inline-flex items-center gap-1 rounded-full border border-white/60 bg-white/65 px-3 py-1 text-sm font-black">
                               <Eye size={14} />
                               {item.views || 0}
                             </span>
@@ -317,7 +317,7 @@ export default function Dashboard() {
                       <div className="flex gap-3 md:shrink-0">
                         <Link
                           to={`/item/${item.id}`}
-                          className="px-5 py-3 rounded-full bg-white/65 backdrop-blur-xl border border-white/60 font-black hover:bg-pink-400/20 transition"
+                          className="button-quiet min-h-0 px-5 py-3"
                         >
                           View
                         </Link>
@@ -325,7 +325,7 @@ export default function Dashboard() {
                         <button
                           onClick={() => handleDelete(item.id)}
                           disabled={deletingId === item.id}
-                          className="px-5 py-3 rounded-full bg-red-100 text-red-600 font-black hover:bg-red-200 transition disabled:opacity-60 flex items-center gap-2"
+                          className="flex items-center gap-2 rounded-full bg-red-100 px-5 py-3 font-black text-red-600 transition hover:bg-red-200 disabled:opacity-60"
                         >
                           <Trash2 size={17} />
                           {deletingId === item.id ? "Removing..." : "Remove"}
@@ -338,9 +338,9 @@ export default function Dashboard() {
             </div>
 
             <div className="space-y-8">
-              <div className="bg-white/60 backdrop-blur-2xl rounded-[38px] border border-white/60 shadow-[0_22px_70px_rgba(15,23,42,0.07)] p-7">
+              <div className="premium-surface rounded-[38px] p-7">
                 <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 rounded-2xl bg-pink-400/20 text-[var(--accent)] flex items-center justify-center">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-pink-400/20 text-[var(--accent)]">
                     <Clock3 size={24} />
                   </div>
 
@@ -369,7 +369,7 @@ export default function Dashboard() {
                   ).map((activity, index) => (
                     <div
                       key={activity}
-                      className="rounded-[24px] bg-white/50 backdrop-blur-xl border border-white/60 p-5"
+                      className="premium-card rounded-[24px] p-5"
                     >
                       <p className="font-black leading-relaxed">{activity}</p>
 
@@ -381,8 +381,8 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              <div className="bg-pink-400/20 backdrop-blur-2xl rounded-[38px] border border-white/60 shadow-[0_22px_70px_rgba(255,105,180,0.10)] p-7">
-                <div className="w-14 h-14 rounded-2xl bg-white/65 flex items-center justify-center">
+              <div className="premium-surface rounded-[38px] p-7">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/65">
                   <Sparkles size={24} />
                 </div>
 
@@ -397,7 +397,7 @@ export default function Dashboard() {
 
                 <Link
                   to="/profile"
-                  className="mt-6 h-14 px-6 rounded-full bg-white/65 backdrop-blur-xl border border-white/60 font-black hover:bg-white transition inline-flex items-center justify-center"
+                  className="button-quiet mt-6 h-14 px-6"
                 >
                   Edit Profile
                 </Link>

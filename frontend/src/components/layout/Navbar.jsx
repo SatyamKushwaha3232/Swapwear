@@ -84,10 +84,10 @@ export default function Navbar() {
       <header className="fixed left-0 right-0 top-0 z-[999] px-3 pt-3 md:px-5 md:pt-4">
         <div className="mx-auto w-full max-w-[1440px]">
           <div
-            className={`relative flex min-w-0 items-center gap-3 rounded-[26px] border border-white/80 bg-white/90 px-4 backdrop-blur-2xl transition-all duration-300 md:gap-4 md:px-5 ${
+            className={`premium-surface relative flex min-w-0 items-center gap-3 rounded-[26px] px-4 transition-all duration-300 md:gap-4 md:px-5 ${
               scrolled
-                ? "h-[68px] shadow-[0_18px_50px_rgba(255,79,163,0.18)]"
-                : "h-[74px] shadow-[0_16px_45px_rgba(255,79,163,0.12)]"
+                ? "h-[68px]"
+                : "h-[74px]"
             }`}
           >
             <Logo />
@@ -95,7 +95,7 @@ export default function Navbar() {
             <NavLinks onCategories={() => setCategoryOpen((prev) => !prev)} />
 
             {categoryOpen && (
-              <div className="absolute left-1/2 top-[82px] z-[1000] w-[min(620px,calc(100vw-32px))] -translate-x-1/2 rounded-[30px] border border-pink-100 bg-white/95 p-5 shadow-[0_30px_80px_rgba(255,79,163,0.2)] backdrop-blur-2xl">
+              <div className="premium-surface absolute left-1/2 top-[82px] z-[1000] w-[min(620px,calc(100vw-32px))] -translate-x-1/2 rounded-[30px] p-5">
                 <div className="flex items-center gap-2 font-black text-pink-500">
                   <Sparkles size={18} />
                   Explore Categories
@@ -107,7 +107,7 @@ export default function Navbar() {
                       key={item}
                       to="/explore"
                       onClick={() => setCategoryOpen(false)}
-                      className="rounded-2xl bg-pink-50/70 px-4 py-3 text-sm font-black transition hover:bg-pink-100 hover:text-pink-500"
+                      className="interactive-lift rounded-2xl border border-white/80 bg-white/70 px-4 py-3 text-sm font-black shadow-sm hover:bg-pink-50 hover:text-pink-500"
                     >
                       {item}
                     </Link>
@@ -132,7 +132,7 @@ export default function Navbar() {
 
               <NavLink
                 to="/add-listing"
-                className="hidden h-11 items-center gap-2 rounded-full bg-gradient-to-r from-pink-500 to-fuchsia-500 px-5 text-sm font-black text-white shadow-[0_14px_32px_rgba(255,79,163,0.32)] transition hover:-translate-y-0.5 min-[1280px]:flex"
+                className="hidden h-11 items-center gap-2 rounded-full bg-gradient-to-br from-pink-500 via-fuchsia-500 to-violet-500 px-5 text-sm font-black text-white shadow-[0_14px_32px_rgba(255,79,163,0.32)] transition hover:-translate-y-0.5 min-[1280px]:flex"
               >
                 <Plus size={18} />
                 Sell Item
@@ -143,7 +143,7 @@ export default function Navbar() {
                   <button
                     type="button"
                     onClick={() => setProfileOpen((prev) => !prev)}
-                    className="h-11 w-11 overflow-hidden rounded-full bg-gradient-to-r from-pink-500 to-fuchsia-500 text-base font-black text-white shadow-xl ring-4 ring-pink-100 transition hover:scale-105"
+                    className="h-11 w-11 overflow-hidden rounded-full bg-gradient-to-br from-pink-500 via-fuchsia-500 to-violet-500 text-base font-black text-white shadow-xl ring-4 ring-pink-100 transition hover:scale-105"
                   >
                     {profile?.avatar_url ? (
                       <img
@@ -166,7 +166,7 @@ export default function Navbar() {
               ) : (
                 <NavLink
                   to="/login"
-                  className="hidden h-11 items-center rounded-full border border-pink-100 bg-white px-5 text-sm font-black shadow-[0_10px_24px_rgba(15,23,42,0.08)] transition hover:bg-pink-50 min-[1280px]:flex"
+                  className="hidden h-11 items-center rounded-full border border-white/80 bg-white/80 px-5 text-sm font-black shadow-[0_10px_24px_rgba(15,23,42,0.08)] transition hover:bg-pink-50 min-[1280px]:flex"
                 >
                   Login
                 </NavLink>
@@ -175,7 +175,7 @@ export default function Navbar() {
               <button
                 type="button"
                 onClick={() => setMobileOpen(true)}
-                className="flex h-11 w-11 items-center justify-center rounded-full border border-pink-100 bg-white shadow-md min-[1280px]:hidden"
+                className="flex h-11 w-11 items-center justify-center rounded-full border border-white/80 bg-white/80 shadow-md transition hover:bg-pink-50 min-[1280px]:hidden"
               >
                 <Menu size={22} />
               </button>
@@ -195,7 +195,7 @@ export default function Navbar() {
         />
 
         <aside
-          className={`absolute right-0 top-0 h-full w-[88%] max-w-[430px] overflow-y-auto border-l border-pink-100 bg-white/95 shadow-2xl backdrop-blur-2xl transition-transform duration-500 ${
+          className={`absolute right-0 top-0 h-full w-[88%] max-w-[430px] overflow-y-auto border-l border-white/70 bg-white/95 shadow-2xl backdrop-blur-2xl transition-transform duration-500 ${
             mobileOpen ? "translate-x-0" : "translate-x-full"
           }`}
         >
@@ -205,7 +205,7 @@ export default function Navbar() {
             <button
               type="button"
               onClick={() => setMobileOpen(false)}
-              className="flex h-11 w-11 items-center justify-center rounded-full bg-pink-50"
+              className="button-quiet h-11 min-h-0 w-11 rounded-full p-0"
             >
               <X size={22} />
             </button>
@@ -213,7 +213,7 @@ export default function Navbar() {
 
           <div className="p-6">
             {user && (
-              <div className="mb-6 flex items-center gap-4 rounded-[28px] border border-pink-100 bg-pink-50 p-4">
+              <div className="premium-card mb-6 flex items-center gap-4 rounded-[28px] p-4">
                 <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-r from-pink-500 to-fuchsia-500 text-2xl font-black text-white">
                   {profile?.avatar_url ? (
                     <img
@@ -288,7 +288,7 @@ export default function Navbar() {
               <Link
                 to="/add-listing"
                 onClick={() => setMobileOpen(false)}
-                className="col-span-2 flex h-12 items-center justify-center rounded-full bg-gradient-to-r from-pink-500 to-fuchsia-500 font-black text-white shadow-lg"
+                className="button-primary col-span-2 h-12"
               >
                 Sell Item
               </Link>
@@ -304,7 +304,7 @@ function IconButton({ to, icon: Icon }) {
   return (
     <NavLink
       to={to}
-      className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-full border border-pink-100 bg-white shadow-[0_10px_24px_rgba(15,23,42,0.08)] transition hover:-translate-y-0.5 hover:bg-pink-50 min-[1280px]:flex"
+      className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/80 bg-white/80 shadow-[0_10px_24px_rgba(15,23,42,0.08)] transition hover:-translate-y-0.5 hover:bg-pink-50 min-[1280px]:flex"
     >
       <Icon size={19} />
     </NavLink>
