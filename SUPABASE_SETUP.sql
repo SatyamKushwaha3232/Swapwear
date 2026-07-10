@@ -268,6 +268,28 @@ alter table swaps add column if not exists cancel_reason text;
 alter table swaps add column if not exists updated_at timestamptz default now();
 alter table swaps alter column id set default gen_random_uuid();
 
+update swaps
+set status = lower(status)
+where status is not null
+  and status <> lower(status);
+
+alter table swaps drop constraint if exists swaps_status_check;
+alter table swaps add constraint swaps_status_check
+check (
+  status in (
+    'pending',
+    'accepted',
+    'rejected',
+    'cancelled',
+    'expired',
+    'shipped',
+    'delivered',
+    'completed',
+    'disputed',
+    'failed'
+  )
+);
+
 alter table listings add column if not exists swap_status text default 'available';
 alter table listings add column if not exists active_swap_id uuid;
 alter table listings add column if not exists swap_completed_at timestamptz;
@@ -297,12 +319,30 @@ set swap_status = 'available'
 where swap_status is null;
 
 update listings
+set swap_status = lower(swap_status)
+where swap_status is not null
+  and swap_status <> lower(swap_status);
+
+update listings
 set swap_status = 'reserved'
 where swap_status = 'locked';
 
 update listings
 set swap_status = 'swapped'
 where swap_status = 'completed';
+
+alter table listings drop constraint if exists listings_swap_status_check;
+alter table listings add constraint listings_swap_status_check
+check (
+  swap_status in (
+    'available',
+    'reserved',
+    'swapped',
+    'archived',
+    'removed',
+    'blocked'
+  )
+);
 
 update swaps
 set archive_after = coalesce(archive_after, delete_eligible_at)
