@@ -87,7 +87,7 @@ with check (bucket_id = 'avatars');
 -- Chat module V4 tables / columns
 create table if not exists chat_conversations (
   id bigint generated always as identity primary key,
-  swap_id bigint,
+  swap_id uuid,
   user1_id uuid,
   user2_id uuid,
   last_message text default '',
@@ -152,6 +152,22 @@ create index if not exists chat_conversations_user1_idx on chat_conversations(us
 create index if not exists chat_conversations_user2_idx on chat_conversations(user2_id);
 create index if not exists chat_messages_conversation_idx on chat_messages(conversation_id, created_at);
 
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'chat_conversations'
+      AND column_name = 'swap_id'
+      AND data_type <> 'uuid'
+  ) THEN
+    UPDATE chat_conversations SET swap_id = NULL;
+    ALTER TABLE chat_conversations
+      ALTER COLUMN swap_id TYPE uuid USING NULL;
+  END IF;
+END $$;
+
 alter table chat_conversations disable row level security;
 alter table chat_messages disable row level security;
 alter table chat_typing disable row level security;
@@ -206,7 +222,7 @@ END $$;
 
 -- Swap lifecycle / product availability mechanism
 create table if not exists swaps (
-  id bigint generated always as identity primary key,
+  id uuid primary key default gen_random_uuid(),
   requester_id uuid,
   owner_id uuid,
   requester_name text,
@@ -250,12 +266,28 @@ alter table swaps add column if not exists cancel_reason text;
 alter table swaps add column if not exists updated_at timestamptz default now();
 
 alter table listings add column if not exists swap_status text default 'available';
-alter table listings add column if not exists active_swap_id bigint;
+alter table listings add column if not exists active_swap_id uuid;
 alter table listings add column if not exists swap_completed_at timestamptz;
 alter table listings add column if not exists archive_after timestamptz;
 alter table listings add column if not exists archived_at timestamptz;
 alter table listings add column if not exists delete_eligible_at timestamptz;
 alter table listings add column if not exists is_public boolean default true;
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'listings'
+      AND column_name = 'active_swap_id'
+      AND data_type <> 'uuid'
+  ) THEN
+    UPDATE listings SET active_swap_id = NULL;
+    ALTER TABLE listings
+      ALTER COLUMN active_swap_id TYPE uuid USING NULL;
+  END IF;
+END $$;
 
 update listings
 set swap_status = 'available'
@@ -296,7 +328,7 @@ END $$;
 
 create table if not exists swap_events (
   id bigint generated always as identity primary key,
-  swap_id bigint references swaps(id) on delete cascade,
+  swap_id uuid references swaps(id) on delete cascade,
   actor_id uuid,
   event_type text not null,
   metadata jsonb default '{}'::jsonb,
@@ -305,7 +337,7 @@ create table if not exists swap_events (
 
 create table if not exists swap_confirmations (
   id bigint generated always as identity primary key,
-  swap_id bigint references swaps(id) on delete cascade,
+  swap_id uuid references swaps(id) on delete cascade,
   user_id uuid,
   handover_confirmed_at timestamptz,
   received_confirmed_at timestamptz,
@@ -318,7 +350,7 @@ create table if not exists swap_confirmations (
 
 create table if not exists swap_disputes (
   id bigint generated always as identity primary key,
-  swap_id bigint references swaps(id) on delete cascade,
+  swap_id uuid references swaps(id) on delete cascade,
   opened_by uuid,
   reason text,
   status text default 'open',
@@ -332,7 +364,7 @@ create table if not exists reports (
   reporter_id uuid,
   reported_user_id uuid,
   listing_id bigint,
-  swap_id bigint,
+  swap_id uuid,
   report_type text default 'general',
   reason text,
   status text default 'open',
@@ -342,7 +374,7 @@ create table if not exists reports (
 
 create table if not exists reviews (
   id bigint generated always as identity primary key,
-  swap_id bigint references swaps(id) on delete set null,
+  swap_id uuid references swaps(id) on delete set null,
   reviewer_id uuid,
   reviewee_id uuid,
   rating integer,
@@ -433,7 +465,7 @@ begin
 end;
 $$;
 
-create or replace function accept_swap_request(p_swap_id bigint, p_actor_id uuid default auth.uid())
+create or replace function accept_swap_request(p_swap_id uuid, p_actor_id uuid default auth.uid())
 returns swaps
 language plpgsql
 security definer
@@ -534,7 +566,7 @@ end;
 $$;
 
 create or replace function cancel_swap_request(
-  p_swap_id bigint,
+  p_swap_id uuid,
   p_actor_id uuid default auth.uid(),
   p_next_status text default 'cancelled',
   p_reason text default null
@@ -600,7 +632,7 @@ begin
 end;
 $$;
 
-create or replace function complete_swap_request(p_swap_id bigint, p_actor_id uuid default auth.uid())
+create or replace function complete_swap_request(p_swap_id uuid, p_actor_id uuid default auth.uid())
 returns swaps
 language plpgsql
 security definer
@@ -659,7 +691,7 @@ begin
 end;
 $$;
 
-create or replace function archive_completed_swap_items(p_swap_id bigint, p_actor_id uuid default auth.uid())
+create or replace function archive_completed_swap_items(p_swap_id uuid, p_actor_id uuid default auth.uid())
 returns swaps
 language plpgsql
 security definer
