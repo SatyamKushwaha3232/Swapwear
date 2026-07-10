@@ -662,7 +662,7 @@ begin
       delete_eligible_at = null,
       archived_at = null
   where active_swap_id = target_swap.id
-    and swap_status in ('reserved', 'swapped');
+    and swap_status in ('reserved', 'swapped', 'archived');
 
   update swaps pending_swap
   set status = 'pending',

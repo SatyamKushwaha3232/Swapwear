@@ -474,21 +474,21 @@ function SwapActions({
           </>
         )}
 
-        {status === "completed" && !itemsDeleted && (
+        {status === "completed" && (
           <>
             <ActionButton variant="danger" disabled={updating} onClick={onCancel}>
               Cancel & Relist
             </ActionButton>
-            <ActionButton disabled={updating} onClick={onDeleteCompletedItems}>
-              Archive Swapped Items
-            </ActionButton>
+            {!itemsDeleted ? (
+              <ActionButton disabled={updating} onClick={onDeleteCompletedItems}>
+                Archive Swapped Items
+              </ActionButton>
+            ) : (
+              <div className="rounded-[20px] bg-slate-50 px-4 py-3 text-center text-sm font-black text-slate-500">
+                Items archived
+              </div>
+            )}
           </>
-        )}
-
-        {status === "completed" && itemsDeleted && (
-          <div className="rounded-[20px] bg-slate-50 px-4 py-3 text-center text-sm font-black text-slate-500">
-            Items archived
-          </div>
         )}
 
         {!["pending", "accepted", "completed"].includes(status) && (
