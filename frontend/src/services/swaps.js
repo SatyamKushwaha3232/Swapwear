@@ -125,6 +125,46 @@ async function cancelCompetingPendingSwaps(acceptedSwap) {
   if (error) throw error;
 }
 
+async function reviveEligibleExpiredSwaps(cancelledSwap) {
+  const listingIds = swapListingIds(cancelledSwap);
+  if (listingIds.length === 0) return;
+
+  const { data: expiredSwaps, error } = await supabase
+    .from("swaps")
+    .select("*")
+    .neq("id", cancelledSwap.id)
+    .eq("status", "expired")
+    .or(
+      listingIds
+        .map((id) => `requester_item_id.eq.${id},owner_item_id.eq.${id}`)
+        .join(",")
+    );
+
+  if (error) throw error;
+
+  for (const swap of expiredSwaps || []) {
+    const ids = swapListingIds(swap);
+    if (ids.length < 2) continue;
+
+    try {
+      await ensureListingsAvailable(ids);
+
+      await supabase
+        .from("swaps")
+        .update({
+          status: "pending",
+          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+          updated_at: new Date().toISOString(),
+          last_action_at: new Date().toISOString(),
+        })
+        .eq("id", swap.id)
+        .eq("status", "expired");
+    } catch {
+      // Keep this request expired if either product is still unavailable.
+    }
+  }
+}
+
 export async function createSwapRequest(payload) {
   try {
     const requesterItemId = itemId(payload.requesterItem);
@@ -281,8 +321,9 @@ export async function updateSwapStatus(id, status) {
       await cancelCompetingPendingSwaps(updatedSwap);
     }
 
-    if (["rejected", "cancelled"].includes(nextStatus) && swap.status === "accepted") {
+    if (["rejected", "cancelled"].includes(nextStatus) && ["accepted", "completed"].includes(swap.status)) {
       await releaseListingsFromSwap(listingIds, id);
+      await reviveEligibleExpiredSwaps(updatedSwap);
     }
 
     if (nextStatus === "completed") {

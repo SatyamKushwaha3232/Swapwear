@@ -150,7 +150,27 @@ export default function SwapRequests() {
       if (ok) handleAction(swap.id, acceptSwap, "Swap accepted");
     },
     onReject: (swap) => handleAction(swap.id, rejectSwap, "Swap rejected"),
-    onCancel: (swap) => handleAction(swap.id, cancelSwap, "Swap cancelled"),
+    onCancel: (swap) => {
+      const status = normalizeStatus(swap.status);
+      const ok =
+        status === "completed"
+          ? window.confirm(
+              "Cancel this completed swap? Both products will be relisted if safe, and eligible expired requests for these products will return to pending."
+            )
+          : status === "accepted"
+          ? window.confirm(
+              "Cancel this accepted swap? Both products will become available again if they are still reserved for this swap."
+            )
+          : true;
+
+      if (ok) {
+        handleAction(
+          swap.id,
+          cancelSwap,
+          status === "completed" ? "Swap cancelled and products relisted" : "Swap cancelled"
+        );
+      }
+    },
     onComplete: (swap) => {
       const ok = window.confirm(
         "Complete this swap only after both users have received their items. The listings will be hidden and archived after 3 days."
@@ -450,13 +470,19 @@ function SwapActions({
               Open Chat
             </button>
             <ActionButton disabled={updating} onClick={onComplete}>Mark Completed</ActionButton>
+            <ActionButton variant="danger" disabled={updating} onClick={onCancel}>Cancel Swap</ActionButton>
           </>
         )}
 
         {status === "completed" && !itemsDeleted && (
-          <ActionButton variant="danger" disabled={updating} onClick={onDeleteCompletedItems}>
-            Archive Swapped Items
-          </ActionButton>
+          <>
+            <ActionButton variant="danger" disabled={updating} onClick={onCancel}>
+              Cancel & Relist
+            </ActionButton>
+            <ActionButton disabled={updating} onClick={onDeleteCompletedItems}>
+              Archive Swapped Items
+            </ActionButton>
+          </>
         )}
 
         {status === "completed" && itemsDeleted && (

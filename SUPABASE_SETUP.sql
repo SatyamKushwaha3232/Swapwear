@@ -640,7 +640,7 @@ begin
     raise exception 'Invalid cancellation status';
   end if;
 
-  if target_swap.status not in ('pending', 'accepted') then
+  if target_swap.status not in ('pending', 'accepted', 'completed') then
     raise exception 'This swap can no longer be cancelled';
   end if;
 
@@ -659,9 +659,38 @@ begin
       is_public = true,
       swap_completed_at = null,
       archive_after = null,
-      delete_eligible_at = null
+      delete_eligible_at = null,
+      archived_at = null
   where active_swap_id = target_swap.id
-    and swap_status = 'reserved';
+    and swap_status in ('reserved', 'swapped');
+
+  update swaps pending_swap
+  set status = 'pending',
+      expires_at = greatest(coalesce(pending_swap.expires_at, now()), now() + interval '7 days'),
+      updated_at = now(),
+      last_action_at = now()
+  from listings requester_listing,
+       listings owner_listing
+  where pending_swap.id <> target_swap.id
+    and pending_swap.status = 'expired'
+    and (
+      pending_swap.requester_item_id in (target_swap.requester_item_id, target_swap.owner_item_id)
+      or pending_swap.owner_item_id in (target_swap.requester_item_id, target_swap.owner_item_id)
+    )
+    and requester_listing.id = pending_swap.requester_item_id
+    and owner_listing.id = pending_swap.owner_item_id
+    and coalesce(requester_listing.swap_status, 'available') = 'available'
+    and coalesce(owner_listing.swap_status, 'available') = 'available'
+    and coalesce(requester_listing.is_public, true) = true
+    and coalesce(owner_listing.is_public, true) = true
+    and not exists (
+      select 1
+      from swaps existing_swap
+      where existing_swap.id <> pending_swap.id
+        and existing_swap.status in ('pending', 'accepted', 'shipped', 'delivered')
+        and existing_swap.requester_item_id = pending_swap.requester_item_id
+        and existing_swap.owner_item_id = pending_swap.owner_item_id
+    );
 
   insert into swap_events (swap_id, actor_id, event_type, metadata)
   values (
