@@ -23,7 +23,14 @@ export default function OwnerSwapCard({
 
   const ownerName = item?.owner || item?.owner_name || "SwapWear User";
   const availableForSwap = item?.is_available_for_swap !== false;
-  const availabilityLabel = item?.swap_status === "completed" ? "Already Swapped" : item?.swap_status === "locked" ? "Reserved In Swap" : "Swap Ready Item";
+  const availabilityLabel =
+    item?.swap_status === "swapped" || item?.swap_status === "completed"
+      ? "Already Swapped"
+      : item?.swap_status === "reserved" || item?.swap_status === "locked"
+      ? "Reserved In Swap"
+      : item?.swap_status === "archived"
+      ? "Archived Listing"
+      : "Swap Ready Item";
 
   return (
     <aside className="min-w-0 rounded-[36px] border border-pink-100 bg-white/90 p-6 shadow-[0_24px_75px_rgba(15,23,42,0.07)] backdrop-blur-2xl md:p-7 xl:sticky xl:top-32 xl:h-fit">

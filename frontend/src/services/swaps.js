@@ -24,6 +24,11 @@ function normalizeStatus(status) {
   return String(status || "pending").toLowerCase();
 }
 
+function isMissingRpc(error) {
+  const message = String(error?.message || error || "").toLowerCase();
+  return error?.code === "42883" || message.includes("function") || message.includes("schema cache");
+}
+
 function formatSwap(item = {}) {
   return {
     id: item.id,
@@ -37,9 +42,17 @@ function formatSwap(item = {}) {
     owner_item: item.owner_item || null,
     status: normalizeStatus(item.status),
     message: item.message || "",
+    delivery_method: item.delivery_method || "",
+    accepted_at: item.accepted_at || null,
+    cancelled_at: item.cancelled_at || null,
+    expires_at: item.expires_at || null,
+    last_action_at: item.last_action_at || null,
     completed_at: item.completed_at || null,
-    delete_eligible_at: item.delete_eligible_at || null,
+    archive_after: item.archive_after || item.delete_eligible_at || null,
+    delete_eligible_at: item.delete_eligible_at || item.archive_after || null,
     items_deleted_at: item.items_deleted_at || null,
+    archived_at: item.archived_at || null,
+    cancel_reason: item.cancel_reason || "",
     created_at: item.created_at,
     updated_at: item.updated_at,
   };
@@ -78,6 +91,20 @@ async function ensureListingsAvailable(listingIds = []) {
   }
 
   return listings;
+}
+
+async function getCurrentUserId() {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  return user?.id || null;
+}
+
+async function runSwapRpc(name, args = {}) {
+  const { data, error } = await supabase.rpc(name, args);
+  if (error) throw error;
+  return formatSwap(data);
 }
 
 async function cancelCompetingPendingSwaps(acceptedSwap) {
@@ -137,6 +164,8 @@ export async function createSwapRequest(payload) {
       owner_item: payload.ownerItem,
       status: "pending",
       message: payload.message || "",
+      expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      last_action_at: new Date().toISOString(),
     };
 
     const { data, error } = await supabase
@@ -182,6 +211,38 @@ export async function getMySwaps(userId) {
 export async function updateSwapStatus(id, status) {
   try {
     const nextStatus = normalizeStatus(status);
+    const actorId = await getCurrentUserId();
+
+    try {
+      let updatedSwap = null;
+
+      if (nextStatus === "accepted") {
+        updatedSwap = await runSwapRpc("accept_swap_request", {
+          p_swap_id: id,
+          p_actor_id: actorId,
+        });
+      } else if (nextStatus === "completed") {
+        updatedSwap = await runSwapRpc("complete_swap_request", {
+          p_swap_id: id,
+          p_actor_id: actorId,
+        });
+      } else if (["cancelled", "rejected", "failed"].includes(nextStatus)) {
+        updatedSwap = await runSwapRpc("cancel_swap_request", {
+          p_swap_id: id,
+          p_actor_id: actorId,
+          p_next_status: nextStatus,
+          p_reason: null,
+        });
+      }
+
+      if (updatedSwap) {
+        await notifyForStatus(updatedSwap, nextStatus);
+        return { success: true, data: updatedSwap };
+      }
+    } catch (rpcError) {
+      if (!isMissingRpc(rpcError)) throw rpcError;
+    }
+
     const swap = await getSwapById(id);
     const listingIds = swapListingIds(swap);
     const patch = { status: nextStatus, updated_at: new Date().toISOString() };
@@ -189,11 +250,19 @@ export async function updateSwapStatus(id, status) {
     if (nextStatus === "accepted") {
       await ensureListingsAvailable(listingIds);
       patch.accepted_at = new Date().toISOString();
+      patch.last_action_at = patch.updated_at;
     }
 
     if (nextStatus === "completed") {
       patch.completed_at = new Date().toISOString();
-      patch.delete_eligible_at = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString();
+      patch.archive_after = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString();
+      patch.delete_eligible_at = patch.archive_after;
+      patch.last_action_at = patch.updated_at;
+    }
+
+    if (["cancelled", "rejected", "failed"].includes(nextStatus)) {
+      patch.cancelled_at = patch.updated_at;
+      patch.last_action_at = patch.updated_at;
     }
 
     const { data, error } = await supabase
@@ -220,23 +289,7 @@ export async function updateSwapStatus(id, status) {
       await markListingsCompletedForSwap(listingIds, id);
     }
 
-    if (["accepted", "rejected", "cancelled", "completed"].includes(nextStatus)) {
-      const recipientId =
-        nextStatus === "cancelled" ? updatedSwap.owner_id : updatedSwap.requester_id;
-      const actorId =
-        nextStatus === "cancelled" ? updatedSwap.requester_id : updatedSwap.owner_id;
-
-      await notifySwapStatus({
-        userId: recipientId,
-        actorId,
-        status: nextStatus,
-        itemTitle:
-          nextStatus === "cancelled"
-            ? updatedSwap.owner_item?.title
-            : updatedSwap.requester_item?.title || updatedSwap.owner_item?.title,
-        swapId: updatedSwap.id,
-      });
-    }
+    await notifyForStatus(updatedSwap, nextStatus);
 
     return { success: true, data: updatedSwap };
   } catch (error) {
@@ -246,10 +299,23 @@ export async function updateSwapStatus(id, status) {
 
 export async function deleteCompletedSwapItems(id) {
   try {
+    const actorId = await getCurrentUserId();
+
+    try {
+      const archivedSwap = await runSwapRpc("archive_completed_swap_items", {
+        p_swap_id: id,
+        p_actor_id: actorId,
+      });
+
+      return { success: true, data: archivedSwap };
+    } catch (rpcError) {
+      if (!isMissingRpc(rpcError)) throw rpcError;
+    }
+
     const swap = await getSwapById(id);
 
     if (swap.status !== "completed") {
-      throw new Error("Only completed swap items can be deleted");
+      throw new Error("Only completed swap items can be archived");
     }
 
     const listingIds = swapListingIds(swap);
@@ -261,6 +327,7 @@ export async function deleteCompletedSwapItems(id) {
       .from("swaps")
       .update({
         items_deleted_at: new Date().toISOString(),
+        archived_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
       .eq("id", id)
@@ -271,8 +338,34 @@ export async function deleteCompletedSwapItems(id) {
 
     return { success: true, data: formatSwap(data) };
   } catch (error) {
-    return { success: false, error: error.message || "Unable to delete completed items" };
+    return { success: false, error: error.message || "Unable to archive completed items" };
   }
+}
+
+async function notifyForStatus(updatedSwap, nextStatus) {
+  if (!["accepted", "rejected", "cancelled", "completed", "failed"].includes(nextStatus)) {
+    return;
+  }
+
+  const actorId = await getCurrentUserId();
+  const fallbackActor =
+    nextStatus === "cancelled" ? updatedSwap.requester_id : updatedSwap.owner_id;
+  const finalActorId = actorId || fallbackActor;
+  const recipientId =
+    String(finalActorId) === String(updatedSwap.requester_id)
+      ? updatedSwap.owner_id
+      : updatedSwap.requester_id;
+
+  await notifySwapStatus({
+    userId: recipientId,
+    actorId: finalActorId,
+    status: nextStatus,
+    itemTitle:
+      String(recipientId) === String(updatedSwap.owner_id)
+        ? updatedSwap.owner_item?.title
+        : updatedSwap.requester_item?.title || updatedSwap.owner_item?.title,
+    swapId: updatedSwap.id,
+  });
 }
 
 export const acceptSwap = (id) => updateSwapStatus(id, "accepted");

@@ -42,7 +42,14 @@ export default function ProductCard({ item }) {
   const hasVideo = Boolean(item?.video);
   const currentImage = images[activeImage] || "/icons.svg";
   const availableForSwap = item?.is_available_for_swap !== false;
-  const availabilityLabel = item?.swap_status === "completed" ? "Swapped" : item?.swap_status === "locked" ? "Reserved" : "Swap Ready";
+  const availabilityLabel =
+    item?.swap_status === "swapped" || item?.swap_status === "completed"
+      ? "Swapped"
+      : item?.swap_status === "reserved" || item?.swap_status === "locked"
+      ? "Reserved"
+      : item?.swap_status === "archived"
+      ? "Archived"
+      : "Swap Ready";
 
   useEffect(() => {
     if (hasVideo || images.length <= 1) return;

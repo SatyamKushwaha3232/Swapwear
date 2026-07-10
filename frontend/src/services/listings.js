@@ -2,9 +2,13 @@ import { supabase } from "../lib/supabase";
 
 export const LISTING_SWAP_STATUS = {
   AVAILABLE: "available",
+  RESERVED: "reserved",
   LOCKED: "locked",
+  SWAPPED: "swapped",
   COMPLETED: "completed",
+  ARCHIVED: "archived",
   REMOVED: "removed",
+  BLOCKED: "blocked",
 };
 
 function isMissingSwapColumns(error) {
@@ -12,7 +16,10 @@ function isMissingSwapColumns(error) {
   return (
     message.includes("swap_status") ||
     message.includes("active_swap_id") ||
+    message.includes("archive_after") ||
+    message.includes("archived_at") ||
     message.includes("delete_eligible_at") ||
+    message.includes("is_public") ||
     message.includes("schema cache")
   );
 }
@@ -25,7 +32,13 @@ function formatListing(item = {}) {
       ? [item.image]
       : [];
 
-  const swapStatus = item.swap_status || LISTING_SWAP_STATUS.AVAILABLE;
+  const rawSwapStatus = item.swap_status || LISTING_SWAP_STATUS.AVAILABLE;
+  const swapStatus =
+    rawSwapStatus === LISTING_SWAP_STATUS.LOCKED
+      ? LISTING_SWAP_STATUS.RESERVED
+      : rawSwapStatus === LISTING_SWAP_STATUS.COMPLETED
+      ? LISTING_SWAP_STATUS.SWAPPED
+      : rawSwapStatus;
 
   return {
     id: item.id,
@@ -50,8 +63,12 @@ function formatListing(item = {}) {
     swap_status: swapStatus,
     active_swap_id: item.active_swap_id || null,
     swap_completed_at: item.swap_completed_at || null,
+    archive_after: item.archive_after || item.delete_eligible_at || null,
+    archived_at: item.archived_at || null,
     delete_eligible_at: item.delete_eligible_at || null,
-    is_available_for_swap: swapStatus === LISTING_SWAP_STATUS.AVAILABLE,
+    is_public: item.is_public !== false,
+    is_available_for_swap:
+      swapStatus === LISTING_SWAP_STATUS.AVAILABLE && item.is_public !== false,
   };
 }
 
@@ -71,10 +88,22 @@ async function runLegacyListingQuery(userId = null) {
 
 export async function cleanupExpiredCompletedListings() {
   try {
+    const rpc = await supabase.rpc("auto_archive_completed_listings");
+
+    if (!rpc.error) return { success: true, data: rpc.data };
+
+    if (!isMissingSwapColumns(rpc.error) && rpc.error.code !== "42883") {
+      throw rpc.error;
+    }
+
     const { error } = await supabase
       .from("listings")
-      .delete()
-      .eq("swap_status", LISTING_SWAP_STATUS.COMPLETED)
+      .update({
+        swap_status: LISTING_SWAP_STATUS.ARCHIVED,
+        is_public: false,
+        archived_at: new Date().toISOString(),
+      })
+      .in("swap_status", [LISTING_SWAP_STATUS.SWAPPED, LISTING_SWAP_STATUS.COMPLETED])
       .lte("delete_eligible_at", new Date().toISOString());
 
     if (error) throw error;
@@ -101,7 +130,9 @@ export async function getListings(userId = null, options = {}) {
     }
 
     if (options.onlyAvailable !== false) {
-      query = query.or("swap_status.is.null,swap_status.eq.available");
+      query = query
+        .or("swap_status.is.null,swap_status.eq.available")
+        .or("is_public.is.null,is_public.eq.true");
     }
 
     const { data, error } = await query;
@@ -181,9 +212,11 @@ export async function markListingsLockedForSwap(listingIds = [], swapId) {
     const { error } = await supabase
       .from("listings")
       .update({
-        swap_status: LISTING_SWAP_STATUS.LOCKED,
+        swap_status: LISTING_SWAP_STATUS.RESERVED,
         active_swap_id: swapId,
+        is_public: false,
         swap_completed_at: null,
+        archive_after: null,
         delete_eligible_at: null,
       })
       .in("id", cleanIds);
@@ -205,7 +238,9 @@ export async function releaseListingsFromSwap(listingIds = [], swapId) {
       .update({
         swap_status: LISTING_SWAP_STATUS.AVAILABLE,
         active_swap_id: null,
+        is_public: true,
         swap_completed_at: null,
+        archive_after: null,
         delete_eligible_at: null,
       })
       .in("id", cleanIds)
@@ -224,15 +259,17 @@ export async function markListingsCompletedForSwap(listingIds = [], swapId) {
     if (cleanIds.length === 0) return { success: true };
 
     const completedAt = new Date();
-    const deleteEligibleAt = new Date(completedAt.getTime() + 3 * 24 * 60 * 60 * 1000);
+    const archiveAfter = new Date(completedAt.getTime() + 3 * 24 * 60 * 60 * 1000);
 
     const { error } = await supabase
       .from("listings")
       .update({
-        swap_status: LISTING_SWAP_STATUS.COMPLETED,
+        swap_status: LISTING_SWAP_STATUS.SWAPPED,
         active_swap_id: swapId,
+        is_public: false,
         swap_completed_at: completedAt.toISOString(),
-        delete_eligible_at: deleteEligibleAt.toISOString(),
+        archive_after: archiveAfter.toISOString(),
+        delete_eligible_at: archiveAfter.toISOString(),
       })
       .in("id", cleanIds);
 
@@ -248,7 +285,14 @@ export async function deleteSwapListings(listingIds = []) {
     const cleanIds = listingIds.filter(Boolean);
     if (cleanIds.length === 0) return { success: true };
 
-    const { error } = await supabase.from("listings").delete().in("id", cleanIds);
+    const { error } = await supabase
+      .from("listings")
+      .update({
+        swap_status: LISTING_SWAP_STATUS.ARCHIVED,
+        is_public: false,
+        archived_at: new Date().toISOString(),
+      })
+      .in("id", cleanIds);
 
     if (error) throw error;
     return { success: true };
@@ -332,6 +376,7 @@ export async function createListing(data, imageFiles = [], videoFile = null) {
       likes: 0,
       swap_status: LISTING_SWAP_STATUS.AVAILABLE,
       active_swap_id: null,
+      is_public: true,
     };
 
     const { data: created, error } = await supabase
@@ -344,6 +389,7 @@ export async function createListing(data, imageFiles = [], videoFile = null) {
       if (isMissingSwapColumns(error)) {
         delete payload.swap_status;
         delete payload.active_swap_id;
+        delete payload.is_public;
 
         const fallback = await supabase
           .from("listings")

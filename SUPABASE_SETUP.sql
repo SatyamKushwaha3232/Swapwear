@@ -217,10 +217,17 @@ create table if not exists swaps (
   owner_item jsonb,
   status text default 'pending',
   message text default '',
+  delivery_method text,
   accepted_at timestamptz,
+  cancelled_at timestamptz,
+  expires_at timestamptz default (now() + interval '7 days'),
+  last_action_at timestamptz default now(),
   completed_at timestamptz,
+  archive_after timestamptz,
   delete_eligible_at timestamptz,
   items_deleted_at timestamptz,
+  archived_at timestamptz,
+  cancel_reason text,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
@@ -229,29 +236,139 @@ alter table swaps add column if not exists requester_item_id bigint;
 alter table swaps add column if not exists owner_item_id bigint;
 alter table swaps add column if not exists requester_item jsonb;
 alter table swaps add column if not exists owner_item jsonb;
+alter table swaps add column if not exists delivery_method text;
 alter table swaps add column if not exists accepted_at timestamptz;
+alter table swaps add column if not exists cancelled_at timestamptz;
+alter table swaps add column if not exists expires_at timestamptz default (now() + interval '7 days');
+alter table swaps add column if not exists last_action_at timestamptz default now();
 alter table swaps add column if not exists completed_at timestamptz;
+alter table swaps add column if not exists archive_after timestamptz;
 alter table swaps add column if not exists delete_eligible_at timestamptz;
 alter table swaps add column if not exists items_deleted_at timestamptz;
+alter table swaps add column if not exists archived_at timestamptz;
+alter table swaps add column if not exists cancel_reason text;
 alter table swaps add column if not exists updated_at timestamptz default now();
 
 alter table listings add column if not exists swap_status text default 'available';
 alter table listings add column if not exists active_swap_id bigint;
 alter table listings add column if not exists swap_completed_at timestamptz;
+alter table listings add column if not exists archive_after timestamptz;
+alter table listings add column if not exists archived_at timestamptz;
 alter table listings add column if not exists delete_eligible_at timestamptz;
+alter table listings add column if not exists is_public boolean default true;
 
 update listings
 set swap_status = 'available'
 where swap_status is null;
 
+update listings
+set swap_status = 'reserved'
+where swap_status = 'locked';
+
+update listings
+set swap_status = 'swapped'
+where swap_status = 'completed';
+
+update swaps
+set archive_after = coalesce(archive_after, delete_eligible_at)
+where archive_after is null
+  and delete_eligible_at is not null;
+
 create index if not exists listings_swap_status_idx on listings(swap_status);
 create index if not exists listings_active_swap_idx on listings(active_swap_id);
+create index if not exists listings_public_swap_status_idx on listings(is_public, swap_status);
+create index if not exists listings_archive_after_idx on listings(archive_after);
 create index if not exists swaps_requester_item_idx on swaps(requester_item_id);
 create index if not exists swaps_owner_item_idx on swaps(owner_item_id);
 create index if not exists swaps_status_idx on swaps(status);
+create index if not exists swaps_expires_at_idx on swaps(expires_at);
+create index if not exists swaps_archive_after_idx on swaps(archive_after);
+
+DO $$
+BEGIN
+  create unique index if not exists swaps_unique_active_pair_idx
+  on swaps(requester_item_id, owner_item_id)
+  where status in ('pending', 'accepted', 'shipped', 'delivered');
+EXCEPTION
+  WHEN unique_violation THEN
+    RAISE NOTICE 'Skipping swaps_unique_active_pair_idx because duplicate active swap pairs already exist.';
+END $$;
+
+create table if not exists swap_events (
+  id bigint generated always as identity primary key,
+  swap_id bigint references swaps(id) on delete cascade,
+  actor_id uuid,
+  event_type text not null,
+  metadata jsonb default '{}'::jsonb,
+  created_at timestamptz default now()
+);
+
+create table if not exists swap_confirmations (
+  id bigint generated always as identity primary key,
+  swap_id bigint references swaps(id) on delete cascade,
+  user_id uuid,
+  handover_confirmed_at timestamptz,
+  received_confirmed_at timestamptz,
+  proof_url text,
+  note text,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  unique (swap_id, user_id)
+);
+
+create table if not exists swap_disputes (
+  id bigint generated always as identity primary key,
+  swap_id bigint references swaps(id) on delete cascade,
+  opened_by uuid,
+  reason text,
+  status text default 'open',
+  resolution text,
+  created_at timestamptz default now(),
+  resolved_at timestamptz
+);
+
+create table if not exists reports (
+  id bigint generated always as identity primary key,
+  reporter_id uuid,
+  reported_user_id uuid,
+  listing_id bigint,
+  swap_id bigint,
+  report_type text default 'general',
+  reason text,
+  status text default 'open',
+  created_at timestamptz default now(),
+  resolved_at timestamptz
+);
+
+create table if not exists reviews (
+  id bigint generated always as identity primary key,
+  swap_id bigint references swaps(id) on delete set null,
+  reviewer_id uuid,
+  reviewee_id uuid,
+  rating integer,
+  comment text,
+  created_at timestamptz default now(),
+  unique (swap_id, reviewer_id)
+);
+
+create index if not exists swap_events_swap_created_idx on swap_events(swap_id, created_at);
+create index if not exists swap_confirmations_swap_idx on swap_confirmations(swap_id);
+create index if not exists swap_disputes_swap_idx on swap_disputes(swap_id);
+create index if not exists reports_status_idx on reports(status);
+create index if not exists reviews_reviewee_idx on reviews(reviewee_id);
 
 alter table swaps disable row level security;
+alter table swap_events disable row level security;
+alter table swap_confirmations disable row level security;
+alter table swap_disputes disable row level security;
+alter table reports disable row level security;
+alter table reviews disable row level security;
 grant all on table swaps to anon, authenticated;
+grant all on table swap_events to anon, authenticated;
+grant all on table swap_confirmations to anon, authenticated;
+grant all on table swap_disputes to anon, authenticated;
+grant all on table reports to anon, authenticated;
+grant all on table reviews to anon, authenticated;
 
 DO $$
 BEGIN
@@ -259,6 +376,367 @@ BEGIN
 EXCEPTION
   WHEN undefined_table THEN NULL;
 END $$;
+
+DO $$
+BEGIN
+  GRANT USAGE, SELECT ON SEQUENCE swap_events_id_seq TO anon, authenticated;
+EXCEPTION
+  WHEN undefined_table THEN NULL;
+END $$;
+
+DO $$
+BEGIN
+  GRANT USAGE, SELECT ON SEQUENCE swap_confirmations_id_seq TO anon, authenticated;
+EXCEPTION
+  WHEN undefined_table THEN NULL;
+END $$;
+
+DO $$
+BEGIN
+  GRANT USAGE, SELECT ON SEQUENCE swap_disputes_id_seq TO anon, authenticated;
+EXCEPTION
+  WHEN undefined_table THEN NULL;
+END $$;
+
+DO $$
+BEGIN
+  GRANT USAGE, SELECT ON SEQUENCE reports_id_seq TO anon, authenticated;
+EXCEPTION
+  WHEN undefined_table THEN NULL;
+END $$;
+
+DO $$
+BEGIN
+  GRANT USAGE, SELECT ON SEQUENCE reviews_id_seq TO anon, authenticated;
+EXCEPTION
+  WHEN undefined_table THEN NULL;
+END $$;
+
+create or replace function expire_old_swap_requests()
+returns integer
+language plpgsql
+security definer
+as $$
+declare
+  affected_count integer;
+begin
+  update swaps
+  set status = 'expired',
+      updated_at = now(),
+      last_action_at = now()
+  where status = 'pending'
+    and expires_at is not null
+    and expires_at <= now();
+
+  get diagnostics affected_count = row_count;
+  return affected_count;
+end;
+$$;
+
+create or replace function accept_swap_request(p_swap_id bigint, p_actor_id uuid default auth.uid())
+returns swaps
+language plpgsql
+security definer
+as $$
+declare
+  target_swap swaps;
+  requester_listing listings;
+  owner_listing listings;
+begin
+  perform expire_old_swap_requests();
+
+  select * into target_swap
+  from swaps
+  where id = p_swap_id
+  for update;
+
+  if not found then
+    raise exception 'Swap request not found';
+  end if;
+
+  if target_swap.status <> 'pending' then
+    raise exception 'Only pending swap requests can be accepted';
+  end if;
+
+  if p_actor_id is not null and target_swap.owner_id <> p_actor_id then
+    raise exception 'Only the item owner can accept this swap';
+  end if;
+
+  select * into requester_listing
+  from listings
+  where id = target_swap.requester_item_id
+  for update;
+
+  select * into owner_listing
+  from listings
+  where id = target_swap.owner_item_id
+  for update;
+
+  if requester_listing.id is null or owner_listing.id is null then
+    raise exception 'One of these swap items no longer exists';
+  end if;
+
+  if requester_listing.user_id <> target_swap.requester_id then
+    raise exception 'Requester item owner mismatch';
+  end if;
+
+  if owner_listing.user_id <> target_swap.owner_id then
+    raise exception 'Requested item owner mismatch';
+  end if;
+
+  if coalesce(requester_listing.swap_status, 'available') <> 'available'
+    or coalesce(owner_listing.swap_status, 'available') <> 'available' then
+    raise exception 'One of these items is already reserved or swapped';
+  end if;
+
+  update swaps
+  set status = 'accepted',
+      accepted_at = now(),
+      updated_at = now(),
+      last_action_at = now()
+  where id = target_swap.id
+  returning * into target_swap;
+
+  update listings
+  set swap_status = 'reserved',
+      active_swap_id = target_swap.id,
+      is_public = false,
+      swap_completed_at = null,
+      archive_after = null,
+      delete_eligible_at = null
+  where id in (target_swap.requester_item_id, target_swap.owner_item_id);
+
+  update swaps
+  set status = 'expired',
+      updated_at = now(),
+      last_action_at = now()
+  where id <> target_swap.id
+    and status = 'pending'
+    and (
+      requester_item_id in (target_swap.requester_item_id, target_swap.owner_item_id)
+      or owner_item_id in (target_swap.requester_item_id, target_swap.owner_item_id)
+    );
+
+  insert into swap_confirmations (swap_id, user_id)
+  values (target_swap.id, target_swap.requester_id), (target_swap.id, target_swap.owner_id)
+  on conflict (swap_id, user_id) do nothing;
+
+  insert into swap_events (swap_id, actor_id, event_type, metadata)
+  values (
+    target_swap.id,
+    p_actor_id,
+    'request_accepted',
+    jsonb_build_object('locked_listing_ids', jsonb_build_array(target_swap.requester_item_id, target_swap.owner_item_id))
+  );
+
+  return target_swap;
+end;
+$$;
+
+create or replace function cancel_swap_request(
+  p_swap_id bigint,
+  p_actor_id uuid default auth.uid(),
+  p_next_status text default 'cancelled',
+  p_reason text default null
+)
+returns swaps
+language plpgsql
+security definer
+as $$
+declare
+  target_swap swaps;
+  clean_status text := lower(coalesce(p_next_status, 'cancelled'));
+begin
+  select * into target_swap
+  from swaps
+  where id = p_swap_id
+  for update;
+
+  if not found then
+    raise exception 'Swap request not found';
+  end if;
+
+  if p_actor_id is not null
+    and p_actor_id not in (target_swap.requester_id, target_swap.owner_id) then
+    raise exception 'Only swap participants can update this swap';
+  end if;
+
+  if clean_status not in ('cancelled', 'rejected', 'failed') then
+    raise exception 'Invalid cancellation status';
+  end if;
+
+  if target_swap.status not in ('pending', 'accepted') then
+    raise exception 'This swap can no longer be cancelled';
+  end if;
+
+  update swaps
+  set status = clean_status,
+      cancelled_at = now(),
+      cancel_reason = p_reason,
+      updated_at = now(),
+      last_action_at = now()
+  where id = target_swap.id
+  returning * into target_swap;
+
+  update listings
+  set swap_status = 'available',
+      active_swap_id = null,
+      is_public = true,
+      swap_completed_at = null,
+      archive_after = null,
+      delete_eligible_at = null
+  where active_swap_id = target_swap.id
+    and swap_status = 'reserved';
+
+  insert into swap_events (swap_id, actor_id, event_type, metadata)
+  values (
+    target_swap.id,
+    p_actor_id,
+    clean_status,
+    jsonb_build_object('reason', p_reason)
+  );
+
+  return target_swap;
+end;
+$$;
+
+create or replace function complete_swap_request(p_swap_id bigint, p_actor_id uuid default auth.uid())
+returns swaps
+language plpgsql
+security definer
+as $$
+declare
+  target_swap swaps;
+  archive_time timestamptz := now() + interval '3 days';
+begin
+  select * into target_swap
+  from swaps
+  where id = p_swap_id
+  for update;
+
+  if not found then
+    raise exception 'Swap request not found';
+  end if;
+
+  if p_actor_id is not null
+    and p_actor_id not in (target_swap.requester_id, target_swap.owner_id) then
+    raise exception 'Only swap participants can complete this swap';
+  end if;
+
+  if target_swap.status <> 'accepted' then
+    raise exception 'Only accepted swaps can be completed';
+  end if;
+
+  update swaps
+  set status = 'completed',
+      completed_at = now(),
+      archive_after = archive_time,
+      delete_eligible_at = archive_time,
+      updated_at = now(),
+      last_action_at = now()
+  where id = target_swap.id
+  returning * into target_swap;
+
+  update listings
+  set swap_status = 'swapped',
+      active_swap_id = target_swap.id,
+      is_public = false,
+      swap_completed_at = now(),
+      archive_after = archive_time,
+      delete_eligible_at = archive_time
+  where id in (target_swap.requester_item_id, target_swap.owner_item_id)
+    and active_swap_id = target_swap.id;
+
+  insert into swap_events (swap_id, actor_id, event_type, metadata)
+  values (
+    target_swap.id,
+    p_actor_id,
+    'swap_completed',
+    jsonb_build_object('archive_after', archive_time)
+  );
+
+  return target_swap;
+end;
+$$;
+
+create or replace function archive_completed_swap_items(p_swap_id bigint, p_actor_id uuid default auth.uid())
+returns swaps
+language plpgsql
+security definer
+as $$
+declare
+  target_swap swaps;
+begin
+  select * into target_swap
+  from swaps
+  where id = p_swap_id
+  for update;
+
+  if not found then
+    raise exception 'Swap request not found';
+  end if;
+
+  if p_actor_id is not null
+    and p_actor_id not in (target_swap.requester_id, target_swap.owner_id) then
+    raise exception 'Only swap participants can archive this swap';
+  end if;
+
+  if target_swap.status <> 'completed' then
+    raise exception 'Only completed swap items can be archived';
+  end if;
+
+  update listings
+  set swap_status = 'archived',
+      is_public = false,
+      archived_at = now()
+  where id in (target_swap.requester_item_id, target_swap.owner_item_id)
+    and active_swap_id = target_swap.id;
+
+  update swaps
+  set archived_at = now(),
+      items_deleted_at = now(),
+      updated_at = now(),
+      last_action_at = now()
+  where id = target_swap.id
+  returning * into target_swap;
+
+  insert into swap_events (swap_id, actor_id, event_type)
+  values (target_swap.id, p_actor_id, 'items_archived');
+
+  return target_swap;
+end;
+$$;
+
+create or replace function auto_archive_completed_listings()
+returns integer
+language plpgsql
+security definer
+as $$
+declare
+  affected_count integer;
+begin
+  update listings
+  set swap_status = 'archived',
+      is_public = false,
+      archived_at = coalesce(archived_at, now())
+  where swap_status = 'swapped'
+    and archive_after is not null
+    and archive_after <= now();
+
+  get diagnostics affected_count = row_count;
+
+  update swaps
+  set archived_at = coalesce(archived_at, now()),
+      items_deleted_at = coalesce(items_deleted_at, now()),
+      updated_at = now()
+  where status = 'completed'
+    and archive_after is not null
+    and archive_after <= now()
+    and archived_at is null;
+
+  return affected_count;
+end;
+$$;
 
 -- Notifications module
 create table if not exists notifications (

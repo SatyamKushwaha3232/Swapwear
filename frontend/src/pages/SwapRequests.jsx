@@ -25,7 +25,7 @@ import {
 } from "../services/swaps";
 import { getOrCreateConversation } from "../services/chat";
 
-const tabs = ["all", "incoming", "outgoing", "pending", "accepted", "completed"];
+const tabs = ["all", "incoming", "outgoing", "pending", "accepted", "completed", "expired"];
 
 export default function SwapRequests() {
   const { user } = useAuth();
@@ -143,12 +143,22 @@ export default function SwapRequests() {
     onTabChange: setTab,
     onQueryChange: setQuery,
     onOpenChat: handleOpenChat,
-    onAccept: (swap) => handleAction(swap.id, acceptSwap, "Swap accepted"),
+    onAccept: (swap) => {
+      const ok = window.confirm(
+        "Accepting this swap will reserve both products and expire other pending requests for these items."
+      );
+      if (ok) handleAction(swap.id, acceptSwap, "Swap accepted");
+    },
     onReject: (swap) => handleAction(swap.id, rejectSwap, "Swap rejected"),
     onCancel: (swap) => handleAction(swap.id, cancelSwap, "Swap cancelled"),
-    onComplete: (swap) => handleAction(swap.id, completeSwap, "Swap completed"),
+    onComplete: (swap) => {
+      const ok = window.confirm(
+        "Complete this swap only after both users have received their items. The listings will be hidden and archived after 3 days."
+      );
+      if (ok) handleAction(swap.id, completeSwap, "Swap completed");
+    },
     onDeleteCompletedItems: (swap) =>
-      handleAction(swap.id, deleteCompletedSwapItems, "Completed swap items deleted"),
+      handleAction(swap.id, deleteCompletedSwapItems, "Completed swap items archived"),
   };
 
   if (isDesktop) return <SwapDesktop {...commonProps} />;
@@ -246,7 +256,7 @@ function SwapHero({ stats, compact }) {
             Swap requests, under control.
           </h1>
           <p className="mt-4 max-w-2xl font-semibold leading-relaxed text-white/68">
-            Review offers, open chats after acceptance, and complete successful exchanges.
+            Review offers, lock products safely, chat after acceptance, and keep completed swaps archived for history.
           </p>
         </div>
 
@@ -445,13 +455,13 @@ function SwapActions({
 
         {status === "completed" && !itemsDeleted && (
           <ActionButton variant="danger" disabled={updating} onClick={onDeleteCompletedItems}>
-            Delete Swapped Items
+            Archive Swapped Items
           </ActionButton>
         )}
 
         {status === "completed" && itemsDeleted && (
           <div className="rounded-[20px] bg-slate-50 px-4 py-3 text-center text-sm font-black text-slate-500">
-            Items deleted
+            Items archived
           </div>
         )}
 
@@ -523,6 +533,9 @@ function StatusBadge({ status }) {
     rejected: ["Rejected", XCircle, "bg-red-50 text-red-700"],
     cancelled: ["Cancelled", RotateCcw, "bg-slate-100 text-slate-700"],
     completed: ["Completed", CheckCircle2, "bg-pink-50 text-pink-600"],
+    expired: ["Expired", Clock3, "bg-slate-100 text-slate-700"],
+    failed: ["Failed", XCircle, "bg-red-50 text-red-700"],
+    disputed: ["Disputed", ShieldCheck, "bg-violet-50 text-violet-700"],
   };
   const [label, Icon, cls] = map[status] || map.pending;
 
