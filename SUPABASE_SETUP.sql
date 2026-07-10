@@ -221,6 +221,8 @@ EXCEPTION
 END $$;
 
 -- Swap lifecycle / product availability mechanism
+create extension if not exists pgcrypto;
+
 create table if not exists swaps (
   id uuid primary key default gen_random_uuid(),
   requester_id uuid,
@@ -264,6 +266,7 @@ alter table swaps add column if not exists items_deleted_at timestamptz;
 alter table swaps add column if not exists archived_at timestamptz;
 alter table swaps add column if not exists cancel_reason text;
 alter table swaps add column if not exists updated_at timestamptz default now();
+alter table swaps alter column id set default gen_random_uuid();
 
 alter table listings add column if not exists swap_status text default 'available';
 alter table listings add column if not exists active_swap_id uuid;
