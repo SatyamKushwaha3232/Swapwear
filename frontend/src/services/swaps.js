@@ -53,6 +53,7 @@ function formatSwap(item = {}) {
     items_deleted_at: item.items_deleted_at || null,
     archived_at: item.archived_at || null,
     cancel_reason: item.cancel_reason || "",
+    confirmations: item.confirmations || item.swap_confirmations || [],
     created_at: item.created_at,
     updated_at: item.updated_at,
   };
@@ -242,9 +243,82 @@ export async function getMySwaps(userId) {
 
     if (error) throw error;
 
-    return { success: true, data: (data || []).map(formatSwap) };
+    const swaps = (data || []).map(formatSwap);
+    const ids = swaps.map((swap) => swap.id).filter(Boolean);
+
+    if (ids.length === 0) return { success: true, data: swaps };
+
+    const { data: confirmations, error: confirmationError } = await supabase
+      .from("swap_confirmations")
+      .select("*")
+      .in("swap_id", ids);
+
+    if (confirmationError && confirmationError.code !== "42P01") {
+      throw confirmationError;
+    }
+
+    const confirmationsBySwap = (confirmations || []).reduce((acc, item) => {
+      acc[item.swap_id] = acc[item.swap_id] || [];
+      acc[item.swap_id].push(item);
+      return acc;
+    }, {});
+
+    return {
+      success: true,
+      data: swaps.map((swap) => ({
+        ...swap,
+        confirmations: confirmationsBySwap[swap.id] || [],
+      })),
+    };
   } catch (error) {
     return { success: false, error: error.message || "Unable to fetch swaps", data: [] };
+  }
+}
+
+export async function setSwapDeliveryMethod(id, method) {
+  try {
+    const actorId = await getCurrentUserId();
+    const updatedSwap = await runSwapRpc("set_swap_delivery_method", {
+      p_swap_id: id,
+      p_actor_id: actorId,
+      p_delivery_method: method,
+    });
+
+    return { success: true, data: updatedSwap };
+  } catch (error) {
+    return { success: false, error: error.message || "Unable to update delivery method" };
+  }
+}
+
+export async function confirmSwapHandover(id, note = "") {
+  try {
+    const actorId = await getCurrentUserId();
+    const updatedSwap = await runSwapRpc("confirm_swap_handover", {
+      p_swap_id: id,
+      p_actor_id: actorId,
+      p_note: note || null,
+    });
+
+    await notifyForStatus(updatedSwap, "shipped");
+    return { success: true, data: updatedSwap };
+  } catch (error) {
+    return { success: false, error: error.message || "Unable to confirm handover" };
+  }
+}
+
+export async function confirmSwapReceived(id, note = "") {
+  try {
+    const actorId = await getCurrentUserId();
+    const updatedSwap = await runSwapRpc("confirm_swap_received", {
+      p_swap_id: id,
+      p_actor_id: actorId,
+      p_note: note || null,
+    });
+
+    await notifyForStatus(updatedSwap, "delivered");
+    return { success: true, data: updatedSwap };
+  } catch (error) {
+    return { success: false, error: error.message || "Unable to confirm receipt" };
   }
 }
 
@@ -384,7 +458,7 @@ export async function deleteCompletedSwapItems(id) {
 }
 
 async function notifyForStatus(updatedSwap, nextStatus) {
-  if (!["accepted", "rejected", "cancelled", "completed", "failed"].includes(nextStatus)) {
+  if (!["accepted", "rejected", "cancelled", "completed", "failed", "shipped", "delivered"].includes(nextStatus)) {
     return;
   }
 

@@ -18,14 +18,28 @@ import useDevice from "../hooks/useDevice";
 import {
   acceptSwap,
   cancelSwap,
+  confirmSwapHandover,
+  confirmSwapReceived,
   completeSwap,
   deleteCompletedSwapItems,
   getMySwaps,
   rejectSwap,
+  setSwapDeliveryMethod,
 } from "../services/swaps";
 import { getOrCreateConversation } from "../services/chat";
 
-const tabs = ["all", "incoming", "outgoing", "pending", "accepted", "completed", "expired"];
+const tabs = [
+  "all",
+  "incoming",
+  "outgoing",
+  "pending",
+  "accepted",
+  "shipped",
+  "delivered",
+  "completed",
+  "expired",
+  "cancelled",
+];
 
 export default function SwapRequests() {
   const { user } = useAuth();
@@ -96,6 +110,8 @@ export default function SwapRequests() {
       outgoing: swaps.filter((s) => String(s.requester_id) === String(user?.id)).length,
       pending: swaps.filter((s) => normalizeStatus(s.status) === "pending").length,
       accepted: swaps.filter((s) => normalizeStatus(s.status) === "accepted").length,
+      shipped: swaps.filter((s) => normalizeStatus(s.status) === "shipped").length,
+      delivered: swaps.filter((s) => normalizeStatus(s.status) === "delivered").length,
       completed: swaps.filter((s) => normalizeStatus(s.status) === "completed").length,
     };
   }, [swaps, user?.id]);
@@ -150,6 +166,21 @@ export default function SwapRequests() {
       if (ok) handleAction(swap.id, acceptSwap, "Swap accepted");
     },
     onReject: (swap) => handleAction(swap.id, rejectSwap, "Swap rejected"),
+    onSetDeliveryMethod: (swap, method) =>
+      handleAction(
+        swap.id,
+        (id) => setSwapDeliveryMethod(id, method),
+        method === "courier" ? "Courier selected" : "Local meetup selected"
+      ),
+    onConfirmHandover: (swap) => {
+      const method = swap.delivery_method === "courier" ? "shipping" : "handover";
+      const ok = window.confirm(`Confirm that you have completed your ${method} side?`);
+      if (ok) handleAction(swap.id, confirmSwapHandover, "Your handover is confirmed");
+    },
+    onConfirmReceived: (swap) => {
+      const ok = window.confirm("Confirm that you received the other user's item?");
+      if (ok) handleAction(swap.id, confirmSwapReceived, "Receipt confirmed");
+    },
     onCancel: (swap) => {
       const status = normalizeStatus(swap.status);
       const ok =
@@ -173,7 +204,7 @@ export default function SwapRequests() {
     },
     onComplete: (swap) => {
       const ok = window.confirm(
-        "Complete this swap only after both users have received their items. The listings will be hidden and archived after 3 days."
+        "Complete this swap? This is allowed only after both users confirmed receipt. The listings will stay hidden and archive after 3 days."
       );
       if (ok) handleAction(swap.id, completeSwap, "Swap completed");
     },
@@ -283,7 +314,7 @@ function SwapHero({ stats, compact }) {
         <div className="relative grid min-w-[280px] grid-cols-2 gap-3">
           <Stat label="Total" value={stats.total} />
           <Stat label="Pending" value={stats.pending} />
-          <Stat label="Accepted" value={stats.accepted} />
+          <Stat label="Active" value={stats.accepted + stats.shipped + stats.delivered} />
           <Stat label="Completed" value={stats.completed} />
         </div>
       </div>
@@ -371,6 +402,9 @@ function SwapCard(props) {
     onCancel,
     onComplete,
     onDeleteCompletedItems,
+    onSetDeliveryMethod,
+    onConfirmHandover,
+    onConfirmReceived,
     compact,
     mobile,
   } = props;
@@ -379,6 +413,8 @@ function SwapCard(props) {
   const isRequester = String(swap.requester_id) === String(userId);
   const status = normalizeStatus(swap.status);
   const updating = updatingId === swap.id;
+  const myConfirmation = getUserConfirmation(swap, userId);
+  const confirmationSummary = getConfirmationSummary(swap);
 
   return (
     <article className="premium-card interactive-lift overflow-hidden rounded-[30px]">
@@ -412,6 +448,13 @@ function SwapCard(props) {
           )}
 
           {!mobile && <SwapTimeline status={status} />}
+          {["accepted", "shipped", "delivered"].includes(status) && (
+            <SwapProgressPanel
+              swap={swap}
+              myConfirmation={myConfirmation}
+              confirmationSummary={confirmationSummary}
+            />
+          )}
         </div>
 
         <SwapActions
@@ -425,7 +468,13 @@ function SwapCard(props) {
           onCancel={() => onCancel(swap)}
           onComplete={() => onComplete(swap)}
           onDeleteCompletedItems={() => onDeleteCompletedItems(swap)}
+          onSetDeliveryMethod={(method) => onSetDeliveryMethod(swap, method)}
+          onConfirmHandover={() => onConfirmHandover(swap)}
+          onConfirmReceived={() => onConfirmReceived(swap)}
           itemsDeleted={Boolean(swap.items_deleted_at)}
+          deliveryMethod={swap.delivery_method}
+          myConfirmation={myConfirmation}
+          confirmationSummary={confirmationSummary}
         />
       </div>
     </article>
@@ -444,7 +493,17 @@ function SwapActions({
   onCancel,
   onComplete,
   onDeleteCompletedItems,
+  onSetDeliveryMethod,
+  onConfirmHandover,
+  onConfirmReceived,
+  deliveryMethod,
+  myConfirmation,
+  confirmationSummary,
 }) {
+  const handoverDone = Boolean(myConfirmation?.handover_confirmed_at);
+  const receivedDone = Boolean(myConfirmation?.received_confirmed_at);
+  const bothReceived = confirmationSummary.received >= 2;
+
   return (
     <div className="w-full shrink-0 xl:w-[230px]">
       <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
@@ -459,7 +518,7 @@ function SwapActions({
           <ActionButton variant="danger" disabled={updating} onClick={onCancel}>Cancel Request</ActionButton>
         )}
 
-        {status === "accepted" && (
+        {["accepted", "shipped", "delivered"].includes(status) && (
           <>
             <button
               type="button"
@@ -469,7 +528,29 @@ function SwapActions({
               <MessageCircle size={17} />
               Open Chat
             </button>
-            <ActionButton disabled={updating} onClick={onComplete}>Mark Completed</ActionButton>
+            {!deliveryMethod && (
+              <>
+                <ActionButton disabled={updating} onClick={() => onSetDeliveryMethod("local")}>
+                  Local Meetup
+                </ActionButton>
+                <ActionButton disabled={updating} onClick={() => onSetDeliveryMethod("courier")}>
+                  Courier
+                </ActionButton>
+              </>
+            )}
+            {deliveryMethod && !handoverDone && (
+              <ActionButton disabled={updating} onClick={onConfirmHandover}>
+                {deliveryMethod === "courier" ? "I Shipped It" : "I Handed Over"}
+              </ActionButton>
+            )}
+            {deliveryMethod && !receivedDone && (
+              <ActionButton disabled={updating} onClick={onConfirmReceived}>
+                I Received Item
+              </ActionButton>
+            )}
+            {status === "delivered" && bothReceived && (
+              <ActionButton disabled={updating} onClick={onComplete}>Mark Completed</ActionButton>
+            )}
             <ActionButton variant="danger" disabled={updating} onClick={onCancel}>Cancel Swap</ActionButton>
           </>
         )}
@@ -491,7 +572,7 @@ function SwapActions({
           </>
         )}
 
-        {!["pending", "accepted", "completed"].includes(status) && (
+        {!["pending", "accepted", "shipped", "delivered", "completed"].includes(status) && (
           <div className="rounded-[20px] bg-slate-50 px-4 py-3 text-center text-sm font-black text-slate-500">
             No action needed
           </div>
@@ -532,13 +613,22 @@ function SwapTimeline({ status }) {
   const steps = [
     { key: "pending", label: "Requested" },
     { key: "accepted", label: "Accepted" },
+    { key: "shipped", label: "Handover" },
+    { key: "delivered", label: "Received" },
     { key: "completed", label: "Completed" },
   ];
-  const activeIndex = status === "completed" ? 2 : status === "accepted" ? 1 : status === "pending" ? 0 : -1;
+  const activeIndexMap = {
+    pending: 0,
+    accepted: 1,
+    shipped: 2,
+    delivered: 3,
+    completed: 4,
+  };
+  const activeIndex = activeIndexMap[status] ?? -1;
 
   return (
     <div className="mt-5 rounded-[24px] border border-white/80 bg-white/72 p-4 shadow-sm">
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-5 gap-3">
         {steps.map((step, index) => (
           <div key={step.key} className="min-w-0 text-center">
             <div className={`mx-auto flex h-9 w-9 items-center justify-center rounded-full ${index <= activeIndex ? "bg-pink-500 text-white" : "bg-slate-100 text-slate-400"}`}>
@@ -556,6 +646,8 @@ function StatusBadge({ status }) {
   const map = {
     pending: ["Pending", Clock3, "bg-yellow-50 text-yellow-700"],
     accepted: ["Accepted", CheckCircle2, "bg-emerald-50 text-emerald-700"],
+    shipped: ["In Transit", Repeat2, "bg-blue-50 text-blue-700"],
+    delivered: ["Delivered", ShieldCheck, "bg-violet-50 text-violet-700"],
     rejected: ["Rejected", XCircle, "bg-red-50 text-red-700"],
     cancelled: ["Cancelled", RotateCcw, "bg-slate-100 text-slate-700"],
     completed: ["Completed", CheckCircle2, "bg-pink-50 text-pink-600"],
@@ -571,6 +663,53 @@ function StatusBadge({ status }) {
       {label}
     </div>
   );
+}
+
+function SwapProgressPanel({ swap, myConfirmation, confirmationSummary }) {
+  const method = swap.delivery_method
+    ? swap.delivery_method === "courier"
+      ? "Courier"
+      : swap.delivery_method === "local"
+      ? "Local meetup"
+      : "Other"
+    : "Not selected";
+
+  return (
+    <div className="mt-5 grid gap-3 rounded-[24px] border border-white/80 bg-white/72 p-4 shadow-sm sm:grid-cols-3">
+      <ProgressPill label="Method" value={method} />
+      <ProgressPill
+        label="Your side"
+        value={`${myConfirmation?.handover_confirmed_at ? "Handed" : "Pending"} / ${
+          myConfirmation?.received_confirmed_at ? "Received" : "Waiting"
+        }`}
+      />
+      <ProgressPill
+        label="Both users"
+        value={`${confirmationSummary.handover}/2 handed, ${confirmationSummary.received}/2 received`}
+      />
+    </div>
+  );
+}
+
+function ProgressPill({ label, value }) {
+  return (
+    <div className="min-w-0 rounded-[18px] bg-pink-50/70 px-4 py-3">
+      <p className="truncate text-[11px] font-black uppercase tracking-widest text-pink-500">{label}</p>
+      <p className="mt-1 truncate text-sm font-black text-slate-700">{value}</p>
+    </div>
+  );
+}
+
+function getUserConfirmation(swap, userId) {
+  return (swap.confirmations || []).find((item) => String(item.user_id) === String(userId)) || null;
+}
+
+function getConfirmationSummary(swap) {
+  const confirmations = swap.confirmations || [];
+  return {
+    handover: confirmations.filter((item) => item.handover_confirmed_at).length,
+    received: confirmations.filter((item) => item.received_confirmed_at).length,
+  };
 }
 
 function ActionButton({ children, onClick, disabled, variant = "primary" }) {

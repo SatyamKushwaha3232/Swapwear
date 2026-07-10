@@ -640,7 +640,7 @@ begin
     raise exception 'Invalid cancellation status';
   end if;
 
-  if target_swap.status not in ('pending', 'accepted', 'completed') then
+  if target_swap.status not in ('pending', 'accepted', 'shipped', 'delivered', 'completed') then
     raise exception 'This swap can no longer be cancelled';
   end if;
 
@@ -704,6 +704,209 @@ begin
 end;
 $$;
 
+create or replace function set_swap_delivery_method(
+  p_swap_id uuid,
+  p_actor_id uuid default auth.uid(),
+  p_delivery_method text default 'local'
+)
+returns swaps
+language plpgsql
+security definer
+as $$
+declare
+  target_swap swaps;
+  clean_method text := lower(coalesce(p_delivery_method, 'local'));
+begin
+  select * into target_swap
+  from swaps
+  where id = p_swap_id
+  for update;
+
+  if not found then
+    raise exception 'Swap request not found';
+  end if;
+
+  if p_actor_id is not null
+    and p_actor_id not in (target_swap.requester_id, target_swap.owner_id) then
+    raise exception 'Only swap participants can update delivery';
+  end if;
+
+  if target_swap.status not in ('accepted', 'shipped', 'delivered') then
+    raise exception 'Delivery method can be set only after acceptance';
+  end if;
+
+  if clean_method not in ('local', 'courier', 'other') then
+    clean_method := 'other';
+  end if;
+
+  update swaps
+  set delivery_method = clean_method,
+      updated_at = now(),
+      last_action_at = now()
+  where id = target_swap.id
+  returning * into target_swap;
+
+  insert into swap_events (swap_id, actor_id, event_type, metadata)
+  values (
+    target_swap.id,
+    p_actor_id,
+    'delivery_method_set',
+    jsonb_build_object('delivery_method', clean_method)
+  );
+
+  return target_swap;
+end;
+$$;
+
+create or replace function confirm_swap_handover(
+  p_swap_id uuid,
+  p_actor_id uuid default auth.uid(),
+  p_proof_url text default null,
+  p_note text default null
+)
+returns swaps
+language plpgsql
+security definer
+as $$
+declare
+  target_swap swaps;
+begin
+  select * into target_swap
+  from swaps
+  where id = p_swap_id
+  for update;
+
+  if not found then
+    raise exception 'Swap request not found';
+  end if;
+
+  if p_actor_id is null
+    or p_actor_id not in (target_swap.requester_id, target_swap.owner_id) then
+    raise exception 'Only swap participants can confirm handover';
+  end if;
+
+  if target_swap.status not in ('accepted', 'shipped', 'delivered') then
+    raise exception 'Handover can be confirmed only after acceptance';
+  end if;
+
+  insert into swap_confirmations (
+    swap_id,
+    user_id,
+    handover_confirmed_at,
+    proof_url,
+    note,
+    updated_at
+  )
+  values (
+    target_swap.id,
+    p_actor_id,
+    now(),
+    p_proof_url,
+    p_note,
+    now()
+  )
+  on conflict (swap_id, user_id)
+  do update set
+    handover_confirmed_at = coalesce(swap_confirmations.handover_confirmed_at, excluded.handover_confirmed_at),
+    proof_url = coalesce(excluded.proof_url, swap_confirmations.proof_url),
+    note = coalesce(excluded.note, swap_confirmations.note),
+    updated_at = now();
+
+  update swaps
+  set status = case when status = 'accepted' then 'shipped' else status end,
+      updated_at = now(),
+      last_action_at = now()
+  where id = target_swap.id
+  returning * into target_swap;
+
+  insert into swap_events (swap_id, actor_id, event_type, metadata)
+  values (
+    target_swap.id,
+    p_actor_id,
+    'handover_confirmed',
+    jsonb_build_object('proof_url', p_proof_url, 'note', p_note)
+  );
+
+  return target_swap;
+end;
+$$;
+
+create or replace function confirm_swap_received(
+  p_swap_id uuid,
+  p_actor_id uuid default auth.uid(),
+  p_note text default null
+)
+returns swaps
+language plpgsql
+security definer
+as $$
+declare
+  target_swap swaps;
+  received_count integer;
+begin
+  select * into target_swap
+  from swaps
+  where id = p_swap_id
+  for update;
+
+  if not found then
+    raise exception 'Swap request not found';
+  end if;
+
+  if p_actor_id is null
+    or p_actor_id not in (target_swap.requester_id, target_swap.owner_id) then
+    raise exception 'Only swap participants can confirm receipt';
+  end if;
+
+  if target_swap.status not in ('accepted', 'shipped', 'delivered') then
+    raise exception 'Receipt can be confirmed only during an active swap';
+  end if;
+
+  insert into swap_confirmations (
+    swap_id,
+    user_id,
+    received_confirmed_at,
+    note,
+    updated_at
+  )
+  values (
+    target_swap.id,
+    p_actor_id,
+    now(),
+    p_note,
+    now()
+  )
+  on conflict (swap_id, user_id)
+  do update set
+    received_confirmed_at = coalesce(swap_confirmations.received_confirmed_at, excluded.received_confirmed_at),
+    note = coalesce(excluded.note, swap_confirmations.note),
+    updated_at = now();
+
+  select count(*) into received_count
+  from swap_confirmations
+  where swap_id = target_swap.id
+    and user_id in (target_swap.requester_id, target_swap.owner_id)
+    and received_confirmed_at is not null;
+
+  update swaps
+  set status = case when received_count >= 2 then 'delivered' else 'shipped' end,
+      updated_at = now(),
+      last_action_at = now()
+  where id = target_swap.id
+  returning * into target_swap;
+
+  insert into swap_events (swap_id, actor_id, event_type, metadata)
+  values (
+    target_swap.id,
+    p_actor_id,
+    'received_confirmed',
+    jsonb_build_object('received_count', received_count, 'note', p_note)
+  );
+
+  return target_swap;
+end;
+$$;
+
 create or replace function complete_swap_request(p_swap_id uuid, p_actor_id uuid default auth.uid())
 returns swaps
 language plpgsql
@@ -712,6 +915,7 @@ as $$
 declare
   target_swap swaps;
   archive_time timestamptz := now() + interval '3 days';
+  received_count integer;
 begin
   select * into target_swap
   from swaps
@@ -727,8 +931,18 @@ begin
     raise exception 'Only swap participants can complete this swap';
   end if;
 
-  if target_swap.status <> 'accepted' then
-    raise exception 'Only accepted swaps can be completed';
+  if target_swap.status not in ('delivered', 'completed') then
+    raise exception 'Swap can be completed only after both users confirm receipt';
+  end if;
+
+  select count(*) into received_count
+  from swap_confirmations
+  where swap_id = target_swap.id
+    and user_id in (target_swap.requester_id, target_swap.owner_id)
+    and received_confirmed_at is not null;
+
+  if received_count < 2 then
+    raise exception 'Both users must confirm receipt before completion';
   end if;
 
   update swaps
