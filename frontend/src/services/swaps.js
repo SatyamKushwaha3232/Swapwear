@@ -59,7 +59,7 @@ function formatSwap(item = {}) {
   };
 }
 
-async function getSwapById(id) {
+export async function getSwapById(id) {
   const { data, error } = await supabase
     .from("swaps")
     .select("*")
@@ -67,7 +67,21 @@ async function getSwapById(id) {
     .single();
 
   if (error) throw error;
-  return formatSwap(data);
+  const swap = formatSwap(data);
+
+  const { data: confirmations, error: confirmationError } = await supabase
+    .from("swap_confirmations")
+    .select("*")
+    .eq("swap_id", id);
+
+  if (confirmationError && confirmationError.code !== "42P01") {
+    throw confirmationError;
+  }
+
+  return {
+    ...swap,
+    confirmations: confirmations || [],
+  };
 }
 
 async function ensureListingsAvailable(listingIds = []) {

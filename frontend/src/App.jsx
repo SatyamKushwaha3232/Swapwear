@@ -14,6 +14,7 @@ import Signup from "./pages/Signup";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import SwapRequests from "./pages/SwapRequests";
+import SwapDealRoom from "./pages/SwapDealRoom";
 import Chat from "./pages/Chat";
 import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
@@ -92,6 +93,15 @@ export default function App() {
           element={
             <ProtectedRoute>
               <SwapRequests />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/swaps/:swapId"
+          element={
+            <ProtectedRoute>
+              <SwapDealRoom />
             </ProtectedRoute>
           }
         />

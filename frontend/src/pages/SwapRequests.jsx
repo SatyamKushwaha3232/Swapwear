@@ -158,6 +158,7 @@ export default function SwapRequests() {
     updatingId,
     onTabChange: setTab,
     onQueryChange: setQuery,
+    onOpenDeal: (swap) => navigate(`/swaps/${swap.id}`),
     onOpenChat: handleOpenChat,
     onAccept: (swap) => {
       const ok = window.confirm(
@@ -397,6 +398,7 @@ function SwapCard(props) {
     userId,
     updatingId,
     onOpenChat,
+    onOpenDeal,
     onAccept,
     onReject,
     onCancel,
@@ -463,6 +465,7 @@ function SwapCard(props) {
           isRequester={isRequester}
           updating={updating}
           onOpenChat={() => onOpenChat(swap)}
+          onOpenDeal={() => onOpenDeal(swap)}
           onAccept={() => onAccept(swap)}
           onReject={() => onReject(swap)}
           onCancel={() => onCancel(swap)}
@@ -488,6 +491,7 @@ function SwapActions({
   updating,
   itemsDeleted,
   onOpenChat,
+  onOpenDeal,
   onAccept,
   onReject,
   onCancel,
@@ -507,6 +511,15 @@ function SwapActions({
   return (
     <div className="w-full shrink-0 xl:w-[230px]">
       <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
+        <button
+          type="button"
+          onClick={onOpenDeal}
+          className="flex h-11 items-center justify-center gap-2 rounded-full bg-slate-950 font-black text-white transition hover:bg-slate-800"
+        >
+          <ShieldCheck size={17} />
+          Open Deal Room
+        </button>
+
         {status === "pending" && isOwner && (
           <>
             <ActionButton disabled={updating} onClick={onAccept}>Accept</ActionButton>
