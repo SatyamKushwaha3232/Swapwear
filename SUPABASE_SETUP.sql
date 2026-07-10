@@ -977,6 +977,71 @@ begin
 end;
 $$;
 
+create or replace function open_swap_dispute(
+  p_swap_id uuid,
+  p_actor_id uuid default auth.uid(),
+  p_reason text default 'Swap issue reported'
+)
+returns swaps
+language plpgsql
+security definer
+as $$
+declare
+  target_swap swaps;
+  clean_reason text := nullif(trim(coalesce(p_reason, '')), '');
+begin
+  select * into target_swap
+  from swaps
+  where id = p_swap_id
+  for update;
+
+  if not found then
+    raise exception 'Swap request not found';
+  end if;
+
+  if p_actor_id is null
+    or p_actor_id not in (target_swap.requester_id, target_swap.owner_id) then
+    raise exception 'Only swap participants can open a dispute';
+  end if;
+
+  if target_swap.status not in ('accepted', 'shipped', 'delivered', 'completed') then
+    raise exception 'A dispute can be opened only for an active or completed swap';
+  end if;
+
+  insert into swap_disputes (
+    swap_id,
+    opened_by,
+    reason,
+    status,
+    created_at
+  )
+  values (
+    target_swap.id,
+    p_actor_id,
+    coalesce(clean_reason, 'Swap issue reported'),
+    'open',
+    now()
+  );
+
+  update swaps
+  set status = 'disputed',
+      updated_at = now(),
+      last_action_at = now()
+  where id = target_swap.id
+  returning * into target_swap;
+
+  insert into swap_events (swap_id, actor_id, event_type, metadata)
+  values (
+    target_swap.id,
+    p_actor_id,
+    'dispute_opened',
+    jsonb_build_object('reason', coalesce(clean_reason, 'Swap issue reported'))
+  );
+
+  return target_swap;
+end;
+$$;
+
 create or replace function archive_completed_swap_items(p_swap_id uuid, p_actor_id uuid default auth.uid())
 returns swaps
 language plpgsql

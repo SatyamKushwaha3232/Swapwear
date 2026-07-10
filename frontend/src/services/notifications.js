@@ -176,6 +176,7 @@ export async function notifySwapStatus({ userId, actorId, status, itemTitle, swa
     cancelled: "Swap cancelled",
     shipped: "Swap handover confirmed",
     delivered: "Swap received",
+    disputed: "Swap dispute opened",
     completed: "Swap completed",
   };
 

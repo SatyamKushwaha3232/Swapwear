@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import {
   ArrowLeft,
+  AlertTriangle,
   CheckCircle2,
   Clock3,
   MessageCircle,
@@ -22,6 +23,7 @@ import {
   completeSwap,
   deleteCompletedSwapItems,
   getSwapById,
+  openSwapDispute,
   rejectSwap,
   setSwapDeliveryMethod,
 } from "../services/swaps";
@@ -94,6 +96,19 @@ export default function SwapDealRoom() {
     }
 
     navigate(`/chat/${response.data.id}`);
+  }
+
+  async function openDispute() {
+    const reason = window.prompt(
+      "Tell us what went wrong. This will freeze the swap for review."
+    );
+
+    if (reason === null) return;
+
+    await runAction(
+      (id) => openSwapDispute(id, reason || "Swap issue reported"),
+      "Dispute opened"
+    );
   }
 
   const status = normalizeStatus(swap?.status);
@@ -202,6 +217,23 @@ export default function SwapDealRoom() {
                 text="Completion unlocks after both receive."
               />
             </div>
+
+            {status === "disputed" && (
+              <div className="mt-6 rounded-[30px] border border-red-100 bg-red-50 p-5">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle size={24} className="mt-1 shrink-0 text-red-600" />
+                  <div>
+                    <h2 className="text-2xl font-black text-red-700">Dispute open</h2>
+                    <p className="mt-2 font-semibold leading-relaxed text-red-700/80">
+                      This swap is frozen. Products should stay hidden and locked until the
+                      issue is resolved by support/admin.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <EventHistory events={swap.events || []} disputes={swap.disputes || []} />
           </main>
 
           <aside className="h-fit rounded-[34px] border border-pink-100 bg-white/92 p-5 shadow-[0_24px_80px_rgba(15,23,42,0.10)] backdrop-blur-2xl xl:sticky xl:top-28">
@@ -314,6 +346,11 @@ export default function SwapDealRoom() {
                     </ActionButton>
                   )}
 
+                  <ActionButton danger disabled={updating} onClick={openDispute}>
+                    <AlertTriangle size={17} />
+                    Open Dispute
+                  </ActionButton>
+
                   <ActionButton
                     danger
                     disabled={updating}
@@ -334,6 +371,10 @@ export default function SwapDealRoom() {
 
               {status === "completed" && (
                 <>
+                  <ActionButton danger disabled={updating} onClick={openDispute}>
+                    <AlertTriangle size={17} />
+                    Open Dispute
+                  </ActionButton>
                   <ActionButton
                     danger
                     disabled={updating}
@@ -434,6 +475,7 @@ function StatusBadge({ status }) {
     shipped: ["In Transit", Truck, "bg-blue-50 text-blue-700"],
     delivered: ["Delivered", PackageCheck, "bg-violet-50 text-violet-700"],
     completed: ["Completed", CheckCircle2, "bg-pink-50 text-pink-600"],
+    disputed: ["Disputed", AlertTriangle, "bg-red-50 text-red-700"],
     cancelled: ["Cancelled", XCircle, "bg-slate-100 text-slate-700"],
     expired: ["Expired", Clock3, "bg-slate-100 text-slate-700"],
   };
@@ -456,6 +498,82 @@ function InfoPanel({ icon: Icon, title, value, text }) {
       <p className="mt-2 text-sm font-semibold text-slate-500">{text}</p>
     </div>
   );
+}
+
+function EventHistory({ events, disputes }) {
+  const rows = [
+    ...events.map((event) => ({
+      id: `event-${event.id}`,
+      type: event.event_type,
+      text: eventLabel(event.event_type),
+      created_at: event.created_at,
+      metadata: event.metadata,
+    })),
+    ...disputes.map((dispute) => ({
+      id: `dispute-${dispute.id}`,
+      type: "dispute",
+      text: `Dispute: ${dispute.reason || "Swap issue reported"}`,
+      created_at: dispute.created_at,
+      metadata: { status: dispute.status },
+    })),
+  ].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+
+  return (
+    <div className="mt-6 rounded-[30px] border border-white/80 bg-white/88 p-5 shadow-[0_20px_70px_rgba(15,23,42,0.08)]">
+      <h2 className="text-2xl font-black">Deal history</h2>
+      <div className="mt-4 grid gap-3">
+        {rows.length === 0 ? (
+          <p className="rounded-[20px] bg-slate-50 p-4 text-sm font-semibold text-slate-500">
+            No activity yet.
+          </p>
+        ) : (
+          rows.slice(0, 12).map((row) => (
+            <div
+              key={row.id}
+              className="flex items-start gap-3 rounded-[20px] bg-slate-50 p-4"
+            >
+              <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-pink-50 text-pink-500">
+                {row.type === "dispute" ? <AlertTriangle size={17} /> : <CheckCircle2 size={17} />}
+              </div>
+              <div className="min-w-0">
+                <p className="font-black text-slate-800">{row.text}</p>
+                <p className="mt-1 text-xs font-bold text-slate-400">
+                  {formatDateTime(row.created_at)}
+                </p>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+function eventLabel(type) {
+  const labels = {
+    request_accepted: "Request accepted and products locked",
+    delivery_method_set: "Exchange method selected",
+    handover_confirmed: "Handover/shipping confirmed",
+    received_confirmed: "Item receipt confirmed",
+    swap_completed: "Swap completed",
+    items_archived: "Completed items archived",
+    dispute_opened: "Dispute opened",
+    cancelled: "Swap cancelled",
+    rejected: "Swap rejected",
+    failed: "Swap failed",
+  };
+
+  return labels[type] || String(type || "Swap updated").replaceAll("_", " ");
+}
+
+function formatDateTime(value) {
+  if (!value) return "";
+  return new Date(value).toLocaleString([], {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function ActionButton({ children, onClick, disabled, danger = false, quiet = false }) {

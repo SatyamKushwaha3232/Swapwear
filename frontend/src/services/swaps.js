@@ -54,6 +54,8 @@ function formatSwap(item = {}) {
     archived_at: item.archived_at || null,
     cancel_reason: item.cancel_reason || "",
     confirmations: item.confirmations || item.swap_confirmations || [],
+    events: item.events || item.swap_events || [],
+    disputes: item.disputes || item.swap_disputes || [],
     created_at: item.created_at,
     updated_at: item.updated_at,
   };
@@ -78,9 +80,31 @@ export async function getSwapById(id) {
     throw confirmationError;
   }
 
+  const { data: events, error: eventsError } = await supabase
+    .from("swap_events")
+    .select("*")
+    .eq("swap_id", id)
+    .order("created_at", { ascending: false });
+
+  if (eventsError && eventsError.code !== "42P01") {
+    throw eventsError;
+  }
+
+  const { data: disputes, error: disputesError } = await supabase
+    .from("swap_disputes")
+    .select("*")
+    .eq("swap_id", id)
+    .order("created_at", { ascending: false });
+
+  if (disputesError && disputesError.code !== "42P01") {
+    throw disputesError;
+  }
+
   return {
     ...swap,
     confirmations: confirmations || [],
+    events: events || [],
+    disputes: disputes || [],
   };
 }
 
@@ -336,6 +360,22 @@ export async function confirmSwapReceived(id, note = "") {
   }
 }
 
+export async function openSwapDispute(id, reason = "") {
+  try {
+    const actorId = await getCurrentUserId();
+    const updatedSwap = await runSwapRpc("open_swap_dispute", {
+      p_swap_id: id,
+      p_actor_id: actorId,
+      p_reason: reason || "Swap issue reported",
+    });
+
+    await notifyForStatus(updatedSwap, "disputed");
+    return { success: true, data: updatedSwap };
+  } catch (error) {
+    return { success: false, error: error.message || "Unable to open dispute" };
+  }
+}
+
 export async function updateSwapStatus(id, status) {
   try {
     const nextStatus = normalizeStatus(status);
@@ -472,7 +512,7 @@ export async function deleteCompletedSwapItems(id) {
 }
 
 async function notifyForStatus(updatedSwap, nextStatus) {
-  if (!["accepted", "rejected", "cancelled", "completed", "failed", "shipped", "delivered"].includes(nextStatus)) {
+  if (!["accepted", "rejected", "cancelled", "completed", "failed", "shipped", "delivered", "disputed"].includes(nextStatus)) {
     return;
   }
 
