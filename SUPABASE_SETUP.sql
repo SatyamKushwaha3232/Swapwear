@@ -1042,6 +1042,170 @@ begin
 end;
 $$;
 
+create or replace function resolve_swap_dispute(
+  p_dispute_id bigint,
+  p_actor_id uuid default auth.uid(),
+  p_decision text default 'continue',
+  p_resolution text default null
+)
+returns swaps
+language plpgsql
+security definer
+as $$
+declare
+  target_dispute swap_disputes;
+  target_swap swaps;
+  clean_decision text := lower(nullif(trim(coalesce(p_decision, '')), ''));
+  clean_resolution text := nullif(trim(coalesce(p_resolution, '')), '');
+  next_status text := 'accepted';
+  handover_count integer := 0;
+  received_count integer := 0;
+  archive_time timestamptz := now() + interval '3 days';
+begin
+  select * into target_dispute
+  from swap_disputes
+  where id = p_dispute_id
+  for update;
+
+  if not found then
+    raise exception 'Dispute not found';
+  end if;
+
+  if coalesce(target_dispute.status, 'open') <> 'open' then
+    raise exception 'This dispute is already resolved';
+  end if;
+
+  select * into target_swap
+  from swaps
+  where id = target_dispute.swap_id
+  for update;
+
+  if not found then
+    raise exception 'Swap request not found';
+  end if;
+
+  if target_swap.status <> 'disputed' then
+    raise exception 'Only disputed swaps can be resolved by admin';
+  end if;
+
+  if clean_decision not in ('continue', 'cancel', 'complete') then
+    raise exception 'Invalid dispute decision';
+  end if;
+
+  update swap_disputes
+  set status = 'resolved',
+      resolution = coalesce(clean_resolution, clean_decision),
+      resolved_at = now()
+  where id = target_dispute.id;
+
+  if clean_decision = 'continue' then
+    select
+      count(*) filter (where handover_confirmed_at is not null),
+      count(*) filter (where received_confirmed_at is not null)
+    into handover_count, received_count
+    from swap_confirmations
+    where swap_id = target_swap.id;
+
+    if received_count >= 2 then
+      next_status := 'delivered';
+    elsif handover_count > 0 or received_count > 0 then
+      next_status := 'shipped';
+    else
+      next_status := 'accepted';
+    end if;
+
+    update swaps
+    set status = next_status,
+        updated_at = now(),
+        last_action_at = now()
+    where id = target_swap.id
+    returning * into target_swap;
+  elsif clean_decision = 'cancel' then
+    update swaps
+    set status = 'cancelled',
+        cancelled_at = now(),
+        cancel_reason = coalesce(clean_resolution, 'Dispute resolved by admin cancellation'),
+        updated_at = now(),
+        last_action_at = now()
+    where id = target_swap.id
+    returning * into target_swap;
+
+    update listings
+    set swap_status = 'available',
+        active_swap_id = null,
+        is_public = true,
+        swap_completed_at = null,
+        archive_after = null,
+        delete_eligible_at = null,
+        archived_at = null
+    where active_swap_id = target_swap.id
+      and swap_status in ('reserved', 'swapped', 'archived');
+
+    update swaps pending_swap
+    set status = 'pending',
+        expires_at = greatest(coalesce(pending_swap.expires_at, now()), now() + interval '7 days'),
+        updated_at = now(),
+        last_action_at = now()
+    from listings requester_listing,
+         listings owner_listing
+    where pending_swap.id <> target_swap.id
+      and pending_swap.status = 'expired'
+      and (
+        pending_swap.requester_item_id in (target_swap.requester_item_id, target_swap.owner_item_id)
+        or pending_swap.owner_item_id in (target_swap.requester_item_id, target_swap.owner_item_id)
+      )
+      and requester_listing.id = pending_swap.requester_item_id
+      and owner_listing.id = pending_swap.owner_item_id
+      and coalesce(requester_listing.swap_status, 'available') = 'available'
+      and coalesce(owner_listing.swap_status, 'available') = 'available'
+      and coalesce(requester_listing.is_public, true) = true
+      and coalesce(owner_listing.is_public, true) = true
+      and not exists (
+        select 1
+        from swaps existing_swap
+        where existing_swap.id <> pending_swap.id
+          and existing_swap.status in ('pending', 'accepted', 'shipped', 'delivered', 'disputed')
+          and existing_swap.requester_item_id = pending_swap.requester_item_id
+          and existing_swap.owner_item_id = pending_swap.owner_item_id
+      );
+  elsif clean_decision = 'complete' then
+    update swaps
+    set status = 'completed',
+        completed_at = coalesce(completed_at, now()),
+        archive_after = archive_time,
+        delete_eligible_at = archive_time,
+        updated_at = now(),
+        last_action_at = now()
+    where id = target_swap.id
+    returning * into target_swap;
+
+    update listings
+    set swap_status = 'swapped',
+        is_public = false,
+        active_swap_id = target_swap.id,
+        swap_completed_at = now(),
+        archive_after = archive_time,
+        delete_eligible_at = archive_time
+    where id in (target_swap.requester_item_id, target_swap.owner_item_id);
+  end if;
+
+  insert into swap_events (swap_id, actor_id, event_type, metadata)
+  values (
+    target_swap.id,
+    p_actor_id,
+    'dispute_resolved',
+    jsonb_build_object(
+      'dispute_id', target_dispute.id,
+      'decision', clean_decision,
+      'resolution', coalesce(clean_resolution, clean_decision),
+      'status_after', target_swap.status
+    )
+  );
+
+  return target_swap;
+end;
+$$;
+
 create or replace function archive_completed_swap_items(p_swap_id uuid, p_actor_id uuid default auth.uid())
 returns swaps
 language plpgsql

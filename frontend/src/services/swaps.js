@@ -376,6 +376,72 @@ export async function openSwapDispute(id, reason = "") {
   }
 }
 
+export async function getOpenSwapDisputes() {
+  try {
+    const { data: disputes, error } = await supabase
+      .from("swap_disputes")
+      .select("*")
+      .eq("status", "open")
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+
+    const swapIds = [...new Set((disputes || []).map((dispute) => dispute.swap_id).filter(Boolean))];
+
+    if (swapIds.length === 0) {
+      return { success: true, data: [] };
+    }
+
+    const { data: swaps, error: swapsError } = await supabase
+      .from("swaps")
+      .select("*")
+      .in("id", swapIds);
+
+    if (swapsError) throw swapsError;
+
+    const swapsById = (swaps || []).reduce((acc, swap) => {
+      acc[swap.id] = formatSwap(swap);
+      return acc;
+    }, {});
+
+    return {
+      success: true,
+      data: (disputes || []).map((dispute) => ({
+        ...dispute,
+        swap: swapsById[dispute.swap_id] || null,
+      })),
+    };
+  } catch (error) {
+    if (error.code === "42P01") return { success: true, data: [] };
+    return { success: false, error: error.message || "Unable to fetch disputes", data: [] };
+  }
+}
+
+export async function resolveSwapDispute(disputeId, decision, resolution = "") {
+  try {
+    const actorId = await getCurrentUserId();
+    const updatedSwap = await runSwapRpc("resolve_swap_dispute", {
+      p_dispute_id: disputeId,
+      p_actor_id: actorId,
+      p_decision: decision,
+      p_resolution: resolution || null,
+    });
+
+    const notificationStatus =
+      decision === "cancel"
+        ? "cancelled"
+        : decision === "complete"
+          ? "completed"
+          : updatedSwap.status;
+
+    await notifyForStatus(updatedSwap, notificationStatus);
+
+    return { success: true, data: updatedSwap };
+  } catch (error) {
+    return { success: false, error: error.message || "Unable to resolve dispute" };
+  }
+}
+
 export async function updateSwapStatus(id, status) {
   try {
     const nextStatus = normalizeStatus(status);
