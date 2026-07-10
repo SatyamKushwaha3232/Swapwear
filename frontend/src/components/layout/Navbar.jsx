@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, NavLink } from "react-router-dom";
 import {
   Heart,
@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 
 import { useAuth } from "../../context/AuthContext";
+import useClickOutside from "../../hooks/useClickOutside";
 import { supabase } from "../../lib/supabase";
 import { getCurrentProfile } from "../../services/profile";
 import Logo from "./Logo";
@@ -37,6 +38,11 @@ export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const categoryRef = useRef(null);
+  const profileRef = useRef(null);
+
+  useClickOutside(categoryRef, () => setCategoryOpen(false), categoryOpen);
+  useClickOutside(profileRef, () => setProfileOpen(false), profileOpen);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 15);
@@ -92,29 +98,39 @@ export default function Navbar() {
           >
             <Logo />
 
-            <NavLinks onCategories={() => setCategoryOpen((prev) => !prev)} />
+            <div ref={categoryRef} className="contents">
+              <NavLinks
+                onCategories={() => {
+                  setProfileOpen(false);
+                  setCategoryOpen((prev) => !prev);
+                }}
+              />
 
-            {categoryOpen && (
-              <div className="premium-surface absolute left-1/2 top-[82px] z-[1000] w-[min(620px,calc(100vw-32px))] -translate-x-1/2 rounded-[30px] p-5">
-                <div className="flex items-center gap-2 font-black text-pink-500">
-                  <Sparkles size={18} />
-                  Explore Categories
-                </div>
+              {categoryOpen && (
+                <div
+                  className="premium-surface z-[1000] w-[min(520px,calc(100vw-24px))] rounded-[28px] p-5"
+                  style={{ position: "fixed", right: 20, top: 96 }}
+                >
+                  <div className="flex items-center gap-2 font-black text-pink-500">
+                    <Sparkles size={18} />
+                    Explore Categories
+                  </div>
 
-                <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                  {categories.map((item) => (
-                    <Link
-                      key={item}
-                      to="/explore"
-                      onClick={() => setCategoryOpen(false)}
-                      className="interactive-lift rounded-2xl border border-white/80 bg-white/70 px-4 py-3 text-sm font-black shadow-sm hover:bg-pink-50 hover:text-pink-500"
-                    >
-                      {item}
-                    </Link>
-                  ))}
+                  <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                    {categories.map((item) => (
+                      <Link
+                        key={item}
+                        to="/explore"
+                        onClick={() => setCategoryOpen(false)}
+                        className="interactive-lift min-w-0 truncate rounded-2xl border border-white/80 bg-white/70 px-4 py-3 text-sm font-black shadow-sm hover:bg-pink-50 hover:text-pink-500"
+                      >
+                        {item}
+                      </Link>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
 
             <div className="hidden min-w-0 flex-1 lg:block">
               <SearchBar />
@@ -139,10 +155,13 @@ export default function Navbar() {
               </NavLink>
 
               {user ? (
-                <div className="relative hidden min-[1280px]:block">
+                <div ref={profileRef} className="relative hidden min-[1280px]:block">
                   <button
                     type="button"
-                    onClick={() => setProfileOpen((prev) => !prev)}
+                    onClick={() => {
+                      setCategoryOpen(false);
+                      setProfileOpen((prev) => !prev);
+                    }}
                     className="h-11 w-11 overflow-hidden rounded-full bg-gradient-to-br from-pink-500 via-fuchsia-500 to-violet-500 text-base font-black text-white shadow-xl ring-4 ring-pink-100 transition hover:scale-105"
                   >
                     {profile?.avatar_url ? (

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   BadgeCheck,
   Circle,
@@ -11,6 +11,7 @@ import {
   X,
 } from "lucide-react";
 import Avatar from "../../common/Avatar";
+import useClickOutside from "../../../hooks/useClickOutside";
 
 export default function ChatHeader({
   conversation,
@@ -20,6 +21,9 @@ export default function ChatHeader({
   onMenu,
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef(null);
+
+  useClickOutside(menuRef, () => setMenuOpen(false), menuOpen);
 
   function chooseView(view) {
     onMenu?.(view);
@@ -45,7 +49,7 @@ export default function ChatHeader({
           </div>
         </div>
 
-        <div className="relative flex shrink-0 items-center gap-2">
+        <div ref={menuRef} className="relative flex shrink-0 items-center gap-2">
           <HeaderButton label="Audio call" onClick={onCall} icon={Phone} />
           <HeaderButton label="Video call" onClick={onVideo} icon={Video} />
           <HeaderButton

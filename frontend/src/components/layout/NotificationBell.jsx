@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   Bell,
@@ -18,6 +18,7 @@ import {
   subscribeToNotifications,
 } from "../../services/notifications";
 import { supabase } from "../../lib/supabase";
+import useClickOutside from "../../hooks/useClickOutside";
 
 const typeStyles = {
   message: {
@@ -57,6 +58,9 @@ export default function NotificationBell({ userId, variant = "desktop", onNaviga
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(false);
+  const dropdownRef = useRef(null);
+
+  useClickOutside(dropdownRef, () => setOpen(false), open && variant === "desktop");
 
   const unreadCount = useMemo(
     () => notifications.filter((item) => !item.is_read).length,
@@ -127,7 +131,7 @@ export default function NotificationBell({ userId, variant = "desktop", onNaviga
   const isSheet = variant !== "desktop";
 
   return (
-    <div className={isSheet ? "" : "relative"}>
+    <div ref={dropdownRef} className={isSheet ? "" : "relative"}>
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
