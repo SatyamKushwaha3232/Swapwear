@@ -1042,6 +1042,48 @@ begin
 end;
 $$;
 
+create or replace function current_user_is_admin()
+returns boolean
+language plpgsql
+stable
+security definer
+as $$
+declare
+  admin_claims jsonb := coalesce(auth.jwt() -> 'app_metadata', '{}'::jsonb);
+  admin_role text := lower(coalesce(auth.jwt() -> 'app_metadata' ->> 'role', ''));
+begin
+  return auth.uid() is not null
+    and (
+      admin_role in ('admin', 'moderator', 'owner')
+      or lower(coalesce(admin_claims ->> 'is_admin', 'false')) in ('true', '1', 'yes')
+    );
+end;
+$$;
+
+create or replace function get_open_swap_disputes()
+returns table (
+  dispute jsonb,
+  swap jsonb
+)
+language plpgsql
+security definer
+as $$
+begin
+  if current_user_is_admin() is not true then
+    raise exception 'Only admins can view swap disputes';
+  end if;
+
+  return query
+  select
+    to_jsonb(d.*) as dispute,
+    to_jsonb(s.*) as swap
+  from swap_disputes d
+  left join swaps s on s.id = d.swap_id
+  where coalesce(d.status, 'open') = 'open'
+  order by d.created_at desc;
+end;
+$$;
+
 create or replace function resolve_swap_dispute(
   p_dispute_id bigint,
   p_actor_id uuid default auth.uid(),
@@ -1062,6 +1104,14 @@ declare
   received_count integer := 0;
   archive_time timestamptz := now() + interval '3 days';
 begin
+  if auth.uid() is null or p_actor_id is distinct from auth.uid() then
+    raise exception 'Admin session required';
+  end if;
+
+  if current_user_is_admin() is not true then
+    raise exception 'Only admins can resolve swap disputes';
+  end if;
+
   select * into target_dispute
   from swap_disputes
   where id = p_dispute_id

@@ -378,41 +378,18 @@ export async function openSwapDispute(id, reason = "") {
 
 export async function getOpenSwapDisputes() {
   try {
-    const { data: disputes, error } = await supabase
-      .from("swap_disputes")
-      .select("*")
-      .eq("status", "open")
-      .order("created_at", { ascending: false });
+    const { data, error } = await supabase.rpc("get_open_swap_disputes");
 
     if (error) throw error;
 
-    const swapIds = [...new Set((disputes || []).map((dispute) => dispute.swap_id).filter(Boolean))];
-
-    if (swapIds.length === 0) {
-      return { success: true, data: [] };
-    }
-
-    const { data: swaps, error: swapsError } = await supabase
-      .from("swaps")
-      .select("*")
-      .in("id", swapIds);
-
-    if (swapsError) throw swapsError;
-
-    const swapsById = (swaps || []).reduce((acc, swap) => {
-      acc[swap.id] = formatSwap(swap);
-      return acc;
-    }, {});
-
     return {
       success: true,
-      data: (disputes || []).map((dispute) => ({
-        ...dispute,
-        swap: swapsById[dispute.swap_id] || null,
+      data: (data || []).map((row) => ({
+        ...(row.dispute || {}),
+        swap: row.swap ? formatSwap(row.swap) : null,
       })),
     };
   } catch (error) {
-    if (error.code === "42P01") return { success: true, data: [] };
     return { success: false, error: error.message || "Unable to fetch disputes", data: [] };
   }
 }

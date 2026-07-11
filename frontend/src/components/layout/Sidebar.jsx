@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 
 import { useAuth } from "../../context/AuthContext";
+import { isAdminUser } from "../../lib/adminAccess";
 import { getCurrentProfile } from "../../services/profile";
 
 const links = [
@@ -65,6 +66,7 @@ export default function Sidebar() {
   const isPremium = Boolean(profile?.is_premium);
   const totalSwaps = profile?.total_swaps ?? 0;
   const rating = profile?.rating ?? "0.0";
+  const visibleLinks = links.filter((link) => link.path !== "/admin" || isAdminUser(user));
 
   return (
     <aside className="hidden xl:block w-[310px] shrink-0">
@@ -134,7 +136,7 @@ export default function Sidebar() {
           </div>
 
           <nav className="relative mt-5 space-y-2">
-            {links.map((link) => {
+            {visibleLinks.map((link) => {
               const Icon = link.icon;
               const active = location.pathname === link.path;
 
