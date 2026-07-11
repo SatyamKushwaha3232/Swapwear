@@ -1,48 +1,57 @@
-const API_URL = "http://localhost:5000/api/wishlist";
+import { supabase } from "../lib/supabase";
+
+function formatWishlist(row = {}) {
+  return {
+    id: row.id,
+    user_id: row.user_id,
+    listing_id: row.listing_id,
+    listing: row.listing || null,
+    created_at: row.created_at,
+  };
+}
 
 export async function getWishlist(userId) {
   try {
-    const res = await fetch(`${API_URL}?userId=${userId}`);
-    const result = await res.json();
+    if (!userId) return [];
 
-    if (!res.ok || !result.success) {
-      throw new Error(result.error);
-    }
+    const { data, error } = await supabase
+      .from("wishlists")
+      .select("*, listing:listings(*)")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
 
-    return result.data;
-  } catch (err) {
-    console.log(err);
+    if (error) throw error;
+    return (data || []).map(formatWishlist);
+  } catch (error) {
+    console.error("Wishlist fetch failed:", error.message || error);
     return [];
   }
 }
 
 export async function addWishlist(user_id, listing_id) {
   try {
-    const res = await fetch(API_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        user_id,
-        listing_id,
-      }),
-    });
+    const { data, error } = await supabase
+      .from("wishlists")
+      .upsert(
+        [{ user_id, listing_id }],
+        { onConflict: "user_id,listing_id", ignoreDuplicates: false }
+      )
+      .select("*")
+      .single();
 
-    return await res.json();
-  } catch (err) {
-    console.log(err);
+    if (error) throw error;
+    return { success: true, data };
+  } catch (error) {
+    return { success: false, error: error.message || "Unable to save wishlist" };
   }
 }
 
 export async function removeWishlist(id) {
   try {
-    const res = await fetch(`${API_URL}/${id}`, {
-      method: "DELETE",
-    });
-
-    return await res.json();
-  } catch (err) {
-    console.log(err);
+    const { error } = await supabase.from("wishlists").delete().eq("id", id);
+    if (error) throw error;
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message || "Unable to remove wishlist" };
   }
 }

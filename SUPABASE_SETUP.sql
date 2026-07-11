@@ -39,6 +39,14 @@ create table if not exists listings (
   created_at timestamptz default now()
 );
 
+create table if not exists wishlists (
+  id bigint generated always as identity primary key,
+  user_id uuid references auth.users(id) on delete cascade,
+  listing_id bigint references listings(id) on delete cascade,
+  created_at timestamptz default now(),
+  unique (user_id, listing_id)
+);
+
 create table if not exists swap_requests (
   id bigint generated always as identity primary key,
   requester_id uuid,
@@ -72,10 +80,12 @@ alter table messages disable row level security;
 
 grant all on table profiles to anon, authenticated;
 grant all on table listings to anon, authenticated;
+grant all on table wishlists to anon, authenticated;
 grant all on table swap_requests to anon, authenticated;
 grant all on table messages to anon, authenticated;
 
 grant usage, select on sequence listings_id_seq to anon, authenticated;
+grant usage, select on sequence wishlists_id_seq to anon, authenticated;
 grant usage, select on sequence swap_requests_id_seq to anon, authenticated;
 grant usage, select on sequence messages_id_seq to anon, authenticated;
 
