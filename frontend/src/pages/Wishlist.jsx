@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
 import {
@@ -22,7 +22,7 @@ export default function Wishlist() {
   const [query, setQuery] = useState("");
   const [removingId, setRemovingId] = useState(null);
 
-  async function loadWishlist() {
+  const loadWishlist = useCallback(async () => {
     if (!user?.id) {
       setItems([]);
       setLoading(false);
@@ -46,11 +46,11 @@ export default function Wishlist() {
         .filter(Boolean)
     );
     setLoading(false);
-  }
+  }, [user]);
 
   useEffect(() => {
     loadWishlist();
-  }, [user?.id]);
+  }, [loadWishlist]);
 
   const filteredItems = useMemo(() => {
     const term = query.trim().toLowerCase();

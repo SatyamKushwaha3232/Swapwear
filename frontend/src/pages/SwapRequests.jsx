@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import {
@@ -52,11 +52,7 @@ export default function SwapRequests() {
   const [tab, setTab] = useState("all");
   const [query, setQuery] = useState("");
 
-  useEffect(() => {
-    loadSwaps();
-  }, [user?.id]);
-
-  async function loadSwaps() {
+  const loadSwaps = useCallback(async () => {
     if (!user?.id) return;
 
     setLoading(true);
@@ -66,7 +62,11 @@ export default function SwapRequests() {
     else toast.error(response.error || "Unable to load swaps");
 
     setLoading(false);
-  }
+  }, [user]);
+
+  useEffect(() => {
+    loadSwaps();
+  }, [loadSwaps]);
 
   async function handleAction(id, actionFn, message) {
     setUpdatingId(id);

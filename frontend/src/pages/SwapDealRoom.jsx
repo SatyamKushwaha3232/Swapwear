@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import {
@@ -51,11 +51,7 @@ export default function SwapDealRoom() {
   const [reviewComment, setReviewComment] = useState("");
   const [reviewing, setReviewing] = useState(false);
 
-  useEffect(() => {
-    loadSwap();
-  }, [swapId]);
-
-  async function loadSwap() {
+  const loadSwap = useCallback(async () => {
     if (!swapId) return;
 
     setLoading(true);
@@ -68,7 +64,11 @@ export default function SwapDealRoom() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [swapId]);
+
+  useEffect(() => {
+    loadSwap();
+  }, [loadSwap]);
 
   async function runAction(actionFn, successMessage) {
     if (!swap?.id) return;

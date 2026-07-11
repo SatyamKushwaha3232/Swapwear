@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
 
@@ -50,9 +50,40 @@ export default function Chat() {
   const typingTimerRef = useRef(null);
   const activeId = activeConversation?.id || conversationId || "";
 
+  const loadConversations = useCallback(
+    async (showLoader = true) => {
+      if (!user?.id) {
+        setConversations([]);
+        setLoadingChats(false);
+        return;
+      }
+
+      if (showLoader) setLoadingChats(true);
+
+      const response = await getMyConversations(user.id);
+
+      if (!response.success) {
+        toast.error(response.error || "Unable to load chats");
+        setLoadingChats(false);
+        return;
+      }
+
+      const list = response.data || [];
+      setConversations(list);
+
+      if (!conversationId && !activeConversation && list[0]) {
+        setActiveConversation(list[0]);
+        navigate(`/chat/${list[0].id}`, { replace: true });
+      }
+
+      setLoadingChats(false);
+    },
+    [activeConversation, conversationId, navigate, user?.id]
+  );
+
   useEffect(() => {
     loadConversations();
-  }, [user?.id]);
+  }, [loadConversations]);
 
   useEffect(() => {
     if (!conversationId || conversations.length === 0) return;
@@ -92,7 +123,7 @@ export default function Chat() {
     return () => {
       messageChannel?.unsubscribe?.();
     };
-  }, [activeId, user?.id]);
+  }, [activeId, loadConversations, user?.id]);
 
   useEffect(() => {
     if (!user?.id) return undefined;
@@ -104,7 +135,7 @@ export default function Chat() {
     return () => {
       channel?.unsubscribe?.();
     };
-  }, [user?.id]);
+  }, [loadConversations, user?.id]);
 
   useEffect(() => {
     if (!activeId || !user?.id) return undefined;
@@ -133,34 +164,6 @@ export default function Chat() {
 
       return [...prev, nextMessage];
     });
-  }
-
-  async function loadConversations(showLoader = true) {
-    if (!user?.id) {
-      setConversations([]);
-      setLoadingChats(false);
-      return;
-    }
-
-    if (showLoader) setLoadingChats(true);
-
-    const response = await getMyConversations(user.id);
-
-    if (!response.success) {
-      toast.error(response.error || "Unable to load chats");
-      setLoadingChats(false);
-      return;
-    }
-
-    const list = response.data || [];
-    setConversations(list);
-
-    if (!conversationId && !activeConversation && list[0]) {
-      setActiveConversation(list[0]);
-      navigate(`/chat/${list[0].id}`, { replace: true });
-    }
-
-    setLoadingChats(false);
   }
 
   async function loadMessagesById(id) {
