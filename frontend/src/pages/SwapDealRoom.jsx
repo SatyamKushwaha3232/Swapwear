@@ -10,6 +10,7 @@ import {
   PackageCheck,
   Repeat2,
   ShieldCheck,
+  Star,
   Truck,
   XCircle,
 } from "lucide-react";
@@ -28,6 +29,7 @@ import {
   setSwapDeliveryMethod,
 } from "../services/swaps";
 import { getOrCreateConversation } from "../services/chat";
+import { submitSwapReview } from "../services/trust";
 
 const flowSteps = [
   ["pending", "Requested"],
@@ -45,6 +47,9 @@ export default function SwapDealRoom() {
   const [swap, setSwap] = useState(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState("");
+  const [reviewing, setReviewing] = useState(false);
 
   useEffect(() => {
     loadSwap();
@@ -109,6 +114,22 @@ export default function SwapDealRoom() {
       (id) => openSwapDispute(id, reason || "Swap issue reported"),
       "Dispute opened"
     );
+  }
+
+  async function submitReview() {
+    if (!swap?.id) return;
+
+    setReviewing(true);
+    const response = await submitSwapReview(swap.id, reviewRating, reviewComment);
+
+    if (response.success) {
+      toast.success("Review saved");
+      setReviewComment("");
+    } else {
+      toast.error(response.error || "Unable to save review");
+    }
+
+    setReviewing(false);
   }
 
   const status = normalizeStatus(swap?.status);
@@ -231,6 +252,17 @@ export default function SwapDealRoom() {
                   </div>
                 </div>
               </div>
+            )}
+
+            {status === "completed" && (
+              <ReviewSwapPanel
+                rating={reviewRating}
+                comment={reviewComment}
+                loading={reviewing}
+                onRating={setReviewRating}
+                onComment={setReviewComment}
+                onSubmit={submitReview}
+              />
             )}
 
             <EventHistory events={swap.events || []} disputes={swap.disputes || []} />
@@ -496,6 +528,57 @@ function InfoPanel({ icon: Icon, title, value, text }) {
       <p className="mt-4 text-xs font-black uppercase tracking-widest text-slate-400">{title}</p>
       <h3 className="mt-1 text-xl font-black">{value}</h3>
       <p className="mt-2 text-sm font-semibold text-slate-500">{text}</p>
+    </div>
+  );
+}
+
+function ReviewSwapPanel({ rating, comment, loading, onRating, onComment, onSubmit }) {
+  return (
+    <div className="mt-6 rounded-[30px] border border-pink-100 bg-white/90 p-5 shadow-[0_20px_70px_rgba(15,23,42,0.08)]">
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div>
+          <div className="inline-flex items-center gap-2 rounded-full bg-pink-50 px-4 py-2 font-black text-pink-600">
+            <Star size={16} fill="currentColor" />
+            Swap Review
+          </div>
+          <h2 className="mt-4 text-2xl font-black">Rate this swap partner</h2>
+          <p className="mt-2 max-w-2xl font-semibold leading-relaxed text-slate-500">
+            Your review improves trust scoring for future swappers.
+          </p>
+        </div>
+
+        <div className="flex gap-1">
+          {[1, 2, 3, 4, 5].map((value) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => onRating(value)}
+              className={`flex h-11 w-11 items-center justify-center rounded-full transition ${
+                value <= rating ? "bg-yellow-100 text-yellow-500" : "bg-slate-100 text-slate-300"
+              }`}
+              aria-label={`${value} star rating`}
+            >
+              <Star size={19} fill="currentColor" />
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <textarea
+        value={comment}
+        onChange={(event) => onComment(event.target.value)}
+        placeholder="Share item quality, timing, communication, or meetup experience..."
+        className="mt-5 min-h-28 w-full resize-none rounded-[24px] border border-pink-100 bg-white/75 p-4 font-semibold outline-none transition focus:border-pink-300"
+      />
+
+      <button
+        type="button"
+        disabled={loading}
+        onClick={onSubmit}
+        className="button-primary mt-4 h-12 px-6 disabled:opacity-60"
+      >
+        {loading ? "Saving..." : "Save Review"}
+      </button>
     </div>
   );
 }

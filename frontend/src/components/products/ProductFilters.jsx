@@ -1,4 +1,4 @@
-import { Filter, RotateCcw, SlidersHorizontal, X } from "lucide-react";
+import { RotateCcw, SlidersHorizontal, X } from "lucide-react";
 
 const categories = [
   "All",

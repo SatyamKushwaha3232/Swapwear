@@ -9,7 +9,6 @@ import {
   Sparkles,
   Star,
   Tag,
-  UserRound,
 } from "lucide-react";
 
 export default function OwnerSwapCard({

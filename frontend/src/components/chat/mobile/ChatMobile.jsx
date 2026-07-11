@@ -39,7 +39,6 @@ export default function ChatMobile({
   onReactToMessage,
   onCall,
   onVideo,
-  onHeaderMenu,
   sending,
   headerText,
 }) {

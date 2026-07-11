@@ -5,7 +5,7 @@ import {
   ArrowLeft,
   Clock3,
   Eye,
-  Info,
+  Flag,
   Ruler,
   ShieldCheck,
   Sparkles,
@@ -16,9 +16,8 @@ import OwnerSwapCard from "../components/products/OwnerSwapCard";
 import SimilarProducts from "../components/products/SimilarProducts";
 import ReviewPanel from "../components/products/ReviewPanel";
 import SwapRequestModal from "../components/swaps/SwapRequestModal";
-import { getListingById, getListings } from "../services/listings";
-import { createSwapRequest } from "../services/swaps";
-import { getCurrentProfile } from "../services/profile";
+import { getListingById } from "../services/listings";
+import { createMarketplaceReport } from "../services/trust";
 import { useAuth } from "../context/AuthContext";
 import { items } from "../data/items";
 
@@ -28,7 +27,6 @@ export default function ItemDetails() {
 
   const [item, setItem] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [requesting, setRequesting] = useState(false);
   const [swapModalOpen, setSwapModalOpen] = useState(false);
 
   useEffect(() => {
@@ -102,6 +100,34 @@ export default function ItemDetails() {
     setSwapModalOpen(true);
   }
 
+  async function handleReportItem() {
+    if (!user) {
+      toast.error("Please login to report this listing");
+      return;
+    }
+
+    if (safeItem.ownerId && safeItem.ownerId === user.id) {
+      toast.error("You cannot report your own listing");
+      return;
+    }
+
+    const reason = window.prompt("What should admin review about this listing?");
+    if (reason === null) return;
+
+    const response = await createMarketplaceReport({
+      listingId: safeItem.id,
+      reportedUserId: safeItem.ownerId,
+      reportType: "listing",
+      reason: reason || "Listing needs admin review",
+    });
+
+    if (response.success) {
+      toast.success("Report sent to admin");
+    } else {
+      toast.error(response.error || "Unable to report listing");
+    }
+  }
+
   if (loading) {
     return (
       <section className="section-space pt-6">
@@ -137,13 +163,24 @@ export default function ItemDetails() {
     <>
       <section className="section-space pt-5">
         <div className="container-main">
-          <Link
-            to="/explore"
-            className="mb-6 inline-flex items-center gap-2 rounded-full border border-pink-100 bg-white px-5 py-3 font-black text-slate-800 shadow-md hover:text-pink-500"
-          >
-            <ArrowLeft size={18} />
-            Back to Explore
-          </Link>
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+            <Link
+              to="/explore"
+              className="inline-flex items-center gap-2 rounded-full border border-pink-100 bg-white px-5 py-3 font-black text-slate-800 shadow-md hover:text-pink-500"
+            >
+              <ArrowLeft size={18} />
+              Back to Explore
+            </Link>
+
+            <button
+              type="button"
+              onClick={handleReportItem}
+              className="inline-flex items-center gap-2 rounded-full border border-red-100 bg-red-50 px-5 py-3 font-black text-red-600 shadow-sm transition hover:bg-red-100"
+            >
+              <Flag size={18} />
+              Report Listing
+            </button>
+          </div>
 
           <div className="grid min-w-0 gap-8 xl:grid-cols-[minmax(0,1fr)_minmax(380px,0.88fr)]">
             <DetailGallery item={safeItem} />
@@ -151,7 +188,7 @@ export default function ItemDetails() {
             <OwnerSwapCard
               item={safeItem}
               user={user}
-              requesting={requesting}
+              requesting={false}
               onRequestSwap={handleRequestSwap}
             />
           </div>
@@ -196,7 +233,7 @@ export default function ItemDetails() {
         </div>
       </section>
 
-      <ReviewPanel />
+      <ReviewPanel ownerId={safeItem.ownerId} />
       <SimilarProducts currentId={safeItem.id} />
       <SwapRequestModal
         open={swapModalOpen}

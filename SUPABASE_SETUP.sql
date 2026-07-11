@@ -9,6 +9,18 @@ create table if not exists profiles (
   created_at timestamptz default now()
 );
 
+alter table profiles add column if not exists username text;
+alter table profiles add column if not exists email text;
+alter table profiles add column if not exists phone text;
+alter table profiles add column if not exists location text;
+alter table profiles add column if not exists website text;
+alter table profiles add column if not exists provider text default 'email';
+alter table profiles add column if not exists is_premium boolean default false;
+alter table profiles add column if not exists total_swaps integer default 0;
+alter table profiles add column if not exists rating numeric default 0;
+alter table profiles add column if not exists status text default 'active';
+alter table profiles add column if not exists updated_at timestamptz default now();
+
 create table if not exists listings (
   id bigint generated always as identity primary key,
   title text,
@@ -1253,6 +1265,277 @@ begin
   );
 
   return target_swap;
+end;
+$$;
+
+create or replace function create_marketplace_report(
+  p_listing_id bigint default null,
+  p_swap_id uuid default null,
+  p_reported_user_id uuid default null,
+  p_report_type text default 'general',
+  p_reason text default null
+)
+returns reports
+language plpgsql
+security definer
+as $$
+declare
+  created_report reports;
+  target_listing listings;
+  clean_reason text := nullif(trim(coalesce(p_reason, '')), '');
+  clean_type text := lower(coalesce(nullif(trim(p_report_type), ''), 'general'));
+begin
+  if auth.uid() is null then
+    raise exception 'Login required to report marketplace issues';
+  end if;
+
+  if p_listing_id is null and p_swap_id is null and p_reported_user_id is null then
+    raise exception 'Report needs a listing, swap, or user target';
+  end if;
+
+  if p_listing_id is not null then
+    select * into target_listing
+    from listings
+    where id = p_listing_id;
+
+    if not found then
+      raise exception 'Listing not found';
+    end if;
+
+    if target_listing.user_id = auth.uid() then
+      raise exception 'You cannot report your own listing';
+    end if;
+
+    p_reported_user_id := coalesce(p_reported_user_id, target_listing.user_id);
+  end if;
+
+  insert into reports (
+    reporter_id,
+    reported_user_id,
+    listing_id,
+    swap_id,
+    report_type,
+    reason,
+    status,
+    created_at
+  )
+  values (
+    auth.uid(),
+    p_reported_user_id,
+    p_listing_id,
+    p_swap_id,
+    clean_type,
+    coalesce(clean_reason, 'Marketplace issue reported'),
+    'open',
+    now()
+  )
+  returning * into created_report;
+
+  return created_report;
+end;
+$$;
+
+create or replace function submit_swap_review(
+  p_swap_id uuid,
+  p_rating integer,
+  p_comment text default null
+)
+returns reviews
+language plpgsql
+security definer
+as $$
+declare
+  target_swap swaps;
+  reviewee uuid;
+  saved_review reviews;
+begin
+  if auth.uid() is null then
+    raise exception 'Login required to review a swap';
+  end if;
+
+  select * into target_swap
+  from swaps
+  where id = p_swap_id;
+
+  if not found then
+    raise exception 'Swap request not found';
+  end if;
+
+  if auth.uid() not in (target_swap.requester_id, target_swap.owner_id) then
+    raise exception 'Only swap participants can review this swap';
+  end if;
+
+  if target_swap.status <> 'completed' then
+    raise exception 'Reviews unlock after swap completion';
+  end if;
+
+  if p_rating < 1 or p_rating > 5 then
+    raise exception 'Rating must be between 1 and 5';
+  end if;
+
+  reviewee := case
+    when auth.uid() = target_swap.requester_id then target_swap.owner_id
+    else target_swap.requester_id
+  end;
+
+  insert into reviews (
+    swap_id,
+    reviewer_id,
+    reviewee_id,
+    rating,
+    comment,
+    created_at
+  )
+  values (
+    target_swap.id,
+    auth.uid(),
+    reviewee,
+    p_rating,
+    nullif(trim(coalesce(p_comment, '')), ''),
+    now()
+  )
+  on conflict (swap_id, reviewer_id)
+  do update set
+    rating = excluded.rating,
+    comment = excluded.comment,
+    created_at = now()
+  returning * into saved_review;
+
+  update profiles profile
+  set rating = coalesce((
+        select round(avg(rating)::numeric, 1)
+        from reviews
+        where reviewee_id = reviewee
+      ), 0),
+      updated_at = now()
+  where profile.id = reviewee;
+
+  return saved_review;
+end;
+$$;
+
+create or replace function resolve_marketplace_report(
+  p_report_id bigint,
+  p_status text default 'resolved',
+  p_note text default null
+)
+returns reports
+language plpgsql
+security definer
+as $$
+declare
+  target_report reports;
+  clean_status text := lower(coalesce(nullif(trim(p_status), ''), 'resolved'));
+begin
+  if current_user_is_admin() is not true then
+    raise exception 'Only admins can resolve marketplace reports';
+  end if;
+
+  if clean_status not in ('resolved', 'dismissed', 'blocked') then
+    raise exception 'Invalid report status';
+  end if;
+
+  update reports
+  set status = clean_status,
+      reason = case
+        when nullif(trim(coalesce(p_note, '')), '') is null then reason
+        else concat(reason, E'\n\nAdmin note: ', trim(p_note))
+      end,
+      resolved_at = now()
+  where id = p_report_id
+  returning * into target_report;
+
+  if not found then
+    raise exception 'Report not found';
+  end if;
+
+  if clean_status = 'blocked' and target_report.listing_id is not null then
+    update listings
+    set swap_status = 'blocked',
+        is_public = false
+    where id = target_report.listing_id;
+  end if;
+
+  return target_report;
+end;
+$$;
+
+create or replace function get_admin_dashboard_data()
+returns jsonb
+language plpgsql
+security definer
+as $$
+declare
+  payload jsonb;
+begin
+  if current_user_is_admin() is not true then
+    raise exception 'Only admins can view admin dashboard data';
+  end if;
+
+  select jsonb_build_object(
+    'stats', jsonb_build_object(
+      'users', (select count(*) from profiles),
+      'listings', (select count(*) from listings),
+      'available_listings', (select count(*) from listings where coalesce(is_public, true) = true and coalesce(swap_status, 'available') = 'available'),
+      'successful_swaps', (select count(*) from swaps where status = 'completed'),
+      'open_reports', (select count(*) from reports where coalesce(status, 'open') = 'open'),
+      'open_disputes', (select count(*) from swap_disputes where coalesce(status, 'open') = 'open'),
+      'trust_score', coalesce((select round(avg(rating)::numeric, 1) from reviews), 0)
+    ),
+    'users', coalesce((
+      select jsonb_agg(
+        jsonb_build_object(
+          'id', p.id,
+          'name', coalesce(nullif(p.full_name, ''), nullif(p.username, ''), split_part(coalesce(p.email, ''), '@', 1), 'SwapWear User'),
+          'email', p.email,
+          'avatar_url', p.avatar_url,
+          'status', coalesce(p.status, 'active'),
+          'swaps', coalesce(swap_counts.total, 0),
+          'rating', coalesce(p.rating, 0),
+          'reports', coalesce(report_counts.total, 0)
+        )
+        order by coalesce(report_counts.total, 0) desc, p.created_at desc
+      )
+      from profiles p
+      left join lateral (
+        select count(*) as total
+        from swaps s
+        where s.requester_id = p.id or s.owner_id = p.id
+      ) swap_counts on true
+      left join lateral (
+        select count(*) as total
+        from reports r
+        where r.reported_user_id = p.id and coalesce(r.status, 'open') = 'open'
+      ) report_counts on true
+      limit 20
+    ), '[]'::jsonb),
+    'reports', coalesce((
+      select jsonb_agg(
+        jsonb_build_object(
+          'id', r.id,
+          'reporter_id', r.reporter_id,
+          'reported_user_id', r.reported_user_id,
+          'listing_id', r.listing_id,
+          'swap_id', r.swap_id,
+          'report_type', r.report_type,
+          'reason', r.reason,
+          'status', r.status,
+          'created_at', r.created_at,
+          'listing_title', l.title,
+          'listing_image', l.image,
+          'reported_user_name', coalesce(nullif(p.full_name, ''), p.email, 'Reported user')
+        )
+        order by r.created_at desc
+      )
+      from reports r
+      left join listings l on l.id = r.listing_id
+      left join profiles p on p.id = r.reported_user_id
+      where coalesce(r.status, 'open') = 'open'
+      limit 25
+    ), '[]'::jsonb)
+  ) into payload;
+
+  return payload;
 end;
 $$;
 

@@ -21,65 +21,8 @@ import {
 
 import Sidebar from "../components/layout/Sidebar";
 import SectionTitle from "../components/common/SectionTitle";
+import { getAdminDashboardData, resolveMarketplaceReport } from "../services/admin";
 import { getOpenSwapDisputes, resolveSwapDispute } from "../services/swaps";
-
-const users = [
-  {
-    id: 1,
-    name: "Rohit Sharma",
-    email: "rohit@gmail.com",
-    status: "Active",
-    swaps: 14,
-  },
-  {
-    id: 2,
-    name: "Sneha Patel",
-    email: "sneha@gmail.com",
-    status: "Reported",
-    swaps: 8,
-  },
-  {
-    id: 3,
-    name: "Aman Verma",
-    email: "aman@gmail.com",
-    status: "Active",
-    swaps: 21,
-  },
-  {
-    id: 4,
-    name: "Priya Mehta",
-    email: "priya@gmail.com",
-    status: "Active",
-    swaps: 11,
-  },
-];
-
-const stats = [
-  {
-    title: "Total Users",
-    value: "12.4K",
-    icon: Users,
-    color: "bg-blue-100 text-blue-600",
-  },
-  {
-    title: "Total Listings",
-    value: "8.9K",
-    icon: Shirt,
-    color: "bg-[var(--green-soft)] text-[var(--green)]",
-  },
-  {
-    title: "Successful Swaps",
-    value: "4.2K",
-    icon: Repeat2,
-    color: "bg-yellow-100 text-yellow-700",
-  },
-  {
-    title: "Reports Pending",
-    value: "32",
-    icon: AlertTriangle,
-    color: "bg-red-100 text-red-600",
-  },
-];
 
 const formatDate = (value) =>
   value
@@ -254,9 +197,23 @@ function AdminDisputeQueue({ disputes, loading, resolvingId, onResolve }) {
 }
 
 export default function Admin() {
+  const [adminData, setAdminData] = useState({ stats: {}, users: [], reports: [] });
+  const [loadingAdmin, setLoadingAdmin] = useState(true);
   const [disputes, setDisputes] = useState([]);
   const [loadingDisputes, setLoadingDisputes] = useState(true);
   const [resolvingId, setResolvingId] = useState(null);
+  const [resolvingReportId, setResolvingReportId] = useState(null);
+
+  const loadDashboard = async () => {
+    setLoadingAdmin(true);
+    const response = await getAdminDashboardData();
+    if (response.success) {
+      setAdminData(response.data);
+    } else {
+      toast.error(response.error || "Unable to load admin dashboard");
+    }
+    setLoadingAdmin(false);
+  };
 
   const loadDisputes = async () => {
     setLoadingDisputes(true);
@@ -270,6 +227,7 @@ export default function Admin() {
   };
 
   useEffect(() => {
+    loadDashboard();
     loadDisputes();
   }, []);
 
@@ -296,6 +254,55 @@ export default function Admin() {
 
     setResolvingId(null);
   };
+
+  const handleResolveReport = async (report, status) => {
+    const label = status === "blocked" ? "block this listing" : status;
+    const confirmed = window.confirm(`Mark this report as ${label}?`);
+    if (!confirmed) return;
+
+    const note = window.prompt("Admin note:", label) || "";
+    setResolvingReportId(report.id);
+
+    const response = await resolveMarketplaceReport(report.id, status, note);
+    if (response.success) {
+      toast.success("Report updated");
+      await loadDashboard();
+    } else {
+      toast.error(response.error || "Unable to update report");
+    }
+
+    setResolvingReportId(null);
+  };
+
+  const stats = [
+    {
+      title: "Total Users",
+      value: loadingAdmin ? "..." : adminData.stats.users || 0,
+      icon: Users,
+      color: "bg-blue-100 text-blue-600",
+    },
+    {
+      title: "Total Listings",
+      value: loadingAdmin ? "..." : adminData.stats.listings || 0,
+      icon: Shirt,
+      color: "bg-[var(--green-soft)] text-[var(--green)]",
+    },
+    {
+      title: "Successful Swaps",
+      value: loadingAdmin ? "..." : adminData.stats.successful_swaps || 0,
+      icon: Repeat2,
+      color: "bg-yellow-100 text-yellow-700",
+    },
+    {
+      title: "Open Reports",
+      value: loadingAdmin ? "..." : adminData.stats.open_reports || 0,
+      icon: AlertTriangle,
+      color: "bg-red-100 text-red-600",
+    },
+  ];
+
+  const users = adminData.users || [];
+  const reports = adminData.reports || [];
 
   return (
     <section className="section-space pt-28">
@@ -382,14 +389,24 @@ export default function Admin() {
             </div>
 
             <div className="divide-y divide-white/50">
-              {users.map((user) => (
+              {loadingAdmin ? (
+                <div className="p-8 font-black text-[var(--muted)]">Loading users...</div>
+              ) : users.length === 0 ? (
+                <div className="p-8 font-black text-[var(--muted)]">No users found yet.</div>
+              ) : users.map((user) => (
                 <div
                   key={user.id}
                   className="p-6 flex flex-col xl:flex-row xl:items-center justify-between gap-6 hover:bg-pink-50/25 transition"
                 >
                   <div className="flex items-center gap-5">
-                    <div className="relative w-16 h-16 rounded-full bg-[var(--accent-soft)] border border-white/50">
-                      <div className="absolute inset-2 rounded-full bg-pink-200"></div>
+                    <div className="relative w-16 h-16 rounded-full bg-[var(--accent-soft)] border border-white/50 overflow-hidden">
+                      {user.avatar_url ? (
+                        <img src={user.avatar_url} alt={user.name} className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="absolute inset-2 rounded-full bg-pink-200 flex items-center justify-center font-black text-pink-600">
+                          {(user.name || "S").charAt(0)}
+                        </div>
+                      )}
                     </div>
 
                     <div>
@@ -406,16 +423,20 @@ export default function Admin() {
                   <div className="flex flex-wrap items-center gap-3">
                     <span
                       className={`px-4 py-2 rounded-full font-black text-sm ${
-                        user.status === "Reported"
+                        Number(user.reports || 0) > 0
                           ? "bg-red-100 text-red-600"
                           : "bg-[var(--green-soft)] text-[var(--green)]"
                       }`}
                     >
-                      {user.status}
+                      {Number(user.reports || 0) > 0 ? `${user.reports} reports` : user.status || "active"}
                     </span>
 
                     <span className="px-4 py-2 rounded-full bg-white/60 backdrop-blur-xl border border-white/50 font-black text-sm">
                       {user.swaps} swaps
+                    </span>
+
+                    <span className="px-4 py-2 rounded-full bg-white/60 backdrop-blur-xl border border-white/50 font-black text-sm">
+                      {user.rating || "0.0"} rating
                     </span>
 
                     <button className="w-11 h-11 rounded-full bg-white/60 backdrop-blur-xl border border-white/50 flex items-center justify-center hover:bg-pink-400/20 transition">
@@ -454,29 +475,80 @@ export default function Admin() {
               </div>
 
               <div className="mt-8 space-y-4">
-                {[
-                  "Reported listing: Luxury Leather Jacket",
-                  "User dispute: courier delay",
-                  "Suspicious duplicate listing",
-                  "Fake product image complaint",
-                ].map((item) => (
+                {loadingAdmin ? (
+                  <div className="rounded-[28px] bg-white/45 backdrop-blur-xl border border-white/50 p-5 font-black text-[var(--muted)]">
+                    Loading reports...
+                  </div>
+                ) : reports.length === 0 ? (
+                  <div className="rounded-[28px] bg-white/45 backdrop-blur-xl border border-white/50 p-5">
+                    <p className="font-black">No open marketplace reports</p>
+                    <p className="mt-2 text-sm text-[var(--muted)] font-semibold">
+                      Reported listings and users will appear here.
+                    </p>
+                  </div>
+                ) : reports.map((report) => (
                   <div
-                    key={item}
-                    className="rounded-[28px] bg-white/45 backdrop-blur-xl border border-white/50 p-5 flex items-center justify-between gap-4"
+                    key={report.id}
+                    className="rounded-[28px] bg-white/45 backdrop-blur-xl border border-white/50 p-5"
                   >
-                    <div>
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-black text-red-600">
+                            {report.report_type || "general"}
+                          </span>
+                          <span className="rounded-full bg-white/60 px-3 py-1 text-xs font-black text-[var(--muted)]">
+                            {formatDate(report.created_at)}
+                          </span>
+                        </div>
+
                       <p className="font-black leading-relaxed">
-                        {item}
+                          {report.listing_title
+                            ? `Reported listing: ${report.listing_title}`
+                            : report.reported_user_name
+                              ? `Reported user: ${report.reported_user_name}`
+                              : "Marketplace report"}
                       </p>
 
                       <p className="mt-2 text-sm text-[var(--muted)] font-semibold">
-                        Requires admin verification
+                          {report.reason || "Requires admin verification"}
                       </p>
+                      </div>
+
+                      {report.listing_image && (
+                        <img
+                          src={report.listing_image}
+                          alt={report.listing_title || "Reported listing"}
+                          className="h-16 w-16 shrink-0 rounded-2xl object-cover"
+                        />
+                      )}
                     </div>
 
-                    <button className="px-5 py-3 rounded-full bg-pink-400/35 backdrop-blur-xl border border-white/50 font-black hover:bg-pink-400/50 transition">
-                      Review
-                    </button>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <button
+                        disabled={resolvingReportId === report.id}
+                        onClick={() => handleResolveReport(report, "resolved")}
+                        className="px-5 py-3 rounded-full bg-emerald-50 text-emerald-700 font-black hover:bg-emerald-100 transition disabled:opacity-60"
+                      >
+                        Resolve
+                      </button>
+                      <button
+                        disabled={resolvingReportId === report.id}
+                        onClick={() => handleResolveReport(report, "dismissed")}
+                        className="px-5 py-3 rounded-full bg-white/70 border border-white/50 font-black hover:bg-white transition disabled:opacity-60"
+                      >
+                        Dismiss
+                      </button>
+                      {report.listing_id && (
+                        <button
+                          disabled={resolvingReportId === report.id}
+                          onClick={() => handleResolveReport(report, "blocked")}
+                          className="px-5 py-3 rounded-full bg-red-50 text-red-600 font-black hover:bg-red-100 transition disabled:opacity-60"
+                        >
+                          Block Listing
+                        </button>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -502,7 +574,11 @@ export default function Admin() {
 
                 <div className="mt-10 grid grid-cols-2 gap-4">
                   <div className="rounded-[28px] bg-white/55 backdrop-blur-xl border border-white/50 p-5">
-                    <h3 className="text-4xl font-black">98%</h3>
+                    <h3 className="text-4xl font-black">
+                      {adminData.stats.listings
+                        ? `${Math.round(((adminData.stats.available_listings || 0) / adminData.stats.listings) * 100)}%`
+                        : "0%"}
+                    </h3>
 
                     <p className="mt-2 text-[var(--muted)] font-semibold">
                       Safe listings
@@ -510,7 +586,7 @@ export default function Admin() {
                   </div>
 
                   <div className="rounded-[28px] bg-white/55 backdrop-blur-xl border border-white/50 p-5">
-                    <h3 className="text-4xl font-black">4.8</h3>
+                    <h3 className="text-4xl font-black">{adminData.stats.trust_score || "0.0"}</h3>
 
                     <p className="mt-2 text-[var(--muted)] font-semibold">
                       Trust score
@@ -518,18 +594,18 @@ export default function Admin() {
                   </div>
 
                   <div className="rounded-[28px] bg-white/55 backdrop-blur-xl border border-white/50 p-5">
-                    <h3 className="text-4xl font-black">72%</h3>
+                    <h3 className="text-4xl font-black">{adminData.stats.successful_swaps || 0}</h3>
 
                     <p className="mt-2 text-[var(--muted)] font-semibold">
-                      Swap success
+                      Completed swaps
                     </p>
                   </div>
 
                   <div className="rounded-[28px] bg-white/55 backdrop-blur-xl border border-white/50 p-5">
-                    <h3 className="text-4xl font-black">24T</h3>
+                    <h3 className="text-4xl font-black">{adminData.stats.open_disputes || 0}</h3>
 
                     <p className="mt-2 text-[var(--muted)] font-semibold">
-                      Waste saved
+                      Open disputes
                     </p>
                   </div>
                 </div>

@@ -1,10 +1,36 @@
 import { Link } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
 import { MessageCircle, ShieldCheck, Star, ThumbsUp } from "lucide-react";
 
 import useRotatingListings, { listingImage } from "../../hooks/useRotatingListings";
+import { getUserReviews } from "../../services/trust";
 
-export default function ReviewPanel() {
+export default function ReviewPanel({ ownerId }) {
   const { items, loading } = useRotatingListings(2);
+  const [reviews, setReviews] = useState([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+
+  useEffect(() => {
+    async function loadReviews() {
+      if (!ownerId) {
+        setReviews([]);
+        return;
+      }
+
+      setReviewsLoading(true);
+      const response = await getUserReviews(ownerId);
+      if (response.success) setReviews(response.data || []);
+      setReviewsLoading(false);
+    }
+
+    loadReviews();
+  }, [ownerId]);
+
+  const averageRating = useMemo(() => {
+    if (reviews.length === 0) return "New";
+    const total = reviews.reduce((sum, review) => sum + Number(review.rating || 0), 0);
+    return `${(total / reviews.length).toFixed(1)}/5`;
+  }, [reviews]);
 
   return (
     <section className="section-space pt-0">
@@ -16,11 +42,12 @@ export default function ReviewPanel() {
               Trust Score
             </div>
 
-            <h2 className="mt-5 text-4xl font-black">4.8/5 rating</h2>
+            <h2 className="mt-5 text-4xl font-black">{averageRating} rating</h2>
 
             <p className="mt-3 font-semibold leading-relaxed text-[var(--muted)]">
-              Ratings help swappers understand listing quality, response behavior,
-              and exchange trust.
+              {reviews.length > 0
+                ? `${reviews.length} completed swap review${reviews.length === 1 ? "" : "s"} for this owner.`
+                : "Ratings will appear after completed swaps."}
             </p>
 
             <div className="mt-7 grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
@@ -31,13 +58,39 @@ export default function ReviewPanel() {
           </div>
 
           <div className="rounded-[34px] border border-pink-100 bg-white/90 p-7 shadow-[0_24px_70px_rgba(15,23,42,0.06)] md:p-8">
-            <h2 className="text-3xl font-black">Live Marketplace Signals</h2>
+            <h2 className="text-3xl font-black">
+              {reviews.length > 0 ? "Owner Reviews" : "Live Marketplace Signals"}
+            </h2>
             <p className="mt-2 font-semibold text-slate-500">
-              Powered by uploaded products, rotating every 5 minutes.
+              {reviews.length > 0
+                ? "Real feedback from completed swaps."
+                : "Powered by uploaded products, rotating every 5 minutes."}
             </p>
 
             <div className="mt-6 grid gap-4">
-              {loading
+              {reviewsLoading
+                ? Array.from({ length: 2 }).map((_, index) => (
+                    <div key={index} className="h-28 animate-pulse rounded-[26px] bg-pink-50" />
+                  ))
+                : reviews.length > 0
+                  ? reviews.slice(0, 3).map((review) => (
+                      <div
+                        key={review.id}
+                        className="rounded-[26px] border border-pink-50 bg-pink-50/50 p-5"
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <h3 className="font-black">Verified swap review</h3>
+                          <div className="inline-flex shrink-0 items-center gap-1 rounded-full bg-white px-3 py-2 text-sm font-black text-slate-700">
+                            <Star size={15} fill="currentColor" className="text-yellow-400" />
+                            {review.rating}/5
+                          </div>
+                        </div>
+                        <p className="mt-3 line-clamp-3 font-medium leading-relaxed text-slate-600">
+                          {review.comment || "Smooth swap completed successfully."}
+                        </p>
+                      </div>
+                    ))
+                  : loading
                 ? Array.from({ length: 2 }).map((_, index) => (
                     <div key={index} className="h-32 animate-pulse rounded-[26px] bg-pink-50" />
                   ))
@@ -78,7 +131,7 @@ export default function ReviewPanel() {
                     </Link>
                   ))}
 
-              {!loading && items.length === 0 && (
+              {!reviewsLoading && reviews.length === 0 && !loading && items.length === 0 && (
                 <div className="rounded-[26px] border border-pink-50 bg-pink-50/50 p-5 text-center">
                   <p className="font-black text-slate-700">Marketplace signals will appear after products are uploaded.</p>
                 </div>
