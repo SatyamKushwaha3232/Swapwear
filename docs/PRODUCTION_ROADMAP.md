@@ -69,7 +69,7 @@ Notes:
 
 ## Batch 4: Swap Lifecycle
 
-Status: next
+Status: complete
 
 Goal: Move swap mechanism into backend transactions.
 
@@ -83,7 +83,14 @@ Deliverables:
 - Event history
 - Admin dispute resolve
 
+Notes:
+- Backend mode now handles swap request, accept, reject/cancel, complete, archive, dispute, delivery-method selection, and handover/received confirmations.
+- Accepting a swap reserves both listings and expires competing pending swaps.
+- Cancelling/rejecting/failed swaps relist items and revive eligible expired requests.
+
 ## Batch 5: Delivery And Courier
+
+Status: next
 
 Goal: Add full delivery workflow.
 

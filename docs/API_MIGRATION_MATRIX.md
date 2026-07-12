@@ -9,8 +9,8 @@ This file tracks the move from Supabase direct frontend calls to a self-managed 
 | Listings | Backend-ready behind `VITE_AUTH_PROVIDER=backend` | `/api/listings/*` with Prisma | 3 complete |
 | Uploads | Local backend uploads in backend mode | `/uploads/listings/*` static files | 3 complete |
 | Wishlist | Backend-ready behind `VITE_AUTH_PROVIDER=backend` | `/api/wishlist/*` with Prisma | 3 complete |
-| Swaps | Frontend Supabase RPCs | `/api/swaps/*` transaction service | 4 |
-| Swap events | Supabase table/RPC | Backend audit writer | 4 |
+| Swaps | Backend-ready behind `VITE_AUTH_PROVIDER=backend` | `/api/swaps/*` transaction service | 4 complete |
+| Swap events | Backend audit events in backend mode | `SwapEvent` writer | 4 complete |
 | Delivery | UI method only | `/api/delivery/*` | 5 |
 | Payments | Not implemented | `/api/payments/*` | 6 |
 | Chat | Supabase realtime/table | `/api/chat/*` and Socket.IO | 7 |

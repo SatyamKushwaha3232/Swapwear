@@ -1,4 +1,5 @@
 import { supabase } from "../lib/supabase";
+import { backendAuthEnabled, backendRequest } from "../lib/backendApi";
 import {
   deleteSwapListings,
   getListingsByIds,
@@ -62,6 +63,10 @@ function formatSwap(item = {}) {
 }
 
 export async function getSwapById(id) {
+  if (backendAuthEnabled) {
+    return formatSwap(await backendRequest(`/swaps/${id}`));
+  }
+
   const { data, error } = await supabase
     .from("swaps")
     .select("*")
@@ -133,6 +138,11 @@ async function ensureListingsAvailable(listingIds = []) {
 }
 
 async function getCurrentUserId() {
+  if (backendAuthEnabled) {
+    const data = await backendRequest("/auth/me");
+    return data?.user?.id || null;
+  }
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -205,6 +215,27 @@ async function reviveEligibleExpiredSwaps(cancelledSwap) {
 }
 
 export async function createSwapRequest(payload) {
+  if (backendAuthEnabled) {
+    try {
+      const createdSwap = await backendRequest("/swaps", {
+        method: "POST",
+        body: JSON.stringify({
+          requester_item_id: itemId(payload.requesterItem),
+          owner_item_id: itemId(payload.ownerItem),
+          requester_name: payload.requesterName,
+          owner_name: payload.ownerName,
+          requester_item: payload.requesterItem,
+          owner_item: payload.ownerItem,
+          message: payload.message || "",
+        }),
+      });
+
+      return { success: true, data: formatSwap(createdSwap) };
+    } catch (error) {
+      return { success: false, error: error.message || "Unable to create swap request" };
+    }
+  }
+
   try {
     const requesterItemId = itemId(payload.requesterItem);
     const ownerItemId = itemId(payload.ownerItem);
@@ -272,6 +303,16 @@ export async function createSwapRequest(payload) {
 }
 
 export async function getMySwaps(userId) {
+  if (backendAuthEnabled) {
+    try {
+      const params = userId ? `?userId=${encodeURIComponent(userId)}` : "";
+      const swaps = await backendRequest(`/swaps${params}`);
+      return { success: true, data: (swaps || []).map(formatSwap) };
+    } catch (error) {
+      return { success: false, error: error.message || "Unable to fetch swaps", data: [] };
+    }
+  }
+
   try {
     const { data, error } = await supabase
       .from("swaps")
@@ -314,6 +355,18 @@ export async function getMySwaps(userId) {
 }
 
 export async function setSwapDeliveryMethod(id, method) {
+  if (backendAuthEnabled) {
+    try {
+      const updatedSwap = await backendRequest(`/swaps/${id}/delivery-method`, {
+        method: "PATCH",
+        body: JSON.stringify({ method }),
+      });
+      return { success: true, data: formatSwap(updatedSwap) };
+    } catch (error) {
+      return { success: false, error: error.message || "Unable to update delivery method" };
+    }
+  }
+
   try {
     const actorId = await getCurrentUserId();
     const updatedSwap = await runSwapRpc("set_swap_delivery_method", {
@@ -329,6 +382,18 @@ export async function setSwapDeliveryMethod(id, method) {
 }
 
 export async function confirmSwapHandover(id, note = "") {
+  if (backendAuthEnabled) {
+    try {
+      const updatedSwap = await backendRequest(`/swaps/${id}/handover`, {
+        method: "POST",
+        body: JSON.stringify({ note }),
+      });
+      return { success: true, data: formatSwap(updatedSwap) };
+    } catch (error) {
+      return { success: false, error: error.message || "Unable to confirm handover" };
+    }
+  }
+
   try {
     const actorId = await getCurrentUserId();
     const updatedSwap = await runSwapRpc("confirm_swap_handover", {
@@ -345,6 +410,18 @@ export async function confirmSwapHandover(id, note = "") {
 }
 
 export async function confirmSwapReceived(id, note = "") {
+  if (backendAuthEnabled) {
+    try {
+      const updatedSwap = await backendRequest(`/swaps/${id}/received`, {
+        method: "POST",
+        body: JSON.stringify({ note }),
+      });
+      return { success: true, data: formatSwap(updatedSwap) };
+    } catch (error) {
+      return { success: false, error: error.message || "Unable to confirm receipt" };
+    }
+  }
+
   try {
     const actorId = await getCurrentUserId();
     const updatedSwap = await runSwapRpc("confirm_swap_received", {
@@ -361,6 +438,18 @@ export async function confirmSwapReceived(id, note = "") {
 }
 
 export async function openSwapDispute(id, reason = "") {
+  if (backendAuthEnabled) {
+    try {
+      const updatedSwap = await backendRequest(`/swaps/${id}/dispute`, {
+        method: "POST",
+        body: JSON.stringify({ reason }),
+      });
+      return { success: true, data: formatSwap(updatedSwap) };
+    } catch (error) {
+      return { success: false, error: error.message || "Unable to open dispute" };
+    }
+  }
+
   try {
     const actorId = await getCurrentUserId();
     const updatedSwap = await runSwapRpc("open_swap_dispute", {
@@ -377,6 +466,15 @@ export async function openSwapDispute(id, reason = "") {
 }
 
 export async function getOpenSwapDisputes() {
+  if (backendAuthEnabled) {
+    try {
+      const data = await backendRequest("/swaps/disputes/open");
+      return { success: true, data: data || [] };
+    } catch (error) {
+      return { success: false, error: error.message || "Unable to fetch disputes", data: [] };
+    }
+  }
+
   try {
     const { data, error } = await supabase.rpc("get_open_swap_disputes");
 
@@ -395,6 +493,18 @@ export async function getOpenSwapDisputes() {
 }
 
 export async function resolveSwapDispute(disputeId, decision, resolution = "") {
+  if (backendAuthEnabled) {
+    try {
+      const updatedSwap = await backendRequest(`/swaps/disputes/${disputeId}/resolve`, {
+        method: "PATCH",
+        body: JSON.stringify({ decision, resolution }),
+      });
+      return { success: true, data: formatSwap(updatedSwap) };
+    } catch (error) {
+      return { success: false, error: error.message || "Unable to resolve dispute" };
+    }
+  }
+
   try {
     const actorId = await getCurrentUserId();
     const updatedSwap = await runSwapRpc("resolve_swap_dispute", {
@@ -420,6 +530,18 @@ export async function resolveSwapDispute(disputeId, decision, resolution = "") {
 }
 
 export async function updateSwapStatus(id, status) {
+  if (backendAuthEnabled) {
+    try {
+      const updatedSwap = await backendRequest(`/swaps/${id}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: normalizeStatus(status) }),
+      });
+      return { success: true, data: formatSwap(updatedSwap) };
+    } catch (error) {
+      return { success: false, error: error.message || "Unable to update swap status" };
+    }
+  }
+
   try {
     const nextStatus = normalizeStatus(status);
     const actorId = await getCurrentUserId();
@@ -510,6 +632,17 @@ export async function updateSwapStatus(id, status) {
 }
 
 export async function deleteCompletedSwapItems(id) {
+  if (backendAuthEnabled) {
+    try {
+      const archivedSwap = await backendRequest(`/swaps/${id}/archive-items`, {
+        method: "POST",
+      });
+      return { success: true, data: formatSwap(archivedSwap) };
+    } catch (error) {
+      return { success: false, error: error.message || "Unable to archive completed items" };
+    }
+  }
+
   try {
     const actorId = await getCurrentUserId();
 
