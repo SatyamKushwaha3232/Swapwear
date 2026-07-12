@@ -1,4 +1,5 @@
 import { prisma } from "../config/prisma.js";
+import { assertCourierReadyForHandover } from "../modules/delivery/delivery.service.js";
 
 const ACTIVE_SWAP_STATUSES = ["PENDING", "ACCEPTED", "SHIPPED", "DELIVERED", "DISPUTED"];
 const RELIST_STATUSES = ["CANCELLED", "REJECTED", "FAILED"];
@@ -82,6 +83,26 @@ function formatDispute(item = {}) {
   };
 }
 
+function formatDelivery(order = {}) {
+  return {
+    id: order.id,
+    swap_id: order.swapId,
+    leg: order.leg,
+    method: String(order.method || "COURIER").toLowerCase(),
+    status: String(order.status || "ADDRESS_PENDING").toLowerCase(),
+    pickup_address_id: order.pickupAddressId,
+    drop_address_id: order.dropAddressId,
+    courier_provider: order.courierProvider || "",
+    tracking_number: order.trackingNumber || "",
+    tracking_url: order.trackingUrl || "",
+    proof_url: order.proofUrl || "",
+    cost: Number(order.cost) || 0,
+    notes: order.notes || "",
+    created_at: order.createdAt?.toISOString?.() || order.createdAt,
+    updated_at: order.updatedAt?.toISOString?.() || order.updatedAt,
+  };
+}
+
 function formatSwap(swap = {}) {
   const requesterItem =
     swap.requesterItem || swap.requesterListing
@@ -119,6 +140,7 @@ function formatSwap(swap = {}) {
     confirmations: (swap.confirmations || []).map(formatConfirmation),
     events: (swap.events || []).map(formatEvent),
     disputes: (swap.disputes || []).map(formatDispute),
+    deliveries: (swap.deliveries || []).map(formatDelivery),
     created_at: swap.createdAt?.toISOString?.() || swap.createdAt,
     updated_at: swap.updatedAt?.toISOString?.() || swap.updatedAt,
   };
@@ -129,6 +151,7 @@ function swapInclude() {
     requesterListing: true,
     ownerListing: true,
     confirmations: true,
+    deliveries: { orderBy: { leg: "asc" } },
     events: { orderBy: { createdAt: "desc" } },
     disputes: { orderBy: { createdAt: "desc" } },
   };
@@ -496,6 +519,8 @@ export async function confirmSwapHandover(id, note, user) {
     if (!["ACCEPTED", "SHIPPED"].includes(swap.status)) {
       throw new Error("Swap must be accepted before handover");
     }
+
+    await assertCourierReadyForHandover(id);
 
     await tx.swapConfirmation.upsert({
       where: { swapId_userId: { swapId: id, userId: user.id } },

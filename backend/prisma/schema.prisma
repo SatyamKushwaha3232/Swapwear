@@ -314,6 +314,7 @@ model Address {
 model DeliveryOrder {
   id              String         @id @default(uuid())
   swapId          String
+  leg             String         @default("requester_to_owner")
   requesterId     String
   ownerId         String
   method          DeliveryMethod @default(COURIER)
@@ -332,6 +333,9 @@ model DeliveryOrder {
   swap            Swap           @relation(fields: [swapId], references: [id], onDelete: Cascade)
   pickupAddress   Address?       @relation("PickupAddress", fields: [pickupAddressId], references: [id])
   dropAddress     Address?       @relation("DropAddress", fields: [dropAddressId], references: [id])
+
+  @@unique([swapId, leg])
+  @@index([status])
 }
 
 model Payment {

@@ -11,7 +11,7 @@ This file tracks the move from Supabase direct frontend calls to a self-managed 
 | Wishlist | Backend-ready behind `VITE_AUTH_PROVIDER=backend` | `/api/wishlist/*` with Prisma | 3 complete |
 | Swaps | Backend-ready behind `VITE_AUTH_PROVIDER=backend` | `/api/swaps/*` transaction service | 4 complete |
 | Swap events | Backend audit events in backend mode | `SwapEvent` writer | 4 complete |
-| Delivery | UI method only | `/api/delivery/*` | 5 |
+| Delivery | Backend-ready behind `VITE_AUTH_PROVIDER=backend` | `/api/delivery/*` | 5 complete |
 | Payments | Not implemented | `/api/payments/*` | 6 |
 | Chat | Supabase realtime/table | `/api/chat/*` and Socket.IO | 7 |
 | Audio/video calls | UI placeholder | Socket.IO signaling + WebRTC | 7 |

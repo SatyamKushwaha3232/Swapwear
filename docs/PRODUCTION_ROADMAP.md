@@ -90,7 +90,7 @@ Notes:
 
 ## Batch 5: Delivery And Courier
 
-Status: next
+Status: complete
 
 Goal: Add full delivery workflow.
 
@@ -103,7 +103,13 @@ Deliverables:
 - Delivery dispute hook
 - Later provider adapter for Shiprocket/Delhivery
 
+Notes:
+- Backend mode now has address book APIs, two courier delivery legs per swap, tracking/proof updates, and courier-readiness checks before shipping confirmation.
+- Local meetup remains address-free.
+
 ## Batch 6: Payments
+
+Status: next
 
 Goal: Add payment records and premium/fee flow.
 

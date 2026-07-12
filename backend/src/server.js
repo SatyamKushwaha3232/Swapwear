@@ -14,6 +14,7 @@ import swapRoutes from "./routes/swap.routes.js";
 import listingRoutes from "./routes/listing.routes.js";
 import authRoutes from "./modules/auth/auth.routes.js";
 import userRoutes from "./modules/users/user.routes.js";
+import deliveryRoutes from "./modules/delivery/delivery.routes.js";
 import { appConfig } from "./config/app.config.js";
 
 dotenv.config();
@@ -47,6 +48,7 @@ app.get("/", (req,res)=>{
 
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
+app.use("/api/delivery", deliveryRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/wishlist", wishlistRoutes);
 app.use("/api/chat", chatRoutes);

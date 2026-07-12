@@ -28,6 +28,14 @@ import {
   rejectSwap,
   setSwapDeliveryMethod,
 } from "../services/swaps";
+import {
+  addDeliveryProof,
+  createAddress,
+  getAddresses,
+  getSwapDelivery,
+  setupSwapDelivery,
+  updateDeliveryTracking,
+} from "../services/delivery";
 import { getOrCreateConversation } from "../services/chat";
 import { submitSwapReview } from "../services/trust";
 
@@ -38,6 +46,18 @@ const flowSteps = [
   ["delivered", "Received"],
   ["completed", "Completed"],
 ];
+
+const emptyAddressForm = {
+  label: "Home",
+  fullName: "",
+  phone: "",
+  line1: "",
+  line2: "",
+  city: "",
+  state: "",
+  postalCode: "",
+  country: "India",
+};
 
 export default function SwapDealRoom() {
   const { swapId } = useParams();
@@ -50,6 +70,10 @@ export default function SwapDealRoom() {
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState("");
   const [reviewing, setReviewing] = useState(false);
+  const [addresses, setAddresses] = useState([]);
+  const [deliveryOrders, setDeliveryOrders] = useState([]);
+  const [addressForm, setAddressForm] = useState(emptyAddressForm);
+  const [deliverySaving, setDeliverySaving] = useState(false);
 
   const loadSwap = useCallback(async () => {
     if (!swapId) return;
@@ -59,6 +83,15 @@ export default function SwapDealRoom() {
     try {
       const data = await getSwapById(swapId);
       setSwap(data);
+      setDeliveryOrders(data?.deliveries || []);
+
+      const [addressResponse, deliveryResponse] = await Promise.all([
+        getAddresses(),
+        getSwapDelivery(swapId),
+      ]);
+
+      if (addressResponse.success) setAddresses(addressResponse.data || []);
+      if (deliveryResponse.success) setDeliveryOrders(deliveryResponse.data || data?.deliveries || []);
     } catch (error) {
       toast.error(error.message || "Unable to load swap");
     } finally {
@@ -84,6 +117,81 @@ export default function SwapDealRoom() {
     }
 
     setUpdating(false);
+  }
+
+  async function chooseDeliveryMethod(method) {
+    if (!swap?.id) return;
+
+    setUpdating(true);
+    const methodResponse = await setSwapDeliveryMethod(swap.id, method);
+    const deliveryResponse = await setupSwapDelivery(swap.id, method);
+
+    if (methodResponse.success && deliveryResponse.success) {
+      toast.success(method === "courier" ? "Courier selected" : "Local meetup selected");
+      await loadSwap();
+    } else {
+      toast.error(methodResponse.error || deliveryResponse.error || "Unable to setup delivery");
+    }
+
+    setUpdating(false);
+  }
+
+  async function saveAddress() {
+    setDeliverySaving(true);
+    const response = await createAddress(addressForm);
+
+    if (response.success) {
+      toast.success("Address saved");
+      setAddressForm(emptyAddressForm);
+      if (swap?.delivery_method) {
+        await setupSwapDelivery(swap.id, swap.delivery_method);
+      }
+      await loadSwap();
+    } else {
+      toast.error(response.error || "Unable to save address");
+    }
+
+    setDeliverySaving(false);
+  }
+
+  async function saveTracking(order) {
+    const trackingNumber = window.prompt("Tracking number", order.tracking_number || "");
+    if (trackingNumber === null) return;
+
+    const courierProvider = window.prompt("Courier provider", order.courier_provider || "");
+    if (courierProvider === null) return;
+
+    setDeliverySaving(true);
+    const response = await updateDeliveryTracking(order.id, {
+      trackingNumber,
+      courierProvider,
+    });
+
+    if (response.success) {
+      toast.success("Tracking updated");
+      await loadSwap();
+    } else {
+      toast.error(response.error || "Unable to update tracking");
+    }
+
+    setDeliverySaving(false);
+  }
+
+  async function saveProof(order) {
+    const proofUrl = window.prompt("Proof image/link URL", order.proof_url || "");
+    if (proofUrl === null) return;
+
+    setDeliverySaving(true);
+    const response = await addDeliveryProof(order.id, { proofUrl });
+
+    if (response.success) {
+      toast.success("Delivery proof saved");
+      await loadSwap();
+    } else {
+      toast.error(response.error || "Unable to save proof");
+    }
+
+    setDeliverySaving(false);
   }
 
   async function openChat() {
@@ -239,6 +347,20 @@ export default function SwapDealRoom() {
               />
             </div>
 
+            {["accepted", "shipped", "delivered"].includes(status) && (
+              <DeliveryPanel
+                swap={swap}
+                addresses={addresses}
+                orders={deliveryOrders}
+                form={addressForm}
+                saving={deliverySaving}
+                onFormChange={setAddressForm}
+                onSaveAddress={saveAddress}
+                onSaveTracking={saveTracking}
+                onSaveProof={saveProof}
+              />
+            )}
+
             {status === "disputed" && (
               <div className="mt-6 rounded-[30px] border border-red-100 bg-red-50 p-5">
                 <div className="flex items-start gap-3">
@@ -322,24 +444,14 @@ export default function SwapDealRoom() {
                     <ActionButton
                       disabled={updating}
                       quiet={swap.delivery_method === "local"}
-                      onClick={() =>
-                        runAction(
-                          (id) => setSwapDeliveryMethod(id, "local"),
-                          "Local meetup selected"
-                        )
-                      }
+                      onClick={() => chooseDeliveryMethod("local")}
                     >
                       Local
                     </ActionButton>
                     <ActionButton
                       disabled={updating}
                       quiet={swap.delivery_method === "courier"}
-                      onClick={() =>
-                        runAction(
-                          (id) => setSwapDeliveryMethod(id, "courier"),
-                          "Courier selected"
-                        )
-                      }
+                      onClick={() => chooseDeliveryMethod("courier")}
                     >
                       Courier
                     </ActionButton>
@@ -475,6 +587,146 @@ function DealItem({ label, item }) {
       </div>
     </div>
   );
+}
+
+function DeliveryPanel({
+  swap,
+  addresses,
+  orders,
+  form,
+  saving,
+  onFormChange,
+  onSaveAddress,
+  onSaveTracking,
+  onSaveProof,
+}) {
+  const method = swap?.delivery_method;
+
+  return (
+    <div className="mt-6 rounded-[30px] border border-white/80 bg-white/88 p-5 shadow-[0_20px_70px_rgba(15,23,42,0.08)]">
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div>
+          <div className="inline-flex items-center gap-2 rounded-full bg-pink-50 px-4 py-2 font-black text-pink-600">
+            <Truck size={16} />
+            Delivery workflow
+          </div>
+          <h2 className="mt-4 text-2xl font-black">
+            {method === "courier" ? "Courier exchange" : "Local meetup"}
+          </h2>
+          <p className="mt-2 max-w-2xl font-semibold leading-relaxed text-slate-500">
+            Courier swaps need both users' default address before shipping. Local meetup
+            stays address-free and uses handover confirmation only.
+          </p>
+        </div>
+
+        <div className="rounded-[22px] bg-slate-50 px-4 py-3 text-sm font-black text-slate-600">
+          {addresses.length} saved address{addresses.length === 1 ? "" : "es"}
+        </div>
+      </div>
+
+      {method === "courier" && (
+        <>
+          <div className="mt-5 grid gap-3 md:grid-cols-2">
+            {orders.length === 0 ? (
+              <div className="rounded-[22px] bg-yellow-50 p-4 font-bold text-yellow-700 md:col-span-2">
+                Add your address, then select Courier again to generate both delivery legs.
+              </div>
+            ) : (
+              orders.map((order) => (
+                <div key={order.id} className="rounded-[24px] border border-pink-50 bg-slate-50 p-4">
+                  <p className="text-xs font-black uppercase tracking-widest text-pink-500">
+                    {order.leg === "owner_to_requester"
+                      ? "Owner to requester"
+                      : "Requester to owner"}
+                  </p>
+                  <h3 className="mt-2 text-xl font-black">{deliveryStatusLabel(order.status)}</h3>
+                  <p className="mt-2 text-sm font-semibold text-slate-500">
+                    Pickup: {order.pickup_address?.city || "Address pending"} → Drop:{" "}
+                    {order.drop_address?.city || "Address pending"}
+                  </p>
+                  <p className="mt-2 text-sm font-bold text-slate-600">
+                    {order.courier_provider || "Courier pending"}
+                    {order.tracking_number ? ` / ${order.tracking_number}` : ""}
+                  </p>
+                  <div className="mt-4 grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      disabled={saving}
+                      onClick={() => onSaveTracking(order)}
+                      className="rounded-full bg-white px-4 py-2 text-sm font-black text-pink-600 shadow-sm disabled:opacity-60"
+                    >
+                      Tracking
+                    </button>
+                    <button
+                      type="button"
+                      disabled={saving}
+                      onClick={() => onSaveProof(order)}
+                      className="rounded-full bg-white px-4 py-2 text-sm font-black text-pink-600 shadow-sm disabled:opacity-60"
+                    >
+                      Proof
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          <div className="mt-5 rounded-[24px] border border-pink-50 bg-pink-50/50 p-4">
+            <h3 className="text-xl font-black">Default delivery address</h3>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <DeliveryInput label="Full name" value={form.fullName} onChange={(fullName) => onFormChange((prev) => ({ ...prev, fullName }))} />
+              <DeliveryInput label="Phone" value={form.phone} onChange={(phone) => onFormChange((prev) => ({ ...prev, phone }))} />
+              <DeliveryInput label="Address line 1" value={form.line1} onChange={(line1) => onFormChange((prev) => ({ ...prev, line1 }))} />
+              <DeliveryInput label="Address line 2" value={form.line2} onChange={(line2) => onFormChange((prev) => ({ ...prev, line2 }))} />
+              <DeliveryInput label="City" value={form.city} onChange={(city) => onFormChange((prev) => ({ ...prev, city }))} />
+              <DeliveryInput label="State" value={form.state} onChange={(state) => onFormChange((prev) => ({ ...prev, state }))} />
+              <DeliveryInput label="Postal code" value={form.postalCode} onChange={(postalCode) => onFormChange((prev) => ({ ...prev, postalCode }))} />
+              <DeliveryInput label="Label" value={form.label} onChange={(label) => onFormChange((prev) => ({ ...prev, label }))} />
+            </div>
+            <button
+              type="button"
+              disabled={saving}
+              onClick={onSaveAddress}
+              className="button-primary mt-4 h-12 px-6 disabled:opacity-60"
+            >
+              {saving ? "Saving..." : "Save Address"}
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function DeliveryInput({ label, value, onChange }) {
+  return (
+    <label className="block">
+      <span className="text-xs font-black uppercase tracking-widest text-slate-400">
+        {label}
+      </span>
+      <input
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="mt-2 h-12 w-full rounded-full border border-white bg-white/90 px-4 font-semibold outline-none focus:border-pink-300"
+      />
+    </label>
+  );
+}
+
+function deliveryStatusLabel(status) {
+  const labels = {
+    not_required: "Not required",
+    address_pending: "Address pending",
+    pickup_pending: "Pickup pending",
+    picked_up: "Picked up",
+    in_transit: "In transit",
+    delivered: "Delivered",
+    failed: "Failed",
+    returned: "Returned",
+    disputed: "Disputed",
+  };
+
+  return labels[status] || "Delivery pending";
 }
 
 function Timeline({ status }) {
