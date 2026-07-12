@@ -1,12 +1,16 @@
-// Prisma is introduced in the manual Postgres migration batch.
-// Do not import this file from active routes until dependencies are installed
-// and the first database migration has been generated.
-//
-// Planned activation:
-// import { PrismaClient } from "@prisma/client";
-// export const prisma = new PrismaClient();
+import { PrismaClient } from "@prisma/client";
 
-export const prismaMigrationStatus = {
-  enabled: false,
-  note: "Manual PostgreSQL schema is ready in backend/prisma/schema.prisma.",
-};
+const globalForPrisma = globalThis;
+
+export const prisma =
+  globalForPrisma.prisma ||
+  new PrismaClient({
+    log:
+      process.env.NODE_ENV === "development"
+        ? ["query", "error", "warn"]
+        : ["error"],
+  });
+
+if (process.env.NODE_ENV !== "production") {
+  globalForPrisma.prisma = prisma;
+}

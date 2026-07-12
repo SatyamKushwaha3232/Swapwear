@@ -1,6 +1,8 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { createProfile } from "../lib/profile";
+import { backendAuthEnabled } from "../lib/backendApi";
+import { getBackendSession, logoutBackend } from "../services/backendAuth";
 
 const AuthContext = createContext(null);
 
@@ -23,6 +25,16 @@ export function AuthProvider({ children }) {
 
     async function initAuth() {
       try {
+        if (backendAuthEnabled) {
+          const backendSession = await getBackendSession();
+
+          if (!mounted) return;
+
+          setSession(backendSession.session);
+          setUser(backendSession.user);
+          return;
+        }
+
         const { data, error } = await supabase.auth.getSession();
 
         if (error) {
@@ -48,6 +60,12 @@ export function AuthProvider({ children }) {
     }
 
     initAuth();
+
+    if (backendAuthEnabled) {
+      return () => {
+        mounted = false;
+      };
+    }
 
     const {
       data: { subscription },
@@ -75,6 +93,7 @@ export function AuthProvider({ children }) {
       user,
       loading,
       isAuthenticated: Boolean(user),
+      signOut: backendAuthEnabled ? logoutBackend : () => supabase.auth.signOut(),
     }),
     [session, user, loading]
   );

@@ -15,7 +15,6 @@ import {
 } from "lucide-react";
 
 import { useAuth } from "../context/AuthContext";
-import { supabase } from "../lib/supabase";
 import { getCurrentProfile, updateProfile } from "../services/profile";
 
 const defaultPreferences = {
@@ -27,7 +26,7 @@ const defaultPreferences = {
 };
 
 export default function Settings() {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
 
   const [profile, setProfile] = useState(null);
   const [form, setForm] = useState({
@@ -115,13 +114,12 @@ export default function Settings() {
     const confirmed = window.confirm("Sign out from this device?");
     if (!confirmed) return;
 
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      toast.error(error.message);
-      return;
+    try {
+      await signOut();
+      toast.success("Signed out");
+    } catch (error) {
+      toast.error(error.message || "Unable to sign out");
     }
-
-    toast.success("Signed out");
   }
 
   return (

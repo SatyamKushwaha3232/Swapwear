@@ -1,4 +1,5 @@
 import { supabase } from "../lib/supabase";
+import { backendAuthEnabled, backendRequest } from "../lib/backendApi";
 
 function getFallbackName(user) {
   return (
@@ -23,6 +24,15 @@ function getProvider(user) {
 }
 
 export async function getCurrentProfile() {
+  if (backendAuthEnabled) {
+    try {
+      const data = await backendRequest("/users/me/profile");
+      return { success: true, data };
+    } catch (error) {
+      return { success: false, error: error.message, data: null };
+    }
+  }
+
   const {
     data: { user },
     error: userError,
@@ -68,6 +78,19 @@ export async function getCurrentProfile() {
 }
 
 export async function updateProfile(profileData) {
+  if (backendAuthEnabled) {
+    try {
+      const data = await backendRequest("/users/me/profile", {
+        method: "PATCH",
+        body: JSON.stringify(profileData),
+      });
+
+      return { success: true, data };
+    } catch (error) {
+      return { success: false, error: error.message, data: null };
+    }
+  }
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -101,6 +124,13 @@ export async function updateProfile(profileData) {
 }
 
 export async function uploadAvatar(file) {
+  if (backendAuthEnabled) {
+    return {
+      success: false,
+      error: "Avatar upload will move to backend uploads in the listings/uploads batch",
+    };
+  }
+
   const {
     data: { user },
   } = await supabase.auth.getUser();

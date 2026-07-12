@@ -14,6 +14,8 @@ import MicrosoftIcon from "../assets/auth-icons/microsoft.svg";
 import GithubIcon from "../assets/auth-icons/github.svg";
 import PhoneIcon from "../assets/auth-icons/phone.svg";
 import { supabase } from "../lib/supabase";
+import { backendAuthEnabled } from "../lib/backendApi";
+import { loginWithBackend } from "../services/backendAuth";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -44,12 +46,16 @@ export default function Login() {
     try {
       setLoading(true);
 
-      const { error } = await supabase.auth.signInWithPassword({
-        email: form.email.trim(),
-        password: form.password,
-      });
+      if (backendAuthEnabled) {
+        await loginWithBackend(form.email.trim(), form.password);
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({
+          email: form.email.trim(),
+          password: form.password,
+        });
 
-      if (error) throw error;
+        if (error) throw error;
+      }
 
       toast.success("Welcome back");
       navigate("/dashboard", { replace: true });
@@ -61,6 +67,11 @@ export default function Login() {
   }
 
   async function handleOAuth(provider) {
+    if (backendAuthEnabled) {
+      toast("Social login will be added after manual auth is live.");
+      return;
+    }
+
     try {
       setOauthLoading(provider);
 

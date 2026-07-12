@@ -19,6 +19,8 @@ import MicrosoftIcon from "../assets/auth-icons/microsoft.svg";
 import GithubIcon from "../assets/auth-icons/github.svg";
 import PhoneIcon from "../assets/auth-icons/phone.svg";
 import { supabase } from "../lib/supabase";
+import { backendAuthEnabled } from "../lib/backendApi";
+import { signupWithBackend } from "../services/backendAuth";
 
 export default function Signup() {
   const navigate = useNavigate();
@@ -69,28 +71,40 @@ export default function Signup() {
     try {
       setLoading(true);
 
-      const { data, error } = await supabase.auth.signUp({
-        email: form.email.trim(),
-        password: form.password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/login`,
-          data: {
-            full_name: form.fullName.trim(),
-            name: form.fullName.trim(),
-          },
-        },
-      });
+      if (backendAuthEnabled) {
+        await signupWithBackend({
+          fullName: form.fullName.trim(),
+          email: form.email.trim(),
+          password: form.password,
+        });
 
-      if (error) throw error;
-
-      if (data?.session) {
         toast.success("Account created");
         navigate("/dashboard", { replace: true });
         return;
-      }
+      } else {
+        const { data, error } = await supabase.auth.signUp({
+          email: form.email.trim(),
+          password: form.password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/login`,
+            data: {
+              full_name: form.fullName.trim(),
+              name: form.fullName.trim(),
+            },
+          },
+        });
 
-      toast.success("Account created. Please verify your email before login.");
-      navigate("/login", { replace: true });
+        if (error) throw error;
+
+        if (data?.session) {
+          toast.success("Account created");
+          navigate("/dashboard", { replace: true });
+          return;
+        }
+
+        toast.success("Account created. Please verify your email before login.");
+        navigate("/login", { replace: true });
+      }
     } catch (error) {
       toast.error(error.message || "Signup failed");
     } finally {
@@ -99,6 +113,11 @@ export default function Signup() {
   }
 
   async function handleOAuth(provider) {
+    if (backendAuthEnabled) {
+      toast("Social signup will be added after manual auth is live.");
+      return;
+    }
+
     try {
       setOauthLoading(provider);
 
