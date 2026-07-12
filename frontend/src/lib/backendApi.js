@@ -21,8 +21,9 @@ export function getBackendAccessToken() {
 }
 
 export async function backendRequest(path, options = {}) {
+  const isFormData = options.body instanceof FormData;
   const headers = {
-    "Content-Type": "application/json",
+    ...(isFormData ? {} : { "Content-Type": "application/json" }),
     ...(options.headers || {}),
   };
 

@@ -4,11 +4,11 @@ This file tracks the move from Supabase direct frontend calls to a self-managed 
 
 | Area | Current State | Target Backend Module | Batch |
 | --- | --- | --- | --- |
-| Auth | Supabase Auth in frontend | `/api/auth/*` with JWT | 2 |
-| Profiles | Frontend Supabase service | `/api/users/me`, `/api/users/profile` | 2 |
-| Listings | Frontend Supabase service, old backend wrapper | `/api/listings/*` with Prisma | 3 |
-| Uploads | Supabase Storage | Local uploads in dev, cloud adapter later | 3 |
-| Wishlist | Frontend Supabase service | `/api/wishlist/*` with Prisma | 3 |
+| Auth | Backend-ready behind `VITE_AUTH_PROVIDER=backend` | `/api/auth/*` with JWT | 2 complete |
+| Profiles | Backend-ready behind `VITE_AUTH_PROVIDER=backend` | `/api/users/me/profile` | 2 complete |
+| Listings | Backend-ready behind `VITE_AUTH_PROVIDER=backend` | `/api/listings/*` with Prisma | 3 complete |
+| Uploads | Local backend uploads in backend mode | `/uploads/listings/*` static files | 3 complete |
+| Wishlist | Backend-ready behind `VITE_AUTH_PROVIDER=backend` | `/api/wishlist/*` with Prisma | 3 complete |
 | Swaps | Frontend Supabase RPCs | `/api/swaps/*` transaction service | 4 |
 | Swap events | Supabase table/RPC | Backend audit writer | 4 |
 | Delivery | UI method only | `/api/delivery/*` | 5 |

@@ -1,4 +1,5 @@
 import { supabase } from "../lib/supabase";
+import { backendAuthEnabled, backendRequest } from "../lib/backendApi";
 
 export const LISTING_SWAP_STATUS = {
   AVAILABLE: "available",
@@ -87,6 +88,10 @@ async function runLegacyListingQuery(userId = null) {
 }
 
 export async function cleanupExpiredCompletedListings() {
+  if (backendAuthEnabled) {
+    return { success: true, skipped: true };
+  }
+
   try {
     const rpc = await supabase.rpc("auto_archive_completed_listings");
 
@@ -115,6 +120,42 @@ export async function cleanupExpiredCompletedListings() {
 }
 
 export async function getListings(userId = null, options = {}) {
+  if (backendAuthEnabled) {
+    try {
+      const params = new URLSearchParams();
+
+      if (userId) params.set("userId", userId);
+      if (options.onlyAvailable === false || options.includeUnavailable) {
+        params.set("onlyAvailable", "false");
+      }
+      if (options.query) params.set("q", options.query);
+      if (options.category && options.category !== "All") {
+        params.set("category", options.category);
+      }
+      if (options.size && options.size !== "All") params.set("size", options.size);
+      if (options.condition && options.condition !== "All") {
+        params.set("condition", options.condition);
+      }
+      if (options.maxPoints) params.set("maxPoints", options.maxPoints);
+      if (options.sort) params.set("sort", options.sort);
+
+      const data = await backendRequest(
+        `/listings${params.toString() ? `?${params.toString()}` : ""}`
+      );
+
+      return {
+        success: true,
+        data: (data || []).map(formatListing),
+      };
+    } catch (err) {
+      return {
+        success: false,
+        error: err.message || "Failed to fetch listings",
+        data: [],
+      };
+    }
+  }
+
   try {
     if (!userId && options.onlyAvailable !== false) {
       cleanupExpiredCompletedListings();
@@ -158,6 +199,25 @@ export async function getListings(userId = null, options = {}) {
 }
 
 export async function getListingById(id, options = {}) {
+  if (backendAuthEnabled) {
+    try {
+      const data = await backendRequest(`/listings/${id}`);
+      const listing = data ? formatListing(data) : null;
+
+      if (listing && options.onlyAvailable && !listing.is_available_for_swap) {
+        return { success: true, data: null };
+      }
+
+      return { success: true, data: listing };
+    } catch (err) {
+      return {
+        success: false,
+        error: err.message || "Failed to fetch listing",
+        data: null,
+      };
+    }
+  }
+
   try {
     const { data, error } = await supabase
       .from("listings")
@@ -187,6 +247,23 @@ export async function getListingById(id, options = {}) {
 }
 
 export async function getListingsByIds(ids = []) {
+  if (backendAuthEnabled) {
+    try {
+      const results = await Promise.all(
+        ids.filter(Boolean).map((id) => getListingById(id))
+      );
+
+      return {
+        success: true,
+        data: results
+          .filter((result) => result.success && result.data)
+          .map((result) => result.data),
+      };
+    } catch (err) {
+      return { success: false, error: err.message || "Unable to load listings", data: [] };
+    }
+  }
+
   try {
     const cleanIds = ids.filter(Boolean);
     if (cleanIds.length === 0) return { success: true, data: [] };
@@ -205,6 +282,10 @@ export async function getListingsByIds(ids = []) {
 }
 
 export async function markListingsLockedForSwap(listingIds = [], swapId) {
+  if (backendAuthEnabled) {
+    return { success: true, skipped: true, swapId, listingIds };
+  }
+
   try {
     const cleanIds = listingIds.filter(Boolean);
     if (cleanIds.length === 0) return { success: true };
@@ -229,6 +310,10 @@ export async function markListingsLockedForSwap(listingIds = [], swapId) {
 }
 
 export async function releaseListingsFromSwap(listingIds = [], swapId) {
+  if (backendAuthEnabled) {
+    return { success: true, skipped: true, swapId, listingIds };
+  }
+
   try {
     const cleanIds = listingIds.filter(Boolean);
     if (cleanIds.length === 0) return { success: true };
@@ -254,6 +339,10 @@ export async function releaseListingsFromSwap(listingIds = [], swapId) {
 }
 
 export async function markListingsCompletedForSwap(listingIds = [], swapId) {
+  if (backendAuthEnabled) {
+    return { success: true, skipped: true, swapId, listingIds };
+  }
+
   try {
     const cleanIds = listingIds.filter(Boolean);
     if (cleanIds.length === 0) return { success: true };
@@ -281,6 +370,10 @@ export async function markListingsCompletedForSwap(listingIds = [], swapId) {
 }
 
 export async function deleteSwapListings(listingIds = []) {
+  if (backendAuthEnabled) {
+    return { success: true, skipped: true, listingIds };
+  }
+
   try {
     const cleanIds = listingIds.filter(Boolean);
     if (cleanIds.length === 0) return { success: true };
@@ -302,6 +395,39 @@ export async function deleteSwapListings(listingIds = []) {
 }
 
 export async function createListing(data, imageFiles = [], videoFile = null) {
+  if (backendAuthEnabled) {
+    try {
+      const formData = new FormData();
+
+      Object.entries(data || {}).forEach(([key, value]) => {
+        formData.append(key, value ?? "");
+      });
+
+      Array.from(imageFiles || []).forEach((file) => {
+        formData.append("images", file);
+      });
+
+      if (videoFile) {
+        formData.append("video", videoFile);
+      }
+
+      const created = await backendRequest("/listings", {
+        method: "POST",
+        body: formData,
+      });
+
+      return {
+        success: true,
+        data: formatListing(created),
+      };
+    } catch (err) {
+      return {
+        success: false,
+        error: err.message || "Failed to create listing",
+      };
+    }
+  }
+
   try {
     const {
       data: { user },
@@ -417,6 +543,18 @@ export async function createListing(data, imageFiles = [], videoFile = null) {
 }
 
 export async function deleteListing(id) {
+  if (backendAuthEnabled) {
+    try {
+      await backendRequest(`/listings/${id}`, { method: "DELETE" });
+      return { success: true };
+    } catch (err) {
+      return {
+        success: false,
+        error: err.message || "Failed to delete listing",
+      };
+    }
+  }
+
   try {
     const {
       data: { user },

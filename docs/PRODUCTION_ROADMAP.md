@@ -25,7 +25,7 @@ Courier provider integration later
 
 ## Batch 1: Manual Backend Foundation
 
-Status: in progress
+Status: complete
 
 Deliverables:
 - Prisma schema for the full platform
@@ -35,6 +35,8 @@ Deliverables:
 - Existing frontend remains working
 
 ## Batch 2: Auth And Profiles
+
+Status: complete
 
 Goal: Replace Supabase auth with backend-owned auth.
 
@@ -49,6 +51,8 @@ Deliverables:
 
 ## Batch 3: Listings, Uploads, Wishlist
 
+Status: complete
+
 Goal: Move marketplace core to backend.
 
 Deliverables:
@@ -59,7 +63,13 @@ Deliverables:
 - Listing availability checks
 - Frontend listing/wishlist services switched to backend
 
+Notes:
+- Frontend still defaults to Supabase until `VITE_AUTH_PROVIDER=backend` is enabled.
+- Backend mode now uses Prisma for listings/wishlist and local uploads for product media.
+
 ## Batch 4: Swap Lifecycle
+
+Status: next
 
 Goal: Move swap mechanism into backend transactions.
 

@@ -5,6 +5,7 @@ import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
+import path from "node:path";
 
 import notificationRoutes from "./routes/notification.routes.js";
 import wishlistRoutes from "./routes/wishlist.routes.js";
@@ -34,6 +35,7 @@ app.use(rateLimit({
 
 app.use(express.json());
 app.use(cookieParser());
+app.use("/uploads", express.static(path.resolve(appConfig.uploadDir)));
 
 app.get("/", (req,res)=>{
     res.json({

@@ -1,4 +1,5 @@
 import { supabase } from "../lib/supabase";
+import { backendAuthEnabled, backendRequest } from "../lib/backendApi";
 
 function formatWishlist(row = {}) {
   return {
@@ -11,6 +12,17 @@ function formatWishlist(row = {}) {
 }
 
 export async function getWishlist(userId) {
+  if (backendAuthEnabled) {
+    try {
+      if (!userId) return [];
+      const data = await backendRequest(`/wishlist?userId=${encodeURIComponent(userId)}`);
+      return (data || []).map(formatWishlist);
+    } catch (error) {
+      console.error("Wishlist fetch failed:", error.message || error);
+      return [];
+    }
+  }
+
   try {
     if (!userId) return [];
 
@@ -29,6 +41,19 @@ export async function getWishlist(userId) {
 }
 
 export async function addWishlist(user_id, listing_id) {
+  if (backendAuthEnabled) {
+    try {
+      const data = await backendRequest("/wishlist", {
+        method: "POST",
+        body: JSON.stringify({ listing_id }),
+      });
+
+      return { success: true, data: formatWishlist(data) };
+    } catch (error) {
+      return { success: false, error: error.message || "Unable to save wishlist" };
+    }
+  }
+
   try {
     const { data, error } = await supabase
       .from("wishlists")
@@ -47,6 +72,15 @@ export async function addWishlist(user_id, listing_id) {
 }
 
 export async function removeWishlist(id) {
+  if (backendAuthEnabled) {
+    try {
+      await backendRequest(`/wishlist/${id}`, { method: "DELETE" });
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message || "Unable to remove wishlist" };
+    }
+  }
+
   try {
     const { error } = await supabase.from("wishlists").delete().eq("id", id);
     if (error) throw error;
