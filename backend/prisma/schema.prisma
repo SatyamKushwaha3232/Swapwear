@@ -1,0 +1,470 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  USER
+  MODERATOR
+  ADMIN
+  OWNER
+}
+
+enum AccountStatus {
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+enum ListingSwapStatus {
+  AVAILABLE
+  RESERVED
+  SWAPPED
+  ARCHIVED
+  REMOVED
+  BLOCKED
+}
+
+enum SwapStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  CANCELLED
+  EXPIRED
+  SHIPPED
+  DELIVERED
+  COMPLETED
+  DISPUTED
+  FAILED
+}
+
+enum DeliveryMethod {
+  LOCAL
+  COURIER
+  OTHER
+}
+
+enum DeliveryStatus {
+  NOT_REQUIRED
+  ADDRESS_PENDING
+  PICKUP_PENDING
+  PICKED_UP
+  IN_TRANSIT
+  DELIVERED
+  FAILED
+  RETURNED
+  DISPUTED
+}
+
+enum PaymentStatus {
+  PENDING
+  AUTHORIZED
+  PAID
+  FAILED
+  REFUNDED
+  CANCELLED
+}
+
+enum PaymentPurpose {
+  PREMIUM
+  LISTING_BOOST
+  PLATFORM_FEE
+  DELIVERY_FEE
+}
+
+enum ReportStatus {
+  OPEN
+  RESOLVED
+  DISMISSED
+  BLOCKED
+}
+
+enum DisputeStatus {
+  OPEN
+  RESOLVED
+}
+
+enum CallStatus {
+  RINGING
+  ACCEPTED
+  REJECTED
+  MISSED
+  ENDED
+  FAILED
+}
+
+enum CallType {
+  AUDIO
+  VIDEO
+}
+
+model User {
+  id             String        @id @default(uuid())
+  email          String        @unique
+  passwordHash   String
+  role           UserRole      @default(USER)
+  status         AccountStatus @default(ACTIVE)
+  emailVerified  Boolean       @default(false)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  profile        Profile?
+  listings       Listing[]
+  wishlist       WishlistItem[]
+  requesterSwaps Swap[]        @relation("RequesterSwaps")
+  ownerSwaps     Swap[]        @relation("OwnerSwaps")
+  messages       ChatMessage[]
+  notifications  Notification[]
+  reviewsGiven   Review[]      @relation("ReviewsGiven")
+  reviewsReceived Review[]     @relation("ReviewsReceived")
+  reportsMade    Report[]      @relation("ReportsMade")
+  reportsAgainst Report[]      @relation("ReportsAgainst")
+  addresses      Address[]
+  payments       Payment[]
+  callsStarted   CallSession[] @relation("CallsStarted")
+  callsReceived  CallSession[] @relation("CallsReceived")
+}
+
+model Profile {
+  id          String   @id @default(uuid())
+  userId      String   @unique
+  fullName    String?
+  username    String?
+  phone       String?
+  avatarUrl   String?
+  city        String?
+  location    String?
+  website     String?
+  bio         String?
+  provider    String   @default("email")
+  isPremium   Boolean  @default(false)
+  totalSwaps  Int      @default(0)
+  rating      Decimal  @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Listing {
+  id              BigInt            @id @default(autoincrement())
+  title           String
+  brand           String?
+  category        String?
+  size            String?
+  condition       String            @default("Good")
+  location        String?
+  points          Int               @default(0)
+  description     String?
+  image           String?
+  images          Json?
+  video           String?
+  ownerName       String?
+  userId          String
+  swapStatus      ListingSwapStatus @default(AVAILABLE)
+  activeSwapId    String?
+  isPublic        Boolean           @default(true)
+  swapCompletedAt DateTime?
+  archiveAfter    DateTime?
+  archivedAt      DateTime?
+  deleteEligibleAt DateTime?
+  likes           Int               @default(0)
+  views           Int               @default(0)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  wishlistItems   WishlistItem[]
+  requesterSwaps  Swap[]            @relation("RequesterItem")
+  ownerSwaps      Swap[]            @relation("OwnerItem")
+  reports         Report[]
+
+  @@index([userId])
+  @@index([swapStatus, isPublic])
+  @@index([activeSwapId])
+}
+
+model WishlistItem {
+  id        BigInt   @id @default(autoincrement())
+  userId    String
+  listingId BigInt
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, listingId])
+}
+
+model Swap {
+  id              String         @id @default(uuid())
+  requesterId     String
+  ownerId         String
+  requesterName   String?
+  ownerName       String?
+  requesterItemId BigInt
+  ownerItemId     BigInt
+  requesterItem   Json?
+  ownerItem       Json?
+  status          SwapStatus     @default(PENDING)
+  message         String?
+  deliveryMethod  DeliveryMethod?
+  acceptedAt      DateTime?
+  cancelledAt     DateTime?
+  expiresAt       DateTime?
+  lastActionAt    DateTime       @default(now())
+  completedAt     DateTime?
+  archiveAfter    DateTime?
+  deleteEligibleAt DateTime?
+  itemsDeletedAt  DateTime?
+  archivedAt      DateTime?
+  cancelReason    String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  requester       User           @relation("RequesterSwaps", fields: [requesterId], references: [id])
+  owner           User           @relation("OwnerSwaps", fields: [ownerId], references: [id])
+  requesterListing Listing       @relation("RequesterItem", fields: [requesterItemId], references: [id])
+  ownerListing    Listing        @relation("OwnerItem", fields: [ownerItemId], references: [id])
+  events          SwapEvent[]
+  confirmations   SwapConfirmation[]
+  disputes        SwapDispute[]
+  deliveries      DeliveryOrder[]
+  reviews         Review[]
+  reports         Report[]
+  conversation    ChatConversation?
+  payments        Payment[]
+
+  @@index([requesterId])
+  @@index([ownerId])
+  @@index([status])
+  @@index([requesterItemId])
+  @@index([ownerItemId])
+}
+
+model SwapEvent {
+  id        BigInt   @id @default(autoincrement())
+  swapId    String
+  actorId   String?
+  eventType String
+  metadata  Json     @default("{}")
+  createdAt DateTime @default(now())
+
+  swap      Swap     @relation(fields: [swapId], references: [id], onDelete: Cascade)
+
+  @@index([swapId, createdAt])
+}
+
+model SwapConfirmation {
+  id                  BigInt    @id @default(autoincrement())
+  swapId              String
+  userId              String
+  handoverConfirmedAt DateTime?
+  receivedConfirmedAt DateTime?
+  proofUrl            String?
+  note                String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  swap                Swap      @relation(fields: [swapId], references: [id], onDelete: Cascade)
+
+  @@unique([swapId, userId])
+}
+
+model SwapDispute {
+  id         BigInt        @id @default(autoincrement())
+  swapId     String
+  openedBy   String
+  reason     String
+  status     DisputeStatus @default(OPEN)
+  resolution String?
+  createdAt  DateTime      @default(now())
+  resolvedAt DateTime?
+
+  swap       Swap          @relation(fields: [swapId], references: [id], onDelete: Cascade)
+
+  @@index([swapId])
+}
+
+model Address {
+  id          String   @id @default(uuid())
+  userId      String
+  label       String?
+  fullName    String
+  phone       String
+  line1       String
+  line2       String?
+  city        String
+  state       String
+  postalCode  String
+  country     String   @default("India")
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pickupOrders DeliveryOrder[] @relation("PickupAddress")
+  dropOrders   DeliveryOrder[] @relation("DropAddress")
+}
+
+model DeliveryOrder {
+  id              String         @id @default(uuid())
+  swapId          String
+  requesterId     String
+  ownerId         String
+  method          DeliveryMethod @default(COURIER)
+  status          DeliveryStatus @default(ADDRESS_PENDING)
+  pickupAddressId String?
+  dropAddressId   String?
+  courierProvider String?
+  trackingNumber  String?
+  trackingUrl     String?
+  proofUrl        String?
+  cost            Int            @default(0)
+  notes           String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  swap            Swap           @relation(fields: [swapId], references: [id], onDelete: Cascade)
+  pickupAddress   Address?       @relation("PickupAddress", fields: [pickupAddressId], references: [id])
+  dropAddress     Address?       @relation("DropAddress", fields: [dropAddressId], references: [id])
+}
+
+model Payment {
+  id              String         @id @default(uuid())
+  userId          String
+  swapId          String?
+  purpose         PaymentPurpose
+  provider        String         @default("manual")
+  providerOrderId String?
+  providerPaymentId String?
+  amount          Int
+  currency        String         @default("INR")
+  status          PaymentStatus  @default(PENDING)
+  metadata        Json           @default("{}")
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  user            User           @relation(fields: [userId], references: [id])
+  swap            Swap?          @relation(fields: [swapId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+}
+
+model ChatConversation {
+  id            BigInt   @id @default(autoincrement())
+  swapId        String?  @unique
+  user1Id       String
+  user2Id       String
+  lastMessage   String?
+  lastMessageAt DateTime @default(now())
+  unreadCounts  Json     @default("{}")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  swap          Swap?    @relation(fields: [swapId], references: [id], onDelete: SetNull)
+  messages      ChatMessage[]
+  calls         CallSession[]
+
+  @@index([user1Id])
+  @@index([user2Id])
+}
+
+model ChatMessage {
+  id             BigInt   @id @default(autoincrement())
+  conversationId BigInt
+  senderId       String
+  message        String?
+  messageType    String   @default("text")
+  imageUrl       String?
+  fileUrl        String?
+  fileName       String?
+  fileType       String?
+  voiceUrl       String?
+  voiceDuration  Int      @default(0)
+  replyToId      BigInt?
+  reactions      Json     @default("{}")
+  isDeleted      Boolean  @default(false)
+  isPinned       Boolean  @default(false)
+  isStarred      Boolean  @default(false)
+  seen           Boolean  @default(false)
+  editedAt       DateTime?
+  deletedAt      DateTime?
+  createdAt      DateTime @default(now())
+
+  conversation   ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender         User             @relation(fields: [senderId], references: [id])
+}
+
+model CallSession {
+  id             String     @id @default(uuid())
+  conversationId BigInt
+  callerId       String
+  receiverId     String
+  type           CallType
+  status         CallStatus @default(RINGING)
+  startedAt      DateTime   @default(now())
+  acceptedAt     DateTime?
+  endedAt        DateTime?
+  durationSec    Int        @default(0)
+  metadata       Json       @default("{}")
+
+  conversation   ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  caller         User             @relation("CallsStarted", fields: [callerId], references: [id])
+  receiver       User             @relation("CallsReceived", fields: [receiverId], references: [id])
+}
+
+model Report {
+  id             BigInt       @id @default(autoincrement())
+  reporterId     String
+  reportedUserId String?
+  listingId      BigInt?
+  swapId         String?
+  reportType     String       @default("general")
+  reason         String
+  status         ReportStatus @default(OPEN)
+  createdAt      DateTime     @default(now())
+  resolvedAt     DateTime?
+
+  reporter       User         @relation("ReportsMade", fields: [reporterId], references: [id])
+  reportedUser   User?        @relation("ReportsAgainst", fields: [reportedUserId], references: [id])
+  listing        Listing?     @relation(fields: [listingId], references: [id])
+  swap           Swap?        @relation(fields: [swapId], references: [id])
+}
+
+model Review {
+  id         BigInt   @id @default(autoincrement())
+  swapId     String?
+  reviewerId String
+  revieweeId String
+  rating     Int
+  comment    String?
+  createdAt  DateTime @default(now())
+
+  swap       Swap?    @relation(fields: [swapId], references: [id], onDelete: SetNull)
+  reviewer   User     @relation("ReviewsGiven", fields: [reviewerId], references: [id])
+  reviewee   User     @relation("ReviewsReceived", fields: [revieweeId], references: [id])
+
+  @@unique([swapId, reviewerId])
+}
+
+model Notification {
+  id        BigInt   @id @default(autoincrement())
+  userId    String
+  actorId   String?
+  type      String   @default("general")
+  title     String
+  message   String
+  link      String?
+  data      Json     @default("{}")
+  isRead    Boolean  @default(false)
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}

@@ -114,3 +114,24 @@ https://github.com/SatyamKushwaha3232
 # 📌 Status
 
 Currently under active premium UI development.
+
+---
+
+# Manual Backend Roadmap
+
+SwapWear is moving from Supabase direct access to a self-managed backend:
+
+- PostgreSQL
+- Node.js/Express
+- Prisma
+- JWT auth
+- Socket.IO
+- WebRTC signaling
+- Manual courier and payment adapters first
+
+Roadmap files:
+
+- `docs/PRODUCTION_ROADMAP.md`
+- `docs/API_MIGRATION_MATRIX.md`
+
+The existing React/Supabase frontend remains working while backend modules are migrated one batch at a time.
