@@ -16,6 +16,7 @@ import {
 
 import { useAuth } from "../context/AuthContext";
 import { getCurrentProfile, updateProfile } from "../services/profile";
+import { cancelPayment, createPaymentOrder, getMyPayments } from "../services/payments";
 
 const defaultPreferences = {
   swapAlerts: true,
@@ -41,6 +42,8 @@ export default function Settings() {
   const [preferences, setPreferences] = useState(defaultPreferences);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [payments, setPayments] = useState([]);
+  const [paymentLoading, setPaymentLoading] = useState(false);
 
   useEffect(() => {
     async function loadSettings() {
@@ -70,6 +73,11 @@ export default function Settings() {
         });
       } else {
         toast.error(response.error || "Unable to load settings");
+      }
+
+      const paymentResponse = await getMyPayments();
+      if (paymentResponse.success) {
+        setPayments(paymentResponse.data || []);
       }
 
       setLoading(false);
@@ -120,6 +128,43 @@ export default function Settings() {
     } catch (error) {
       toast.error(error.message || "Unable to sign out");
     }
+  }
+
+  async function handlePremiumOrder() {
+    setPaymentLoading(true);
+    const response = await createPaymentOrder({
+      purpose: "premium",
+      amount: 19900,
+      metadata: { plan: "monthly", source: "settings" },
+    });
+
+    if (response.success) {
+      toast.success("Premium payment order created");
+      const paymentResponse = await getMyPayments();
+      if (paymentResponse.success) setPayments(paymentResponse.data || []);
+    } else {
+      toast.error(response.error || "Unable to create payment order");
+    }
+
+    setPaymentLoading(false);
+  }
+
+  async function handleCancelPayment(paymentId) {
+    setPaymentLoading(true);
+    const response = await cancelPayment(paymentId);
+
+    if (response.success) {
+      toast.success("Payment cancelled");
+      setPayments((current) =>
+        current.map((payment) =>
+          payment.id === paymentId ? { ...payment, status: "cancelled" } : payment
+        )
+      );
+    } else {
+      toast.error(response.error || "Unable to cancel payment");
+    }
+
+    setPaymentLoading(false);
   }
 
   return (
@@ -233,15 +278,63 @@ export default function Settings() {
               <SettingsCard
                 icon={Sparkles}
                 title="Premium"
-                text="Boosted listing controls will appear here when payments are enabled."
+                text="Premium orders are backend-owned; successful payment is confirmed by provider/admin."
               >
                 <div className="rounded-[26px] bg-gradient-to-br from-pink-50 to-violet-50 p-5">
                   <p className="font-black text-slate-900">
                     {profile?.is_premium ? "Premium active" : "Premium not active"}
                   </p>
                   <p className="mt-2 text-sm font-semibold leading-relaxed text-slate-500">
-                    Premium state is ready in profile data. Payment gateway can unlock this later.
+                    Manual checkout creates a pending order. Admin/provider confirmation unlocks premium.
                   </p>
+                  <button
+                    type="button"
+                    disabled={paymentLoading || profile?.is_premium}
+                    onClick={handlePremiumOrder}
+                    className="button-primary mt-4 h-12 w-full disabled:opacity-60"
+                  >
+                    <Sparkles size={17} />
+                    {paymentLoading
+                      ? "Creating..."
+                      : profile?.is_premium
+                        ? "Premium Active"
+                        : "Create Premium Order"}
+                  </button>
+                </div>
+
+                <div className="mt-4 space-y-3">
+                  {payments.slice(0, 4).map((payment) => (
+                    <div
+                      key={payment.id}
+                      className="rounded-[22px] border border-pink-50 bg-white/70 p-4"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate font-black">
+                            {payment.purpose.replaceAll("_", " ")}
+                          </p>
+                          <p className="mt-1 text-sm font-semibold text-slate-500">
+                            ₹{(payment.amount / 100).toFixed(2)} / {payment.status}
+                          </p>
+                        </div>
+                        {payment.status === "pending" && (
+                          <button
+                            type="button"
+                            disabled={paymentLoading}
+                            onClick={() => handleCancelPayment(payment.id)}
+                            className="rounded-full bg-red-50 px-3 py-2 text-xs font-black text-red-600 disabled:opacity-60"
+                          >
+                            Cancel
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  {payments.length === 0 && (
+                    <p className="rounded-[22px] bg-white/70 p-4 text-sm font-semibold text-slate-500">
+                      No payment history yet.
+                    </p>
+                  )}
                 </div>
               </SettingsCard>
 

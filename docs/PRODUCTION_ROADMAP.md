@@ -109,7 +109,7 @@ Notes:
 
 ## Batch 6: Payments
 
-Status: next
+Status: complete
 
 Goal: Add payment records and premium/fee flow.
 
@@ -121,7 +121,13 @@ Deliverables:
 - Admin payment dashboard
 - Razorpay/Stripe adapter later
 
+Notes:
+- Backend mode now supports manual payment orders, user payment history, admin payment queue, webhook-ready updates, cancellation, refund/failed states, and premium unlock side effects.
+- The frontend never marks payments successful; success requires admin/provider confirmation.
+
 ## Batch 7: Audio And Video Calls
+
+Status: next
 
 Goal: Add real-time call signaling for chat.
 

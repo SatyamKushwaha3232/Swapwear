@@ -17,11 +17,13 @@ import {
   Loader2,
   RefreshCcw,
   XCircle,
+  CreditCard,
 } from "lucide-react";
 
 import Sidebar from "../components/layout/Sidebar";
 import SectionTitle from "../components/common/SectionTitle";
 import { getAdminDashboardData, resolveMarketplaceReport } from "../services/admin";
+import { getAdminPayments, updatePaymentStatus } from "../services/payments";
 import { getOpenSwapDisputes, resolveSwapDispute } from "../services/swaps";
 
 const formatDate = (value) =>
@@ -199,6 +201,9 @@ function AdminDisputeQueue({ disputes, loading, resolvingId, onResolve }) {
 export default function Admin() {
   const [adminData, setAdminData] = useState({ stats: {}, users: [], reports: [] });
   const [loadingAdmin, setLoadingAdmin] = useState(true);
+  const [payments, setPayments] = useState([]);
+  const [loadingPayments, setLoadingPayments] = useState(true);
+  const [updatingPaymentId, setUpdatingPaymentId] = useState(null);
   const [disputes, setDisputes] = useState([]);
   const [loadingDisputes, setLoadingDisputes] = useState(true);
   const [resolvingId, setResolvingId] = useState(null);
@@ -226,9 +231,19 @@ export default function Admin() {
     setLoadingDisputes(false);
   };
 
+  const loadPayments = async () => {
+    setLoadingPayments(true);
+    const response = await getAdminPayments();
+    if (response.success) {
+      setPayments(response.data || []);
+    }
+    setLoadingPayments(false);
+  };
+
   useEffect(() => {
     loadDashboard();
     loadDisputes();
+    loadPayments();
   }, []);
 
   const handleResolveDispute = async (dispute, decision) => {
@@ -272,6 +287,26 @@ export default function Admin() {
     }
 
     setResolvingReportId(null);
+  };
+
+  const handlePaymentStatus = async (payment, status) => {
+    const confirmed = window.confirm(`Mark this payment as ${status}?`);
+    if (!confirmed) return;
+
+    setUpdatingPaymentId(payment.id);
+    const response = await updatePaymentStatus(payment.id, status, {
+      adminNote: `Marked ${status} from admin panel`,
+    });
+
+    if (response.success) {
+      toast.success("Payment updated");
+      await loadPayments();
+      await loadDashboard();
+    } else {
+      toast.error(response.error || "Unable to update payment");
+    }
+
+    setUpdatingPaymentId(null);
   };
 
   const stats = [
@@ -362,6 +397,94 @@ export default function Admin() {
             resolvingId={resolvingId}
             onResolve={handleResolveDispute}
           />
+
+          <div className="mt-10 rounded-[42px] border border-white/55 bg-white/60 p-6 shadow-[0_24px_80px_rgba(15,23,42,0.08)] backdrop-blur-2xl md:p-7">
+            <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
+              <div>
+                <div className="inline-flex items-center gap-2 rounded-full border border-pink-100 bg-pink-50 px-4 py-2 text-sm font-black text-pink-600">
+                  <CreditCard size={16} />
+                  Payments
+                </div>
+                <h2 className="mt-4 text-3xl font-black md:text-4xl">
+                  Manual payment queue.
+                </h2>
+                <p className="mt-2 max-w-3xl text-[var(--muted)] font-semibold leading-relaxed">
+                  Confirm manual premium, boost, delivery fee, and platform fee records.
+                </p>
+              </div>
+              <div className="rounded-full border border-white/60 bg-white/70 px-5 py-3 font-black shadow-sm">
+                {loadingPayments ? "Checking..." : `${payments.length} recent`}
+              </div>
+            </div>
+
+            <div className="mt-7 grid gap-4">
+              {loadingPayments ? (
+                <div className="rounded-[28px] bg-white/60 p-5 font-black text-[var(--muted)]">
+                  Loading payments...
+                </div>
+              ) : payments.length === 0 ? (
+                <div className="rounded-[28px] bg-white/60 p-5">
+                  <p className="font-black">No payments yet</p>
+                  <p className="mt-2 text-sm font-semibold text-[var(--muted)]">
+                    Premium and fee orders will appear here.
+                  </p>
+                </div>
+              ) : (
+                payments.slice(0, 8).map((payment) => (
+                  <div
+                    key={payment.id}
+                    className="rounded-[30px] border border-white/60 bg-white/70 p-5 shadow-[0_14px_40px_rgba(15,23,42,0.06)]"
+                  >
+                    <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap gap-2">
+                          <span className="rounded-full bg-pink-50 px-3 py-1 text-xs font-black text-pink-600">
+                            {payment.purpose}
+                          </span>
+                          <span className="rounded-full bg-white/80 px-3 py-1 text-xs font-black text-[var(--muted)]">
+                            {payment.status}
+                          </span>
+                        </div>
+                        <h3 className="mt-3 truncate text-2xl font-black">
+                          ₹{(payment.amount / 100).toFixed(2)} · {payment.user?.email || payment.user_id}
+                        </h3>
+                        <p className="mt-1 truncate text-sm font-semibold text-[var(--muted)]">
+                          {payment.provider_order_id || payment.id}
+                        </p>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          disabled={updatingPaymentId === payment.id}
+                          onClick={() => handlePaymentStatus(payment, "paid")}
+                          className="rounded-full bg-emerald-50 px-4 py-2 font-black text-emerald-700 disabled:opacity-60"
+                        >
+                          Paid
+                        </button>
+                        <button
+                          type="button"
+                          disabled={updatingPaymentId === payment.id}
+                          onClick={() => handlePaymentStatus(payment, "failed")}
+                          className="rounded-full bg-red-50 px-4 py-2 font-black text-red-600 disabled:opacity-60"
+                        >
+                          Failed
+                        </button>
+                        <button
+                          type="button"
+                          disabled={updatingPaymentId === payment.id}
+                          onClick={() => handlePaymentStatus(payment, "refunded")}
+                          className="rounded-full bg-white/80 px-4 py-2 font-black disabled:opacity-60"
+                        >
+                          Refund
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
 
           <div className="mt-10 bg-white/55 backdrop-blur-2xl rounded-[42px] border border-white/50 shadow-[0_24px_80px_rgba(15,23,42,0.08)] overflow-hidden">
             <div className="p-7 border-b border-white/50 flex flex-col xl:flex-row xl:items-center xl:justify-between gap-5">
