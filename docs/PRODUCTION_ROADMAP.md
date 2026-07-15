@@ -127,7 +127,7 @@ Notes:
 
 ## Batch 7: Audio And Video Calls
 
-Status: next
+Status: complete
 
 Goal: Add real-time call signaling for chat.
 
@@ -139,7 +139,13 @@ Deliverables:
 - Call history in chat
 - TURN server plan for production reliability
 
+Notes:
+- Backend mode now has Prisma-backed chat conversations/messages, local chat uploads, Socket.IO conversation rooms, typing events, message events, and call session records.
+- Audio/video buttons create call sessions and emit signaling-ready events; full peer media connection still needs the WebRTC peer UI and TURN credentials in production.
+
 ## Batch 8: Admin, Reports, Reviews
+
+Status: next
 
 Goal: Complete trust and moderation.
 

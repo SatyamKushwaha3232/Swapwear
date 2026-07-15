@@ -13,8 +13,8 @@ This file tracks the move from Supabase direct frontend calls to a self-managed 
 | Swap events | Backend audit events in backend mode | `SwapEvent` writer | 4 complete |
 | Delivery | Backend-ready behind `VITE_AUTH_PROVIDER=backend` | `/api/delivery/*` | 5 complete |
 | Payments | Backend-ready behind `VITE_AUTH_PROVIDER=backend` | `/api/payments/*` | 6 complete |
-| Chat | Supabase realtime/table | `/api/chat/*` and Socket.IO | 7 |
-| Audio/video calls | UI placeholder | Socket.IO signaling + WebRTC | 7 |
+| Chat | Backend-ready behind `VITE_AUTH_PROVIDER=backend` | `/api/chat/*` and Socket.IO | 7 complete |
+| Audio/video calls | Backend call sessions and signaling-ready events | Socket.IO signaling + WebRTC hooks | 7 complete |
 | Reports | Frontend Supabase RPC | `/api/reports/*` | 8 |
 | Reviews | Frontend Supabase RPC | `/api/reviews/*` | 8 |
 | Admin | Frontend Supabase RPC | `/api/admin/*` | 8 |

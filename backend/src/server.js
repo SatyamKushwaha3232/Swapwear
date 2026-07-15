@@ -6,6 +6,8 @@ import cookieParser from "cookie-parser";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import path from "node:path";
+import http from "node:http";
+import { Server } from "socket.io";
 
 import notificationRoutes from "./routes/notification.routes.js";
 import wishlistRoutes from "./routes/wishlist.routes.js";
@@ -21,6 +23,39 @@ import { appConfig } from "./config/app.config.js";
 dotenv.config();
 
 const app = express();
+const server = http.createServer(app);
+const io = new Server(server, {
+    cors: {
+        origin: appConfig.clientUrl,
+        credentials: true
+    }
+});
+
+app.set("io", io);
+
+io.on("connection", (socket) => {
+    socket.on("conversation:join", (conversationId) => {
+        if (conversationId) socket.join(`conversation:${conversationId}`);
+    });
+
+    socket.on("conversation:leave", (conversationId) => {
+        if (conversationId) socket.leave(`conversation:${conversationId}`);
+    });
+
+    socket.on("chat:typing", (payload = {}) => {
+        if (payload.conversation_id) {
+            socket.to(`conversation:${payload.conversation_id}`).emit("chat:typing", payload);
+        }
+    });
+
+    ["call:start", "call:accept", "call:reject", "call:end", "webrtc:offer", "webrtc:answer", "webrtc:ice-candidate"].forEach((eventName) => {
+        socket.on(eventName, (payload = {}) => {
+            if (payload.conversation_id) {
+                socket.to(`conversation:${payload.conversation_id}`).emit(eventName, payload);
+            }
+        });
+    });
+});
 
 app.use(helmet());
 app.use(cors({
@@ -71,6 +106,6 @@ app.use((err, _req, res, _next) => {
 
 const PORT=appConfig.port;
 
-app.listen(PORT,()=>{
+server.listen(PORT,()=>{
     console.log(`Server Running On ${PORT}`);
 });

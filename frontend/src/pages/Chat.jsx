@@ -19,6 +19,7 @@ import {
   reactToMessage,
   sendMessage,
   setTyping,
+  startCallSession,
   subscribeToConversationMessages,
   subscribeToMyConversations,
   subscribeToTyping,
@@ -362,8 +363,18 @@ export default function Chat() {
     loadConversations(false);
   }
 
-  function handleCallAction(type) {
-    toast(`${type} call UI is ready; live calling needs a calling provider.`);
+  async function handleCallAction(type) {
+    if (!activeId) {
+      toast.error("Select a conversation first");
+      return;
+    }
+
+    const response = await startCallSession(activeId, type.toLowerCase());
+    if (response.success) {
+      toast.success(`${type} call started`);
+    } else {
+      toast.error(response.error || "Unable to start call");
+    }
   }
 
   function handleHeaderMenu(view = "all") {

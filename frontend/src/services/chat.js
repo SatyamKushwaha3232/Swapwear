@@ -1,5 +1,27 @@
 import { supabase } from "../lib/supabase";
+import { io } from "socket.io-client";
+import {
+  API_BASE_URL,
+  backendAuthEnabled,
+  backendRequest,
+  getBackendAccessToken,
+} from "../lib/backendApi";
 import { notifyNewMessage } from "./notifications";
+
+const SOCKET_URL = API_BASE_URL.replace(/\/api\/?$/, "");
+let socketInstance = null;
+
+function getSocket() {
+  if (!backendAuthEnabled) return null;
+  if (!socketInstance) {
+    socketInstance = io(SOCKET_URL, {
+      autoConnect: true,
+      transports: ["websocket", "polling"],
+      auth: { token: getBackendAccessToken() },
+    });
+  }
+  return socketInstance;
+}
 
 function formatConversation(item = {}) {
   return {
@@ -81,6 +103,22 @@ async function updateMessageRow(messageId, patch) {
 }
 
 export async function uploadChatFile(file, userId) {
+  if (backendAuthEnabled) {
+    try {
+      if (!file) return { success: false, error: "File missing" };
+      const formData = new FormData();
+      formData.append("file", file);
+      const data = await backendRequest("/chat/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      return { success: true, data };
+    } catch (error) {
+      return { success: false, error: error.message || "File upload failed" };
+    }
+  }
+
   try {
     if (!file) return { success: false, error: "File missing" };
 
@@ -111,6 +149,18 @@ export async function uploadChatFile(file, userId) {
 }
 
 export async function getOrCreateConversation({ swapId, user1Id, user2Id }) {
+  if (backendAuthEnabled) {
+    try {
+      const data = await backendRequest("/chat/conversations", {
+        method: "POST",
+        body: JSON.stringify({ swapId, user1Id, user2Id }),
+      });
+      return { success: true, data: formatConversation(data) };
+    } catch (error) {
+      return { success: false, error: error.message || "Unable to create conversation" };
+    }
+  }
+
   try {
     const { data: existing, error: findError } = await supabase
       .from("chat_conversations")
@@ -144,6 +194,16 @@ export async function getOrCreateConversation({ swapId, user1Id, user2Id }) {
 }
 
 export async function getMyConversations(userId) {
+  if (backendAuthEnabled) {
+    try {
+      if (!userId) return { success: true, data: [] };
+      const data = await backendRequest("/chat/conversations");
+      return { success: true, data: (data || []).map(formatConversation) };
+    } catch (error) {
+      return { success: false, error: error.message, data: [] };
+    }
+  }
+
   try {
     if (!userId) return { success: true, data: [] };
 
@@ -188,6 +248,16 @@ export async function getMyConversations(userId) {
 }
 
 export async function getMessages(conversationId) {
+  if (backendAuthEnabled) {
+    try {
+      if (!conversationId) return { success: true, data: [] };
+      const data = await backendRequest(`/chat/conversations/${conversationId}/messages`);
+      return { success: true, data: (data || []).map(formatMessage) };
+    } catch (error) {
+      return { success: false, error: error.message, data: [] };
+    }
+  }
+
   try {
     if (!conversationId) return { success: true, data: [] };
 
@@ -213,6 +283,51 @@ export async function sendMessage({
   replyTo = null,
   voiceDuration = 0,
 }) {
+  if (backendAuthEnabled) {
+    try {
+      let fileData = null;
+      let messageType = "text";
+
+      if (!conversationId) return { success: false, error: "Conversation missing" };
+      if (!senderId) return { success: false, error: "Sender missing" };
+
+      if (file) {
+        const upload = await uploadChatFile(file, senderId);
+        if (!upload.success) throw new Error(upload.error);
+        fileData = upload.data;
+
+        if (file.type?.startsWith("image/")) messageType = "image";
+        else if (file.type?.startsWith("audio/")) messageType = "voice";
+        else messageType = "file";
+      }
+
+      const cleanMessage = String(message || "").trim();
+      if (!cleanMessage && !fileData) {
+        return { success: false, error: "Message or file is required" };
+      }
+
+      const data = await backendRequest("/chat/messages", {
+        method: "POST",
+        body: JSON.stringify({
+          conversationId,
+          message: cleanMessage,
+          messageType,
+          imageUrl: messageType === "image" ? fileData?.url || "" : "",
+          fileUrl: messageType === "file" ? fileData?.url || "" : "",
+          fileName: fileData?.name || "",
+          fileType: fileData?.type || "",
+          voiceUrl: messageType === "voice" ? fileData?.url || "" : "",
+          voiceDuration: messageType === "voice" ? voiceDuration || 0 : 0,
+          replyToId: replyTo?.id || null,
+        }),
+      });
+
+      return { success: true, data: formatMessage(data) };
+    } catch (error) {
+      return { success: false, error: error.message || "Unable to send message" };
+    }
+  }
+
   try {
     let fileData = null;
     let messageType = "text";
@@ -287,6 +402,16 @@ export async function sendMessage({
 }
 
 export async function forwardMessage({ sourceMessage, targetConversationId, senderId }) {
+  if (backendAuthEnabled) {
+    return sendMessage({
+      conversationId: targetConversationId,
+      senderId,
+      message: sourceMessage?.message || "",
+      replyTo: { message: "Forwarded message", sender_id: sourceMessage?.sender_id },
+      voiceDuration: sourceMessage?.voice_duration || 0,
+    });
+  }
+
   try {
     if (!sourceMessage?.id) return { success: false, error: "Message missing" };
     if (!targetConversationId) return { success: false, error: "Conversation missing" };
@@ -340,6 +465,23 @@ export async function forwardMessage({ sourceMessage, targetConversationId, send
   }
 }
 export async function editMessage(messageId, nextMessage) {
+  if (backendAuthEnabled) {
+    try {
+      const cleanMessage = String(nextMessage || "").trim();
+      if (!messageId) return { success: false, error: "Message missing" };
+      if (!cleanMessage) return { success: false, error: "Message cannot be empty" };
+
+      const data = await backendRequest(`/chat/messages/${messageId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ message: cleanMessage }),
+      });
+
+      return { success: true, data: formatMessage(data) };
+    } catch (error) {
+      return { success: false, error: error.message || "Unable to edit message" };
+    }
+  }
+
   try {
     const cleanMessage = String(nextMessage || "").trim();
     if (!messageId) return { success: false, error: "Message missing" };
@@ -357,6 +499,19 @@ export async function editMessage(messageId, nextMessage) {
 }
 
 export async function deleteMessage(messageId) {
+  if (backendAuthEnabled) {
+    try {
+      const data = await backendRequest(`/chat/messages/${messageId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ is_deleted: true }),
+      });
+
+      return { success: true, data: formatMessage(data) };
+    } catch (error) {
+      return { success: false, error: error.message || "Unable to delete message" };
+    }
+  }
+
   try {
     const data = await updateMessageRow(messageId, {
       is_deleted: true,
@@ -376,6 +531,19 @@ export async function deleteMessage(messageId) {
 }
 
 export async function reactToMessage(message, emoji) {
+  if (backendAuthEnabled) {
+    try {
+      if (!message?.id || !emoji) return { success: false, error: "Reaction missing" };
+      const data = await backendRequest(`/chat/messages/${message.id}/reactions`, {
+        method: "POST",
+        body: JSON.stringify({ emoji }),
+      });
+      return { success: true, data: formatMessage(data) };
+    } catch (error) {
+      return { success: false, error: error.message || "Unable to react" };
+    }
+  }
+
   try {
     if (!message?.id || !emoji) return { success: false, error: "Reaction missing" };
 
@@ -394,6 +562,19 @@ export async function reactToMessage(message, emoji) {
 }
 
 export async function toggleMessagePin(message) {
+  if (backendAuthEnabled) {
+    try {
+      if (!message?.id) return { success: false, error: "Message missing" };
+      const data = await backendRequest(`/chat/messages/${message.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ is_pinned: !message.is_pinned }),
+      });
+      return { success: true, data: formatMessage(data) };
+    } catch (error) {
+      return { success: false, error: error.message || "Unable to pin message" };
+    }
+  }
+
   try {
     if (!message?.id) return { success: false, error: "Message missing" };
     const data = await updateMessageRow(message.id, {
@@ -407,6 +588,19 @@ export async function toggleMessagePin(message) {
 }
 
 export async function toggleMessageStar(message) {
+  if (backendAuthEnabled) {
+    try {
+      if (!message?.id) return { success: false, error: "Message missing" };
+      const data = await backendRequest(`/chat/messages/${message.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ is_starred: !message.is_starred }),
+      });
+      return { success: true, data: formatMessage(data) };
+    } catch (error) {
+      return { success: false, error: error.message || "Unable to star message" };
+    }
+  }
+
   try {
     if (!message?.id) return { success: false, error: "Message missing" };
     const data = await updateMessageRow(message.id, {
@@ -420,6 +614,18 @@ export async function toggleMessageStar(message) {
 }
 
 export async function markConversationSeen(conversationId, userId) {
+  if (backendAuthEnabled) {
+    try {
+      if (!conversationId || !userId) return { success: false };
+      await backendRequest(`/chat/conversations/${conversationId}/seen`, {
+        method: "POST",
+      });
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
   try {
     if (!conversationId || !userId) return { success: false };
 
@@ -438,6 +644,20 @@ export async function markConversationSeen(conversationId, userId) {
 }
 
 export async function setTyping(conversationId, userId, isTyping) {
+  if (backendAuthEnabled) {
+    try {
+      if (!conversationId || !userId) return { success: false };
+      const data = await backendRequest(`/chat/conversations/${conversationId}/typing`, {
+        method: "POST",
+        body: JSON.stringify({ isTyping }),
+      });
+      getSocket()?.emit("chat:typing", data);
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
   try {
     if (!conversationId || !userId) return { success: false };
 
@@ -462,6 +682,19 @@ export async function setTyping(conversationId, userId, isTyping) {
 export function subscribeToConversationMessages(conversationId, callback) {
   if (!conversationId) return null;
 
+  if (backendAuthEnabled) {
+    const socket = getSocket();
+    socket.emit("conversation:join", conversationId);
+    const handler = (message) => callback(formatMessage(message));
+    socket.on("chat:message", handler);
+    return {
+      unsubscribe: () => {
+        socket.off("chat:message", handler);
+        socket.emit("conversation:leave", conversationId);
+      },
+    };
+  }
+
   return supabase
     .channel(`chat_messages_${conversationId}`)
     .on(
@@ -483,6 +716,19 @@ export function subscribeToConversationMessages(conversationId, callback) {
 export function subscribeToMyConversations(userId, callback) {
   if (!userId) return null;
 
+  if (backendAuthEnabled) {
+    const socket = getSocket();
+    const handler = () => callback();
+    socket.on("chat:message", handler);
+    socket.on("call:update", handler);
+    return {
+      unsubscribe: () => {
+        socket.off("chat:message", handler);
+        socket.off("call:update", handler);
+      },
+    };
+  }
+
   return supabase
     .channel(`chat_conversations_${userId}`)
     .on(
@@ -500,6 +746,16 @@ export function subscribeToMyConversations(userId, callback) {
 export function subscribeToTyping(conversationId, callback) {
   if (!conversationId) return null;
 
+  if (backendAuthEnabled) {
+    const socket = getSocket();
+    socket.emit("conversation:join", conversationId);
+    const handler = (payload) => callback(payload);
+    socket.on("chat:typing", handler);
+    return {
+      unsubscribe: () => socket.off("chat:typing", handler),
+    };
+  }
+
   return supabase
     .channel(`chat_typing_${conversationId}`)
     .on(
@@ -513,4 +769,38 @@ export function subscribeToTyping(conversationId, callback) {
       (payload) => callback(payload.new)
     )
     .subscribe();
+}
+
+export async function startCallSession(conversationId, type = "audio") {
+  if (!backendAuthEnabled) {
+    return { success: false, error: "Calls are available in backend mode" };
+  }
+
+  try {
+    const data = await backendRequest("/chat/calls", {
+      method: "POST",
+      body: JSON.stringify({ conversationId, type }),
+    });
+    getSocket()?.emit("call:start", data);
+    return { success: true, data };
+  } catch (error) {
+    return { success: false, error: error.message || "Unable to start call" };
+  }
+}
+
+export async function updateCallSession(callId, status) {
+  if (!backendAuthEnabled) {
+    return { success: false, error: "Calls are available in backend mode" };
+  }
+
+  try {
+    const data = await backendRequest(`/chat/calls/${callId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ status }),
+    });
+    getSocket()?.emit(`call:${String(status).toLowerCase()}`, data);
+    return { success: true, data };
+  } catch (error) {
+    return { success: false, error: error.message || "Unable to update call" };
+  }
 }
