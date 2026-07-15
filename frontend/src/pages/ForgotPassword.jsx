@@ -1,7 +1,6 @@
 import { useState } from "react";
 import toast from "react-hot-toast";
 import { Mail, Sparkles } from "lucide-react";
-import { supabase } from "../lib/supabase";
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState("");
@@ -16,19 +15,8 @@ export default function ForgotPassword() {
     }
 
     setLoading(true);
-
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: "http://localhost:5173/reset-password",
-    });
-
+    toast("Password reset email will be available after backend mail setup.");
     setLoading(false);
-
-    if (error) {
-        toast.error(error.message);
-        return;
-    }
-
-    toast.success("Password reset email sent.");
     }
 
   return (

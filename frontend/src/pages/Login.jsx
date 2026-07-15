@@ -13,8 +13,6 @@ import GoogleIcon from "../assets/auth-icons/google.svg";
 import MicrosoftIcon from "../assets/auth-icons/microsoft.svg";
 import GithubIcon from "../assets/auth-icons/github.svg";
 import PhoneIcon from "../assets/auth-icons/phone.svg";
-import { supabase } from "../lib/supabase";
-import { backendAuthEnabled } from "../lib/backendApi";
 import { loginWithBackend } from "../services/backendAuth";
 
 export default function Login() {
@@ -46,16 +44,7 @@ export default function Login() {
     try {
       setLoading(true);
 
-      if (backendAuthEnabled) {
-        await loginWithBackend(form.email.trim(), form.password);
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({
-          email: form.email.trim(),
-          password: form.password,
-        });
-
-        if (error) throw error;
-      }
+      await loginWithBackend(form.email.trim(), form.password);
 
       toast.success("Welcome back");
       navigate("/dashboard", { replace: true });
@@ -67,27 +56,9 @@ export default function Login() {
   }
 
   async function handleOAuth(provider) {
-    if (backendAuthEnabled) {
-      toast("Social login will be added after manual auth is live.");
-      return;
-    }
-
-    try {
-      setOauthLoading(provider);
-
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider,
-        options: {
-          redirectTo: `${window.location.origin}/dashboard`,
-          scopes: provider === "azure" ? "openid email profile" : undefined,
-        },
-      });
-
-      if (error) throw error;
-    } catch (error) {
-      toast.error(error.message || "Social login failed");
-      setOauthLoading("");
-    }
+    setOauthLoading(provider);
+    toast("Social login is disabled in manual backend mode.");
+    setOauthLoading("");
   }
 
   return (
@@ -192,8 +163,8 @@ export default function Login() {
           <div className="flex items-start gap-3 rounded-[24px] border border-pink-100 bg-pink-50/70 p-4">
             <ShieldCheck className="shrink-0 text-pink-500" size={20} />
             <p className="text-sm font-semibold leading-relaxed text-slate-600">
-              Email, Google, Microsoft and GitHub login are supported. Social
-              providers must be enabled in Supabase.
+              Email login is powered by the manual backend. Social providers
+              can be added later through backend OAuth adapters.
             </p>
           </div>
 

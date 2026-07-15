@@ -1,4 +1,4 @@
-# SwapWear Production Roadmap
+﻿# SwapWear Production Roadmap
 
 This roadmap finishes SwapWear in batches without breaking the current frontend.
 
@@ -31,14 +31,14 @@ Deliverables:
 - Prisma schema for the full platform
 - Environment template
 - Backend module structure
-- Migration plan from Supabase direct access to backend APIs
+- Migration plan from direct hosted backend access to self-managed backend APIs
 - Existing frontend remains working
 
 ## Batch 2: Auth And Profiles
 
 Status: complete
 
-Goal: Replace Supabase auth with backend-owned auth.
+Goal: Use backend-owned auth.
 
 Deliverables:
 - Register/login/logout APIs
@@ -64,7 +64,7 @@ Deliverables:
 - Frontend listing/wishlist services switched to backend
 
 Notes:
-- Frontend still defaults to Supabase until `VITE_AUTH_PROVIDER=backend` is enabled.
+- Frontend defaults to backend mode.
 - Backend mode now uses Prisma for listings/wishlist and local uploads for product media.
 
 ## Batch 4: Swap Lifecycle

@@ -1,7 +1,4 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { supabase } from "../lib/supabase";
-import { createProfile } from "../lib/profile";
-import { backendAuthEnabled } from "../lib/backendApi";
 import { getBackendSession, logoutBackend } from "../services/backendAuth";
 
 const AuthContext = createContext(null);
@@ -11,47 +8,17 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  async function safeCreateProfile(currentUser) {
-    try {
-      if (!currentUser?.id) return;
-      await createProfile(currentUser);
-    } catch (error) {
-      console.error("Profile sync failed:", error);
-    }
-  }
-
   useEffect(() => {
     let mounted = true;
 
     async function initAuth() {
       try {
-        if (backendAuthEnabled) {
-          const backendSession = await getBackendSession();
-
-          if (!mounted) return;
-
-          setSession(backendSession.session);
-          setUser(backendSession.user);
-          return;
-        }
-
-        const { data, error } = await supabase.auth.getSession();
-
-        if (error) {
-          console.error("Auth session error:", error.message);
-        }
-
-        const currentSession = data?.session || null;
-        const currentUser = currentSession?.user || null;
+        const backendSession = await getBackendSession();
 
         if (!mounted) return;
 
-        setSession(currentSession);
-        setUser(currentUser);
-
-        if (currentUser) {
-          safeCreateProfile(currentUser);
-        }
+        setSession(backendSession.session);
+        setUser(backendSession.user);
       } catch (error) {
         console.error("Auth init failed:", error);
       } finally {
@@ -61,29 +28,8 @@ export function AuthProvider({ children }) {
 
     initAuth();
 
-    if (backendAuthEnabled) {
-      return () => {
-        mounted = false;
-      };
-    }
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      const nextUser = nextSession?.user || null;
-
-      setSession(nextSession || null);
-      setUser(nextUser);
-      setLoading(false);
-
-      if (nextUser) {
-        safeCreateProfile(nextUser);
-      }
-    });
-
     return () => {
       mounted = false;
-      subscription.unsubscribe();
     };
   }, []);
 
@@ -93,7 +39,7 @@ export function AuthProvider({ children }) {
       user,
       loading,
       isAuthenticated: Boolean(user),
-      signOut: backendAuthEnabled ? logoutBackend : () => supabase.auth.signOut(),
+      signOut: logoutBackend,
     }),
     [session, user, loading]
   );

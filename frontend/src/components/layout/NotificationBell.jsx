@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+﻿import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   Bell,
@@ -17,7 +17,6 @@ import {
   markNotificationRead,
   subscribeToNotifications,
 } from "../../services/notifications";
-import { supabase } from "../../lib/supabase";
 import useClickOutside from "../../hooks/useClickOutside";
 
 const typeStyles = {
@@ -110,7 +109,6 @@ export default function NotificationBell({ userId, variant = "desktop", onNaviga
     return () => {
       mounted = false;
       if (channel?.unsubscribe) channel.unsubscribe();
-      else if (channel) supabase.removeChannel(channel);
     };
   }, [userId]);
 

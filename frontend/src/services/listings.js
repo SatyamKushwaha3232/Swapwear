@@ -1,5 +1,4 @@
-import { supabase } from "../lib/supabase";
-import { backendAuthEnabled, backendRequest } from "../lib/backendApi";
+﻿import { backendRequest } from "../lib/backendApi";
 
 export const LISTING_SWAP_STATUS = {
   AVAILABLE: "available",
@@ -12,34 +11,10 @@ export const LISTING_SWAP_STATUS = {
   BLOCKED: "blocked",
 };
 
-function isMissingSwapColumns(error) {
-  const message = String(error?.message || error || "").toLowerCase();
-  return (
-    message.includes("swap_status") ||
-    message.includes("active_swap_id") ||
-    message.includes("archive_after") ||
-    message.includes("archived_at") ||
-    message.includes("delete_eligible_at") ||
-    message.includes("is_public") ||
-    message.includes("schema cache")
-  );
-}
-
 function formatListing(item = {}) {
-  const imageList =
-    Array.isArray(item.images) && item.images.length > 0
-      ? item.images
-      : item.image
-      ? [item.image]
-      : [];
-
+  const imageList = Array.isArray(item.images) && item.images.length > 0 ? item.images : item.image ? [item.image] : [];
   const rawSwapStatus = item.swap_status || LISTING_SWAP_STATUS.AVAILABLE;
-  const swapStatus =
-    rawSwapStatus === LISTING_SWAP_STATUS.LOCKED
-      ? LISTING_SWAP_STATUS.RESERVED
-      : rawSwapStatus === LISTING_SWAP_STATUS.COMPLETED
-      ? LISTING_SWAP_STATUS.SWAPPED
-      : rawSwapStatus;
+  const swapStatus = rawSwapStatus === LISTING_SWAP_STATUS.LOCKED ? LISTING_SWAP_STATUS.RESERVED : rawSwapStatus === LISTING_SWAP_STATUS.COMPLETED ? LISTING_SWAP_STATUS.SWAPPED : rawSwapStatus;
 
   return {
     id: item.id,
@@ -68,515 +43,88 @@ function formatListing(item = {}) {
     archived_at: item.archived_at || null,
     delete_eligible_at: item.delete_eligible_at || null,
     is_public: item.is_public !== false,
-    is_available_for_swap:
-      swapStatus === LISTING_SWAP_STATUS.AVAILABLE && item.is_public !== false,
+    is_available_for_swap: swapStatus === LISTING_SWAP_STATUS.AVAILABLE && item.is_public !== false,
   };
 }
 
-async function runLegacyListingQuery(userId = null) {
-  let query = supabase
-    .from("listings")
-    .select("*")
-    .order("created_at", { ascending: false });
-
-  if (userId) query = query.eq("user_id", userId);
-
-  const { data, error } = await query;
-  if (error) throw error;
-
-  return (data || []).map(formatListing);
-}
-
 export async function cleanupExpiredCompletedListings() {
-  if (backendAuthEnabled) {
-    return { success: true, skipped: true };
-  }
-
-  try {
-    const rpc = await supabase.rpc("auto_archive_completed_listings");
-
-    if (!rpc.error) return { success: true, data: rpc.data };
-
-    if (!isMissingSwapColumns(rpc.error) && rpc.error.code !== "42883") {
-      throw rpc.error;
-    }
-
-    const { error } = await supabase
-      .from("listings")
-      .update({
-        swap_status: LISTING_SWAP_STATUS.ARCHIVED,
-        is_public: false,
-        archived_at: new Date().toISOString(),
-      })
-      .in("swap_status", [LISTING_SWAP_STATUS.SWAPPED, LISTING_SWAP_STATUS.COMPLETED])
-      .lte("delete_eligible_at", new Date().toISOString());
-
-    if (error) throw error;
-    return { success: true };
-  } catch (err) {
-    if (isMissingSwapColumns(err)) return { success: true, skipped: true };
-    return { success: false, error: err.message || "Cleanup failed" };
-  }
+  return { success: true, skipped: true };
 }
 
 export async function getListings(userId = null, options = {}) {
-  if (backendAuthEnabled) {
-    try {
-      const params = new URLSearchParams();
-
-      if (userId) params.set("userId", userId);
-      if (options.onlyAvailable === false || options.includeUnavailable) {
-        params.set("onlyAvailable", "false");
-      }
-      if (options.query) params.set("q", options.query);
-      if (options.category && options.category !== "All") {
-        params.set("category", options.category);
-      }
-      if (options.size && options.size !== "All") params.set("size", options.size);
-      if (options.condition && options.condition !== "All") {
-        params.set("condition", options.condition);
-      }
-      if (options.maxPoints) params.set("maxPoints", options.maxPoints);
-      if (options.sort) params.set("sort", options.sort);
-
-      const data = await backendRequest(
-        `/listings${params.toString() ? `?${params.toString()}` : ""}`
-      );
-
-      return {
-        success: true,
-        data: (data || []).map(formatListing),
-      };
-    } catch (err) {
-      return {
-        success: false,
-        error: err.message || "Failed to fetch listings",
-        data: [],
-      };
-    }
-  }
-
   try {
-    if (!userId && options.onlyAvailable !== false) {
-      cleanupExpiredCompletedListings();
-    }
+    const params = new URLSearchParams();
+    if (userId) params.set("userId", userId);
+    if (options.onlyAvailable === false || options.includeUnavailable) params.set("onlyAvailable", "false");
+    if (options.query) params.set("q", options.query);
+    if (options.category && options.category !== "All") params.set("category", options.category);
+    if (options.size && options.size !== "All") params.set("size", options.size);
+    if (options.condition && options.condition !== "All") params.set("condition", options.condition);
+    if (options.maxPoints) params.set("maxPoints", options.maxPoints);
+    if (options.sort) params.set("sort", options.sort);
 
-    let query = supabase
-      .from("listings")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (userId) {
-      query = query.eq("user_id", userId);
-    }
-
-    if (options.onlyAvailable !== false) {
-      query = query
-        .or("swap_status.is.null,swap_status.eq.available")
-        .or("is_public.is.null,is_public.eq.true");
-    }
-
-    const { data, error } = await query;
-
-    if (error) {
-      if (isMissingSwapColumns(error)) {
-        return { success: true, data: await runLegacyListingQuery(userId) };
-      }
-      throw error;
-    }
-
-    return {
-      success: true,
-      data: (data || []).map(formatListing),
-    };
+    const data = await backendRequest(`/listings${params.toString() ? `?${params}` : ""}`);
+    return { success: true, data: (data || []).map(formatListing) };
   } catch (err) {
-    return {
-      success: false,
-      error: err.message || "Failed to fetch listings",
-      data: [],
-    };
+    return { success: false, error: err.message || "Failed to fetch listings", data: [] };
   }
 }
 
 export async function getListingById(id, options = {}) {
-  if (backendAuthEnabled) {
-    try {
-      const data = await backendRequest(`/listings/${id}`);
-      const listing = data ? formatListing(data) : null;
-
-      if (listing && options.onlyAvailable && !listing.is_available_for_swap) {
-        return { success: true, data: null };
-      }
-
-      return { success: true, data: listing };
-    } catch (err) {
-      return {
-        success: false,
-        error: err.message || "Failed to fetch listing",
-        data: null,
-      };
-    }
-  }
-
   try {
-    const { data, error } = await supabase
-      .from("listings")
-      .select("*")
-      .eq("id", id)
-      .maybeSingle();
-
-    if (error) throw error;
-
+    const data = await backendRequest(`/listings/${id}`);
     const listing = data ? formatListing(data) : null;
-
-    if (listing && options.onlyAvailable && !listing.is_available_for_swap) {
-      return { success: true, data: null };
-    }
-
-    return {
-      success: true,
-      data: listing,
-    };
+    if (listing && options.onlyAvailable && !listing.is_available_for_swap) return { success: true, data: null };
+    return { success: true, data: listing };
   } catch (err) {
-    return {
-      success: false,
-      error: err.message || "Failed to fetch listing",
-      data: null,
-    };
+    return { success: false, error: err.message || "Failed to fetch listing", data: null };
   }
 }
 
 export async function getListingsByIds(ids = []) {
-  if (backendAuthEnabled) {
-    try {
-      const results = await Promise.all(
-        ids.filter(Boolean).map((id) => getListingById(id))
-      );
-
-      return {
-        success: true,
-        data: results
-          .filter((result) => result.success && result.data)
-          .map((result) => result.data),
-      };
-    } catch (err) {
-      return { success: false, error: err.message || "Unable to load listings", data: [] };
-    }
-  }
-
   try {
-    const cleanIds = ids.filter(Boolean);
-    if (cleanIds.length === 0) return { success: true, data: [] };
-
-    const { data, error } = await supabase
-      .from("listings")
-      .select("*")
-      .in("id", cleanIds);
-
-    if (error) throw error;
-
-    return { success: true, data: (data || []).map(formatListing) };
+    const results = await Promise.all(ids.filter(Boolean).map((id) => getListingById(id)));
+    return { success: true, data: results.filter((result) => result.success && result.data).map((result) => result.data) };
   } catch (err) {
     return { success: false, error: err.message || "Unable to load listings", data: [] };
   }
 }
 
 export async function markListingsLockedForSwap(listingIds = [], swapId) {
-  if (backendAuthEnabled) {
-    return { success: true, skipped: true, swapId, listingIds };
-  }
-
-  try {
-    const cleanIds = listingIds.filter(Boolean);
-    if (cleanIds.length === 0) return { success: true };
-
-    const { error } = await supabase
-      .from("listings")
-      .update({
-        swap_status: LISTING_SWAP_STATUS.RESERVED,
-        active_swap_id: swapId,
-        is_public: false,
-        swap_completed_at: null,
-        archive_after: null,
-        delete_eligible_at: null,
-      })
-      .in("id", cleanIds);
-
-    if (error) throw error;
-    return { success: true };
-  } catch (err) {
-    return { success: false, error: err.message || "Unable to lock listings" };
-  }
+  return { success: true, skipped: true, swapId, listingIds };
 }
 
 export async function releaseListingsFromSwap(listingIds = [], swapId) {
-  if (backendAuthEnabled) {
-    return { success: true, skipped: true, swapId, listingIds };
-  }
-
-  try {
-    const cleanIds = listingIds.filter(Boolean);
-    if (cleanIds.length === 0) return { success: true };
-
-    const { error } = await supabase
-      .from("listings")
-      .update({
-        swap_status: LISTING_SWAP_STATUS.AVAILABLE,
-        active_swap_id: null,
-        is_public: true,
-        swap_completed_at: null,
-        archive_after: null,
-        delete_eligible_at: null,
-      })
-      .in("id", cleanIds)
-      .eq("active_swap_id", swapId);
-
-    if (error) throw error;
-    return { success: true };
-  } catch (err) {
-    return { success: false, error: err.message || "Unable to release listings" };
-  }
+  return { success: true, skipped: true, swapId, listingIds };
 }
 
 export async function markListingsCompletedForSwap(listingIds = [], swapId) {
-  if (backendAuthEnabled) {
-    return { success: true, skipped: true, swapId, listingIds };
-  }
-
-  try {
-    const cleanIds = listingIds.filter(Boolean);
-    if (cleanIds.length === 0) return { success: true };
-
-    const completedAt = new Date();
-    const archiveAfter = new Date(completedAt.getTime() + 3 * 24 * 60 * 60 * 1000);
-
-    const { error } = await supabase
-      .from("listings")
-      .update({
-        swap_status: LISTING_SWAP_STATUS.SWAPPED,
-        active_swap_id: swapId,
-        is_public: false,
-        swap_completed_at: completedAt.toISOString(),
-        archive_after: archiveAfter.toISOString(),
-        delete_eligible_at: archiveAfter.toISOString(),
-      })
-      .in("id", cleanIds);
-
-    if (error) throw error;
-    return { success: true };
-  } catch (err) {
-    return { success: false, error: err.message || "Unable to complete listings" };
-  }
+  return { success: true, skipped: true, swapId, listingIds };
 }
 
 export async function deleteSwapListings(listingIds = []) {
-  if (backendAuthEnabled) {
-    return { success: true, skipped: true, listingIds };
-  }
-
-  try {
-    const cleanIds = listingIds.filter(Boolean);
-    if (cleanIds.length === 0) return { success: true };
-
-    const { error } = await supabase
-      .from("listings")
-      .update({
-        swap_status: LISTING_SWAP_STATUS.ARCHIVED,
-        is_public: false,
-        archived_at: new Date().toISOString(),
-      })
-      .in("id", cleanIds);
-
-    if (error) throw error;
-    return { success: true };
-  } catch (err) {
-    return { success: false, error: err.message || "Unable to delete completed listings" };
-  }
+  return { success: true, skipped: true, listingIds };
 }
 
 export async function createListing(data, imageFiles = [], videoFile = null) {
-  if (backendAuthEnabled) {
-    try {
-      const formData = new FormData();
-
-      Object.entries(data || {}).forEach(([key, value]) => {
-        formData.append(key, value ?? "");
-      });
-
-      Array.from(imageFiles || []).forEach((file) => {
-        formData.append("images", file);
-      });
-
-      if (videoFile) {
-        formData.append("video", videoFile);
-      }
-
-      const created = await backendRequest("/listings", {
-        method: "POST",
-        body: formData,
-      });
-
-      return {
-        success: true,
-        data: formatListing(created),
-      };
-    } catch (err) {
-      return {
-        success: false,
-        error: err.message || "Failed to create listing",
-      };
-    }
-  }
-
   try {
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
+    const formData = new FormData();
+    Object.entries(data || {}).forEach(([key, value]) => formData.append(key, value ?? ""));
+    Array.from(imageFiles || []).forEach((file) => formData.append("images", file));
+    if (videoFile) formData.append("video", videoFile);
 
-    if (userError) throw userError;
-    if (!user) throw new Error("User not logged in");
-
-    const uploadedImages = [];
-
-    for (const file of Array.from(imageFiles || [])) {
-      const ext = file.name.split(".").pop() || "jpg";
-      const filePath = `${user.id}/images/${Date.now()}-${Math.random()
-        .toString(36)
-        .slice(2)}.${ext}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from("listings")
-        .upload(filePath, file, { upsert: true });
-
-      if (uploadError) throw uploadError;
-
-      const { data: publicData } = supabase.storage
-        .from("listings")
-        .getPublicUrl(filePath);
-
-      uploadedImages.push(publicData.publicUrl);
-    }
-
-    let videoUrl = "";
-
-    if (videoFile) {
-      const ext = videoFile.name.split(".").pop() || "mp4";
-      const videoPath = `${user.id}/videos/${Date.now()}-${Math.random()
-        .toString(36)
-        .slice(2)}.${ext}`;
-
-      const { error: videoUploadError } = await supabase.storage
-        .from("listings")
-        .upload(videoPath, videoFile, { upsert: true });
-
-      if (videoUploadError) throw videoUploadError;
-
-      const { data: videoPublicData } = supabase.storage
-        .from("listings")
-        .getPublicUrl(videoPath);
-
-      videoUrl = videoPublicData.publicUrl;
-    }
-
-    const payload = {
-      title: data.title || "",
-      brand: data.brand || "",
-      category: data.category || "Fashion",
-      size: data.size || "",
-      condition: data.condition || "Good",
-      location: data.location || "",
-      points: Number(data.points) || 0,
-      description: data.description || "",
-      owner_name:
-        data.owner_name ||
-        user.user_metadata?.full_name ||
-        user.user_metadata?.name ||
-        user.email?.split("@")[0] ||
-        "SwapWear User",
-      user_id: user.id,
-      image: uploadedImages[0] || data.image || "",
-      images: uploadedImages,
-      video: videoUrl,
-      views: 0,
-      likes: 0,
-      swap_status: LISTING_SWAP_STATUS.AVAILABLE,
-      active_swap_id: null,
-      is_public: true,
-    };
-
-    const { data: created, error } = await supabase
-      .from("listings")
-      .insert([payload])
-      .select("*")
-      .single();
-
-    if (error) {
-      if (isMissingSwapColumns(error)) {
-        delete payload.swap_status;
-        delete payload.active_swap_id;
-        delete payload.is_public;
-
-        const fallback = await supabase
-          .from("listings")
-          .insert([payload])
-          .select("*")
-          .single();
-
-        if (fallback.error) throw fallback.error;
-        return { success: true, data: formatListing(fallback.data) };
-      }
-
-      throw error;
-    }
-
-    return {
-      success: true,
-      data: formatListing(created),
-    };
+    const created = await backendRequest("/listings", { method: "POST", body: formData });
+    return { success: true, data: formatListing(created) };
   } catch (err) {
-    return {
-      success: false,
-      error: err.message || "Failed to create listing",
-    };
+    return { success: false, error: err.message || "Failed to create listing" };
   }
 }
 
 export async function deleteListing(id) {
-  if (backendAuthEnabled) {
-    try {
-      await backendRequest(`/listings/${id}`, { method: "DELETE" });
-      return { success: true };
-    } catch (err) {
-      return {
-        success: false,
-        error: err.message || "Failed to delete listing",
-      };
-    }
-  }
-
   try {
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
-
-    if (userError) throw userError;
-    if (!user) throw new Error("User not logged in");
-
-    const { error } = await supabase
-      .from("listings")
-      .delete()
-      .eq("id", id)
-      .eq("user_id", user.id);
-
-    if (error) throw error;
-
+    await backendRequest(`/listings/${id}`, { method: "DELETE" });
     return { success: true };
   } catch (err) {
-    return {
-      success: false,
-      error: err.message || "Failed to delete listing",
-    };
+    return { success: false, error: err.message || "Failed to delete listing" };
   }
 }

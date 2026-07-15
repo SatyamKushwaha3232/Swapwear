@@ -1,7 +1,7 @@
 import { ApiError } from "./errors";
 
 export const backendAuthEnabled =
-  String(import.meta.env.VITE_AUTH_PROVIDER || "supabase").toLowerCase() === "backend";
+  String(import.meta.env.VITE_AUTH_PROVIDER || "backend").toLowerCase() === "backend";
 
 export const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";

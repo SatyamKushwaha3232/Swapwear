@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import {
   Bell,
@@ -266,7 +266,7 @@ export default function Settings() {
               <SettingsCard
                 icon={ShieldCheck}
                 title="Security"
-                text="Your account is protected by Supabase Auth."
+                text="Your account is protected by manual backend auth."
               >
                 <div className="space-y-4">
                   <InfoRow icon={Mail} label="Email" value={user?.email || profile?.email || "Not available"} />
@@ -314,7 +314,7 @@ export default function Settings() {
                             {payment.purpose.replaceAll("_", " ")}
                           </p>
                           <p className="mt-1 text-sm font-semibold text-slate-500">
-                            ₹{(payment.amount / 100).toFixed(2)} / {payment.status}
+                            â‚¹{(payment.amount / 100).toFixed(2)} / {payment.status}
                           </p>
                         </div>
                         {payment.status === "pending" && (

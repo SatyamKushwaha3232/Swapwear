@@ -1,4 +1,4 @@
-# 🌸 SwapWear — Premium Clothing Swap Marketplace
+﻿# ðŸŒ¸ SwapWear â€” Premium Clothing Swap Marketplace
 
 SwapWear is a modern premium clothing exchange & swap marketplace built with React, Vite, and Tailwind CSS.
 
@@ -12,16 +12,16 @@ Designed with:
 
 ---
 
-# ✨ Features
+# âœ¨ Features
 
-## 🎀 Premium UI/UX
+## ðŸŽ€ Premium UI/UX
 - Liquid glass navbar
 - Pastel pink accents
 - Soft shadows
 - Large rounded cards
 - Responsive premium layout
 
-## 🛍 Marketplace Features
+## ðŸ› Marketplace Features
 - Clothing swap marketplace
 - Same-product image hover slideshow
 - Product video previews
@@ -29,13 +29,13 @@ Designed with:
 - Item details page
 - Wishlist & listings
 
-## 💬 Community Features
+## ðŸ’¬ Community Features
 - Real-time style chat UI
 - Swap requests
 - Negotiation section
 - Dashboard & Admin Panel
 
-## 📱 Responsive
+## ðŸ“± Responsive
 - Mobile dropdown navbar
 - Accordion menus
 - Tablet optimized layouts
@@ -43,7 +43,7 @@ Designed with:
 
 ---
 
-# ⚙️ Tech Stack
+# âš™ï¸ Tech Stack
 
 - React
 - Vite
@@ -54,7 +54,7 @@ Designed with:
 
 ---
 
-# 🚀 Installation
+# ðŸš€ Installation
 
 ```bash
 npm install
@@ -63,23 +63,23 @@ npm run dev
 
 ---
 
-# 📂 Project Structure
+# ðŸ“‚ Project Structure
 
 ```bash
 src/
- ├── assets/
- ├── components/
- ├── pages/
- ├── hooks/
- ├── data/
- ├── utils/
- ├── context/
- └── layouts/
+ â”œâ”€â”€ assets/
+ â”œâ”€â”€ components/
+ â”œâ”€â”€ pages/
+ â”œâ”€â”€ hooks/
+ â”œâ”€â”€ data/
+ â”œâ”€â”€ utils/
+ â”œâ”€â”€ context/
+ â””â”€â”€ layouts/
 ```
 
 ---
 
-# 🌟 Screens Included
+# ðŸŒŸ Screens Included
 
 - Home
 - Explore
@@ -92,7 +92,7 @@ src/
 
 ---
 
-# 💖 UI Design Style
+# ðŸ’– UI Design Style
 
 Inspired by:
 - Dribbble
@@ -102,7 +102,7 @@ Inspired by:
 
 ---
 
-# 👨‍💻 Developer
+# ðŸ‘¨â€ðŸ’» Developer
 
 Satyam Kushwaha
 
@@ -111,7 +111,7 @@ https://github.com/SatyamKushwaha3232
 
 ---
 
-# 📌 Status
+# ðŸ“Œ Status
 
 Currently under active premium UI development.
 
@@ -119,7 +119,7 @@ Currently under active premium UI development.
 
 # Manual Backend Roadmap
 
-SwapWear is moving from Supabase direct access to a self-managed backend:
+SwapWear now uses a self-managed backend:
 
 - PostgreSQL
 - Node.js/Express
@@ -134,4 +134,4 @@ Roadmap files:
 - `docs/PRODUCTION_ROADMAP.md`
 - `docs/API_MIGRATION_MATRIX.md`
 
-The existing React/Supabase frontend remains working while backend modules are migrated one batch at a time.
+The React frontend now talks to the Node/PostgreSQL backend APIs.

@@ -1,4 +1,4 @@
-import { Outlet, Link } from "react-router-dom";
+﻿import { Outlet, Link } from "react-router-dom";
 import { Recycle, Sparkles, ShieldCheck, ArrowLeft } from "lucide-react";
 
 export default function AuthLayout() {
@@ -37,7 +37,7 @@ export default function AuthLayout() {
       <section className="relative z-10 px-6 pb-8">
         <div className="mx-auto max-w-[1320px]">
           <div className="mb-4 flex flex-wrap items-center justify-center gap-3">
-            <Badge icon={ShieldCheck} text="Secure Supabase Auth" />
+            <Badge icon={ShieldCheck} text="Secure Backend Auth" />
             <Badge icon={Sparkles} text="Premium Swap Experience" />
             <Badge icon={Recycle} text="Sustainable Fashion" />
           </div>

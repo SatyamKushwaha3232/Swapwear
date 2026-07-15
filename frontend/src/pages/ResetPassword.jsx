@@ -11,8 +11,6 @@ import {
   XCircle,
 } from "lucide-react";
 
-import { supabase } from "../lib/supabase";
-
 export default function ResetPassword() {
   const navigate = useNavigate();
 
@@ -56,19 +54,8 @@ export default function ResetPassword() {
     }
 
     setLoading(true);
-
-    const { error } = await supabase.auth.updateUser({
-      password: form.password,
-    });
-
+    toast("Password reset will be available after backend mail setup.");
     setLoading(false);
-
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
-
-    toast.success("Password updated successfully");
     navigate("/login");
   }
 

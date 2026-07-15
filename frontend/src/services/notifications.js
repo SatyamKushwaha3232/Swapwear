@@ -1,262 +1,103 @@
-import { supabase } from "../lib/supabase";
-import { io } from "socket.io-client";
-import {
-  API_BASE_URL,
-  backendAuthEnabled,
-  backendRequest,
-  getBackendAccessToken,
-} from "../lib/backendApi";
+﻿import { io } from "socket.io-client";
+import { API_BASE_URL, backendRequest, getBackendAccessToken } from "../lib/backendApi";
 
 const SOCKET_URL = API_BASE_URL.replace(/\/api\/?$/, "");
 let notificationSocket = null;
 
 function getNotificationSocket() {
-  if (!backendAuthEnabled) return null;
   if (!notificationSocket) {
-    notificationSocket = io(SOCKET_URL, {
-      autoConnect: true,
-      transports: ["websocket", "polling"],
-      auth: { token: getBackendAccessToken() },
-    });
+    notificationSocket = io(SOCKET_URL, { autoConnect: true, transports: ["websocket", "polling"], auth: { token: getBackendAccessToken() } });
   }
   return notificationSocket;
 }
 
-const MISSING_TABLE_CODES = new Set(["42P01", "42703"]);
-
-function isMissingNotificationTable(error) {
-  return MISSING_TABLE_CODES.has(error?.code) || /notifications/i.test(error?.message || "");
-}
-
-function formatNotification(item = {}) {
+function formatNotification(row = {}) {
   return {
-    id: item.id,
-    user_id: item.user_id,
-    actor_id: item.actor_id || null,
-    type: item.type || "general",
-    title: item.title || "SwapWear update",
-    message: item.message || "",
-    link: item.link || "",
-    data: item.data || {},
-    is_read: Boolean(item.is_read),
-    read_at: item.read_at || null,
-    created_at: item.created_at,
+    id: String(row.id),
+    user_id: row.user_id || row.userId,
+    actor_id: row.actor_id || row.actorId || null,
+    type: row.type || "general",
+    title: row.title || "Notification",
+    message: row.message || "",
+    link: row.link || "",
+    data: row.data || {},
+    is_read: Boolean(row.is_read ?? row.isRead),
+    read_at: row.read_at || row.readAt || null,
+    created_at: row.created_at || row.createdAt || new Date().toISOString(),
   };
 }
 
-export async function getNotifications(userId, limit = 30) {
-  if (backendAuthEnabled) {
-    try {
-      if (!userId) return { success: true, data: [] };
-      const data = await backendRequest(`/notifications?limit=${encodeURIComponent(limit)}`);
-      return { success: true, data: (data || []).map(formatNotification) };
-    } catch (error) {
-      return { success: false, error: error.message || "Unable to fetch notifications", data: [] };
-    }
-  }
-
+export async function getNotifications(_userId, limit = 30) {
   try {
-    if (!userId) return { success: true, data: [] };
-
-    const { data, error } = await supabase
-      .from("notifications")
-      .select("*")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false })
-      .limit(limit);
-
-    if (error) throw error;
-
+    const data = await backendRequest(`/notifications?limit=${encodeURIComponent(limit)}`);
     return { success: true, data: (data || []).map(formatNotification) };
   } catch (error) {
-    if (isMissingNotificationTable(error)) return { success: true, data: [] };
-    return { success: false, error: error.message || "Unable to fetch notifications", data: [] };
+    return { success: false, error: error.message || "Unable to load notifications", data: [] };
   }
 }
 
 export async function createNotification(payload = {}) {
-  if (backendAuthEnabled) {
-    try {
-      const data = await backendRequest("/notifications", {
-        method: "POST",
-        body: JSON.stringify(payload),
-      });
-      return { success: true, data: formatNotification(data) };
-    } catch (error) {
-      return { success: false, error: error.message || "Unable to create notification" };
-    }
-  }
-
   try {
-    const userId = payload.userId || payload.user_id;
-    if (!userId) return { success: false, error: "Notification user missing" };
-
-    const body = {
-      user_id: userId,
-      actor_id: payload.actorId || payload.actor_id || null,
-      type: payload.type || "general",
-      title: payload.title || "SwapWear update",
-      message: payload.message || "",
-      link: payload.link || "",
-      data: payload.data || {},
-      is_read: false,
-    };
-
-    const { data, error } = await supabase
-      .from("notifications")
-      .insert([body])
-      .select("*")
-      .single();
-
-    if (error) throw error;
-
+    const data = await backendRequest("/notifications", { method: "POST", body: JSON.stringify(payload) });
     return { success: true, data: formatNotification(data) };
   } catch (error) {
-    if (isMissingNotificationTable(error)) return { success: false, error: "Notifications table missing" };
     return { success: false, error: error.message || "Unable to create notification" };
   }
 }
 
 export async function markNotificationRead(id) {
-  if (backendAuthEnabled) {
-    try {
-      if (!id) return { success: false, error: "Notification missing" };
-      const data = await backendRequest(`/notifications/${id}/read`, {
-        method: "PATCH",
-      });
-      return { success: true, data: formatNotification(data) };
-    } catch (error) {
-      return { success: false, error: error.message || "Unable to mark notification read" };
-    }
-  }
-
   try {
-    if (!id) return { success: false, error: "Notification missing" };
-
-    const { data, error } = await supabase
-      .from("notifications")
-      .update({ is_read: true, read_at: new Date().toISOString() })
-      .eq("id", id)
-      .select("*")
-      .single();
-
-    if (error) throw error;
-
+    const data = await backendRequest(`/notifications/${id}/read`, { method: "PATCH" });
     return { success: true, data: formatNotification(data) };
   } catch (error) {
-    if (isMissingNotificationTable(error)) return { success: true };
     return { success: false, error: error.message || "Unable to mark notification read" };
   }
 }
 
-export async function markAllNotificationsRead(userId) {
-  if (backendAuthEnabled) {
-    try {
-      if (!userId) return { success: false, error: "User missing" };
-      await backendRequest("/notifications/read-all", { method: "PATCH" });
-      return { success: true };
-    } catch (error) {
-      return { success: false, error: error.message || "Unable to mark notifications read" };
-    }
-  }
-
+export async function markAllNotificationsRead() {
   try {
-    if (!userId) return { success: false, error: "User missing" };
-
-    const { error } = await supabase
-      .from("notifications")
-      .update({ is_read: true, read_at: new Date().toISOString() })
-      .eq("user_id", userId)
-      .eq("is_read", false);
-
-    if (error) throw error;
-
+    await backendRequest("/notifications/read-all", { method: "PATCH" });
     return { success: true };
   } catch (error) {
-    if (isMissingNotificationTable(error)) return { success: true };
-    return { success: false, error: error.message || "Unable to mark notifications read" };
+    return { success: false, error: error.message || "Unable to mark all read" };
   }
 }
 
 export async function deleteNotification(id) {
-  if (backendAuthEnabled) {
-    try {
-      if (!id) return { success: false, error: "Notification missing" };
-      await backendRequest(`/notifications/${id}`, { method: "DELETE" });
-      return { success: true };
-    } catch (error) {
-      return { success: false, error: error.message || "Unable to delete notification" };
-    }
-  }
-
   try {
-    if (!id) return { success: false, error: "Notification missing" };
-
-    const { error } = await supabase.from("notifications").delete().eq("id", id);
-
-    if (error) throw error;
-
+    await backendRequest(`/notifications/${id}`, { method: "DELETE" });
     return { success: true };
   } catch (error) {
-    if (isMissingNotificationTable(error)) return { success: true };
     return { success: false, error: error.message || "Unable to delete notification" };
   }
 }
 
 export function subscribeToNotifications(userId, callback) {
-  if (!userId) return null;
+  const socket = getNotificationSocket();
+  socket.emit("user:join", userId);
 
-  if (backendAuthEnabled) {
-    const socket = getNotificationSocket();
-    socket.emit("user:join", userId);
+  const onInsert = (payload) => callback(formatNotification(payload), "INSERT");
+  const onUpdate = (payload) => callback(formatNotification(payload), "UPDATE");
+  const onDelete = (payload) => callback(formatNotification(payload), "DELETE");
+  const onRefresh = () => callback(null, "REFRESH");
 
-    const onNew = (payload) => callback(formatNotification(payload), "INSERT");
-    const onUpdate = (payload) => callback(formatNotification(payload), "UPDATE");
-    const onDelete = (payload) => callback(formatNotification(payload), "DELETE");
-    const onRefresh = () => callback(null, "REFRESH");
+  socket.on("notification:new", onInsert);
+  socket.on("notification:update", onUpdate);
+  socket.on("notification:delete", onDelete);
+  socket.on("notification:refresh", onRefresh);
 
-    socket.on("notification:new", onNew);
-    socket.on("notification:update", onUpdate);
-    socket.on("notification:delete", onDelete);
-    socket.on("notification:refresh", onRefresh);
-
-    return {
-      unsubscribe: () => {
-        socket.off("notification:new", onNew);
-        socket.off("notification:update", onUpdate);
-        socket.off("notification:delete", onDelete);
-        socket.off("notification:refresh", onRefresh);
-        socket.emit("user:leave", userId);
-      },
-    };
-  }
-
-  const channelId =
-    typeof crypto !== "undefined" && crypto.randomUUID
-      ? crypto.randomUUID()
-      : `${Date.now()}_${Math.random().toString(16).slice(2)}`;
-
-  return supabase
-    .channel(`notifications_${userId}_${channelId}`)
-    .on(
-      "postgres_changes",
-      {
-        event: "*",
-        schema: "public",
-        table: "notifications",
-        filter: `user_id=eq.${userId}`,
-      },
-      (payload) => {
-        const row = payload.new?.id ? payload.new : payload.old;
-        if (row) callback(formatNotification(row), payload.eventType);
-      }
-    )
-    .subscribe();
+  return {
+    unsubscribe() {
+      socket.off("notification:new", onInsert);
+      socket.off("notification:update", onUpdate);
+      socket.off("notification:delete", onDelete);
+      socket.off("notification:refresh", onRefresh);
+      socket.emit("user:leave", userId);
+    },
+  };
 }
 
 export async function notifySwapRequest({ ownerId, requesterId, requesterName, ownerItem, swapId }) {
-  if (!ownerId || String(ownerId) === String(requesterId)) return { success: true };
-
   return createNotification({
     userId: ownerId,
     actorId: requesterId,
@@ -264,44 +105,30 @@ export async function notifySwapRequest({ ownerId, requesterId, requesterName, o
     title: "New swap request",
     message: `${requesterName || "Someone"} wants to swap for ${ownerItem?.title || "your item"}.`,
     link: "/swaps",
-    data: { swap_id: swapId, listing_id: ownerItem?.id || null },
+    data: { swap_id: swapId },
   });
 }
 
 export async function notifySwapStatus({ userId, actorId, status, itemTitle, swapId }) {
-  if (!userId || String(userId) === String(actorId)) return { success: true };
-
-  const titles = {
-    accepted: "Swap accepted",
-    rejected: "Swap rejected",
-    cancelled: "Swap cancelled",
-    shipped: "Swap handover confirmed",
-    delivered: "Swap received",
-    disputed: "Swap dispute opened",
-    completed: "Swap completed",
-  };
-
   return createNotification({
     userId,
     actorId,
     type: `swap_${status}`,
-    title: titles[status] || "Swap updated",
-    message: `Your swap${itemTitle ? ` for ${itemTitle}` : ""} is now ${status}.`,
+    title: "Swap updated",
+    message: `${itemTitle || "Your swap"} is now ${status}.`,
     link: "/swaps",
     data: { swap_id: swapId },
   });
 }
 
 export async function notifyNewMessage({ userId, actorId, conversationId, preview }) {
-  if (!userId || String(userId) === String(actorId)) return { success: true };
-
   return createNotification({
     userId,
     actorId,
     type: "message",
     title: "New message",
-    message: preview || "You have a new chat message.",
-    link: "/chat",
+    message: preview || "You have a new message.",
+    link: `/chat/${conversationId}`,
     data: { conversation_id: conversationId },
   });
 }

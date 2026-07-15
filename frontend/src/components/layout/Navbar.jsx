@@ -11,7 +11,6 @@ import {
 
 import { useAuth } from "../../context/AuthContext";
 import useClickOutside from "../../hooks/useClickOutside";
-import { supabase } from "../../lib/supabase";
 import { getCurrentProfile } from "../../services/profile";
 import Logo from "./Logo";
 import NavLinks from "./NavLinks";
@@ -31,7 +30,7 @@ const categories = [
 ];
 
 export default function Navbar() {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
 
   const [profile, setProfile] = useState(null);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -71,7 +70,7 @@ export default function Navbar() {
   }, [user]);
 
   async function handleLogout() {
-    await supabase.auth.signOut();
+    await signOut();
     setProfileOpen(false);
     setMobileOpen(false);
   }

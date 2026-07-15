@@ -18,8 +18,6 @@ import GoogleIcon from "../assets/auth-icons/google.svg";
 import MicrosoftIcon from "../assets/auth-icons/microsoft.svg";
 import GithubIcon from "../assets/auth-icons/github.svg";
 import PhoneIcon from "../assets/auth-icons/phone.svg";
-import { supabase } from "../lib/supabase";
-import { backendAuthEnabled } from "../lib/backendApi";
 import { signupWithBackend } from "../services/backendAuth";
 
 export default function Signup() {
@@ -71,40 +69,15 @@ export default function Signup() {
     try {
       setLoading(true);
 
-      if (backendAuthEnabled) {
-        await signupWithBackend({
-          fullName: form.fullName.trim(),
-          email: form.email.trim(),
-          password: form.password,
-        });
+      await signupWithBackend({
+        fullName: form.fullName.trim(),
+        email: form.email.trim(),
+        password: form.password,
+      });
 
-        toast.success("Account created");
-        navigate("/dashboard", { replace: true });
-        return;
-      } else {
-        const { data, error } = await supabase.auth.signUp({
-          email: form.email.trim(),
-          password: form.password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/login`,
-            data: {
-              full_name: form.fullName.trim(),
-              name: form.fullName.trim(),
-            },
-          },
-        });
-
-        if (error) throw error;
-
-        if (data?.session) {
-          toast.success("Account created");
-          navigate("/dashboard", { replace: true });
-          return;
-        }
-
-        toast.success("Account created. Please verify your email before login.");
-        navigate("/login", { replace: true });
-      }
+      toast.success("Account created");
+      navigate("/dashboard", { replace: true });
+      return;
     } catch (error) {
       toast.error(error.message || "Signup failed");
     } finally {
@@ -113,27 +86,9 @@ export default function Signup() {
   }
 
   async function handleOAuth(provider) {
-    if (backendAuthEnabled) {
-      toast("Social signup will be added after manual auth is live.");
-      return;
-    }
-
-    try {
-      setOauthLoading(provider);
-
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider,
-        options: {
-          redirectTo: `${window.location.origin}/dashboard`,
-          scopes: provider === "azure" ? "openid email profile" : undefined,
-        },
-      });
-
-      if (error) throw error;
-    } catch (error) {
-      toast.error(error.message || "Social signup failed");
-      setOauthLoading("");
-    }
+    setOauthLoading(provider);
+    toast("Social signup is disabled in manual backend mode.");
+    setOauthLoading("");
   }
 
   return (
@@ -290,8 +245,8 @@ export default function Signup() {
           <div className="flex items-start gap-3 rounded-[24px] border border-pink-100 bg-pink-50/70 p-4">
             <ShieldCheck className="shrink-0 text-pink-500" size={20} />
             <p className="text-sm font-semibold leading-relaxed text-slate-600">
-              After signup, verify your email if confirmations are enabled in
-              Supabase.
+              Manual backend auth creates your account directly. Email
+              verification can be added later through a backend mail adapter.
             </p>
           </div>
 

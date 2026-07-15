@@ -1,4 +1,4 @@
-# Auth Module Plan
+﻿# Auth Module Plan
 
 Manual backend auth is implemented in Batch 2.
 
@@ -20,7 +20,7 @@ Manual backend auth is implemented in Batch 2.
 
 ## Frontend Migration
 
-Replace `frontend/src/context/AuthContext.jsx` Supabase calls with backend API calls after this module is implemented.
+Frontend auth now uses backend API calls.
 
 ## Current Integration
 
@@ -31,4 +31,4 @@ VITE_AUTH_PROVIDER=backend
 VITE_API_BASE_URL=http://localhost:5000/api
 ```
 
-Default mode remains Supabase until the remaining APIs are migrated.
+Default mode is backend.

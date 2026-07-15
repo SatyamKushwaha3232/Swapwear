@@ -1,6 +1,6 @@
-# SwapWear API Migration Matrix
+﻿# SwapWear API Migration Matrix
 
-This file tracks the move from Supabase direct frontend calls to a self-managed Node/PostgreSQL backend.
+This file tracks the self-managed Node/PostgreSQL backend coverage.
 
 | Area | Current State | Target Backend Module | Batch |
 | --- | --- | --- | --- |

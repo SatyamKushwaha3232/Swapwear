@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { supabase } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";
 
 import {
@@ -21,6 +20,7 @@ import Sidebar from "../components/layout/Sidebar";
 import InlineError from "../components/common/InlineError";
 
 import { getListings, deleteListing } from "../services/listings";
+import { getCurrentProfile } from "../services/profile";
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -42,13 +42,8 @@ export default function Dashboard() {
     async function loadProfile() {
       if (!user?.id) return;
 
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", user.id)
-        .maybeSingle();
-
-      if (!error) setProfile(data);
+      const response = await getCurrentProfile();
+      if (response.success) setProfile(response.data);
     }
 
     loadProfile();
