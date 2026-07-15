@@ -162,7 +162,7 @@ Notes:
 
 ## Batch 9: Notifications
 
-Status: next
+Status: complete
 
 Goal: Move notifications to backend events.
 
@@ -173,7 +173,13 @@ Deliverables:
 - Payment/delivery notifications
 - Optional email later
 
+Notes:
+- Backend mode now supports notification list, create, read, mark-all-read, delete, user Socket.IO rooms, and realtime notification events.
+- Swap and chat backend services now create notification records server-side.
+
 ## Batch 10: Deployment
+
+Status: next
 
 Goal: Production launch.
 

@@ -1,5 +1,6 @@
 import { prisma } from "../config/prisma.js";
 import { assertCourierReadyForHandover } from "../modules/delivery/delivery.service.js";
+import { createNotification } from "./notification.service.js";
 
 const ACTIVE_SWAP_STATUSES = ["PENDING", "ACCEPTED", "SHIPPED", "DELIVERED", "DISPUTED"];
 const RELIST_STATUSES = ["CANCELLED", "REJECTED", "FAILED"];
@@ -160,6 +161,21 @@ function swapInclude() {
 async function addEvent(tx, swapId, actorId, eventType, metadata = {}) {
   await tx.swapEvent.create({
     data: { swapId, actorId, eventType, metadata },
+  });
+}
+
+async function notifySwapParticipant(swap, actorId, status, title = "Swap updated") {
+  const recipientId = swap.requesterId === actorId ? swap.ownerId : swap.requesterId;
+  if (!recipientId || recipientId === actorId) return;
+
+  await createNotification({
+    userId: recipientId,
+    actorId,
+    type: `swap_${status}`,
+    title,
+    message: `Your swap is now ${status}.`,
+    link: "/swaps",
+    data: { swap_id: swap.id },
   });
 }
 
@@ -347,6 +363,16 @@ export async function createSwapRequest(payload, user) {
       ownerItemId: String(ownerItemId),
     });
 
+    await createNotification({
+      userId: swap.ownerId,
+      actorId: user.id,
+      type: "swap_request",
+      title: "New swap request",
+      message: `${swap.requesterName || "Someone"} wants to swap for ${ownerListing.title || "your item"}.`,
+      link: "/swaps",
+      data: { swap_id: swap.id, listing_id: String(ownerItemId) },
+    });
+
     return formatSwap(swap);
   });
 }
@@ -405,6 +431,7 @@ export async function updateSwapStatus(id, status, user, reason = "") {
 
       await expireCompetingSwaps(tx, updated, user.id);
       await addEvent(tx, id, user.id, "accepted");
+      await notifySwapParticipant(updated, user.id, "accepted", "Swap accepted");
       return formatSwap(updated);
     }
 
@@ -441,6 +468,7 @@ export async function updateSwapStatus(id, status, user, reason = "") {
       });
 
       await addEvent(tx, id, user.id, "completed");
+      await notifySwapParticipant(updated, user.id, "completed", "Swap completed");
       return formatSwap(updated);
     }
 
@@ -478,6 +506,7 @@ export async function updateSwapStatus(id, status, user, reason = "") {
 
       await reviveEligibleExpiredSwaps(tx, updated, user.id);
       await addEvent(tx, id, user.id, apiStatus(nextStatus), { reason });
+      await notifySwapParticipant(updated, user.id, apiStatus(nextStatus), "Swap updated");
       return formatSwap(updated);
     }
 
@@ -507,6 +536,7 @@ export async function setSwapDeliveryMethod(id, method, user) {
   await prisma.swapEvent.create({
     data: { swapId: id, actorId: user.id, eventType: "delivery_method_set", metadata: { method } },
   });
+  await notifySwapParticipant(updated, user.id, "delivery_method", "Exchange method selected");
 
   return formatSwap(updated);
 }
@@ -540,6 +570,7 @@ export async function confirmSwapHandover(id, note, user) {
     });
 
     await addEvent(tx, id, user.id, "handover_confirmed");
+    await notifySwapParticipant(updated, user.id, "shipped", "Swap handover confirmed");
     return formatSwap(updated);
   });
 }
@@ -571,6 +602,7 @@ export async function confirmSwapReceived(id, note, user) {
     });
 
     await addEvent(tx, id, user.id, "received_confirmed");
+    await notifySwapParticipant(updated, user.id, "delivered", "Swap receipt confirmed");
     return formatSwap(updated);
   });
 }
@@ -591,6 +623,7 @@ export async function openSwapDispute(id, reason, user) {
     });
 
     await addEvent(tx, id, user.id, "disputed", { disputeId: String(dispute.id), reason });
+    await notifySwapParticipant(updated, user.id, "disputed", "Swap dispute opened");
     return formatSwap(updated);
   });
 }

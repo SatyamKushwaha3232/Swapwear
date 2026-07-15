@@ -35,6 +35,14 @@ const io = new Server(server, {
 app.set("io", io);
 
 io.on("connection", (socket) => {
+    socket.on("user:join", (userId) => {
+        if (userId) socket.join(`user:${userId}`);
+    });
+
+    socket.on("user:leave", (userId) => {
+        if (userId) socket.leave(`user:${userId}`);
+    });
+
     socket.on("conversation:join", (conversationId) => {
         if (conversationId) socket.join(`conversation:${conversationId}`);
     });

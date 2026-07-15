@@ -3,6 +3,7 @@ import path from "node:path";
 
 import { appConfig } from "../config/app.config.js";
 import { prisma } from "../config/prisma.js";
+import { createNotification } from "./notification.service.js";
 
 function parseBigInt(id, label = "id") {
   try {
@@ -208,6 +209,16 @@ export async function sendMessage(payload, user) {
       lastMessageAt: new Date(),
       unreadCounts,
     },
+  });
+
+  await createNotification({
+    userId: recipientId,
+    actorId: user.id,
+    type: "message",
+    title: "New message",
+    message: lastMessageLabel(messageType, cleanMessage),
+    link: "/chat",
+    data: { conversation_id: String(conversation.id) },
   });
 
   return formatMessage(message);

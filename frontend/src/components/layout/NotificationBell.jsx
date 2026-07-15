@@ -85,6 +85,13 @@ export default function NotificationBell({ userId, variant = "desktop", onNaviga
     load();
 
     const channel = subscribeToNotifications(userId, (notice, eventType) => {
+      if (eventType === "REFRESH") {
+        load();
+        return;
+      }
+
+      if (!notice) return;
+
       setNotifications((prev) => {
         if (eventType === "DELETE") return prev.filter((item) => item.id !== notice.id);
 
@@ -102,7 +109,8 @@ export default function NotificationBell({ userId, variant = "desktop", onNaviga
 
     return () => {
       mounted = false;
-      if (channel) supabase.removeChannel(channel);
+      if (channel?.unsubscribe) channel.unsubscribe();
+      else if (channel) supabase.removeChannel(channel);
     };
   }, [userId]);
 

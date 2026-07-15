@@ -1,4 +1,26 @@
 import { supabase } from "../lib/supabase";
+import { io } from "socket.io-client";
+import {
+  API_BASE_URL,
+  backendAuthEnabled,
+  backendRequest,
+  getBackendAccessToken,
+} from "../lib/backendApi";
+
+const SOCKET_URL = API_BASE_URL.replace(/\/api\/?$/, "");
+let notificationSocket = null;
+
+function getNotificationSocket() {
+  if (!backendAuthEnabled) return null;
+  if (!notificationSocket) {
+    notificationSocket = io(SOCKET_URL, {
+      autoConnect: true,
+      transports: ["websocket", "polling"],
+      auth: { token: getBackendAccessToken() },
+    });
+  }
+  return notificationSocket;
+}
 
 const MISSING_TABLE_CODES = new Set(["42P01", "42703"]);
 
@@ -23,6 +45,16 @@ function formatNotification(item = {}) {
 }
 
 export async function getNotifications(userId, limit = 30) {
+  if (backendAuthEnabled) {
+    try {
+      if (!userId) return { success: true, data: [] };
+      const data = await backendRequest(`/notifications?limit=${encodeURIComponent(limit)}`);
+      return { success: true, data: (data || []).map(formatNotification) };
+    } catch (error) {
+      return { success: false, error: error.message || "Unable to fetch notifications", data: [] };
+    }
+  }
+
   try {
     if (!userId) return { success: true, data: [] };
 
@@ -43,6 +75,18 @@ export async function getNotifications(userId, limit = 30) {
 }
 
 export async function createNotification(payload = {}) {
+  if (backendAuthEnabled) {
+    try {
+      const data = await backendRequest("/notifications", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      return { success: true, data: formatNotification(data) };
+    } catch (error) {
+      return { success: false, error: error.message || "Unable to create notification" };
+    }
+  }
+
   try {
     const userId = payload.userId || payload.user_id;
     if (!userId) return { success: false, error: "Notification user missing" };
@@ -74,6 +118,18 @@ export async function createNotification(payload = {}) {
 }
 
 export async function markNotificationRead(id) {
+  if (backendAuthEnabled) {
+    try {
+      if (!id) return { success: false, error: "Notification missing" };
+      const data = await backendRequest(`/notifications/${id}/read`, {
+        method: "PATCH",
+      });
+      return { success: true, data: formatNotification(data) };
+    } catch (error) {
+      return { success: false, error: error.message || "Unable to mark notification read" };
+    }
+  }
+
   try {
     if (!id) return { success: false, error: "Notification missing" };
 
@@ -94,6 +150,16 @@ export async function markNotificationRead(id) {
 }
 
 export async function markAllNotificationsRead(userId) {
+  if (backendAuthEnabled) {
+    try {
+      if (!userId) return { success: false, error: "User missing" };
+      await backendRequest("/notifications/read-all", { method: "PATCH" });
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message || "Unable to mark notifications read" };
+    }
+  }
+
   try {
     if (!userId) return { success: false, error: "User missing" };
 
@@ -113,6 +179,16 @@ export async function markAllNotificationsRead(userId) {
 }
 
 export async function deleteNotification(id) {
+  if (backendAuthEnabled) {
+    try {
+      if (!id) return { success: false, error: "Notification missing" };
+      await backendRequest(`/notifications/${id}`, { method: "DELETE" });
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message || "Unable to delete notification" };
+    }
+  }
+
   try {
     if (!id) return { success: false, error: "Notification missing" };
 
@@ -129,6 +205,31 @@ export async function deleteNotification(id) {
 
 export function subscribeToNotifications(userId, callback) {
   if (!userId) return null;
+
+  if (backendAuthEnabled) {
+    const socket = getNotificationSocket();
+    socket.emit("user:join", userId);
+
+    const onNew = (payload) => callback(formatNotification(payload), "INSERT");
+    const onUpdate = (payload) => callback(formatNotification(payload), "UPDATE");
+    const onDelete = (payload) => callback(formatNotification(payload), "DELETE");
+    const onRefresh = () => callback(null, "REFRESH");
+
+    socket.on("notification:new", onNew);
+    socket.on("notification:update", onUpdate);
+    socket.on("notification:delete", onDelete);
+    socket.on("notification:refresh", onRefresh);
+
+    return {
+      unsubscribe: () => {
+        socket.off("notification:new", onNew);
+        socket.off("notification:update", onUpdate);
+        socket.off("notification:delete", onDelete);
+        socket.off("notification:refresh", onRefresh);
+        socket.emit("user:leave", userId);
+      },
+    };
+  }
 
   const channelId =
     typeof crypto !== "undefined" && crypto.randomUUID
