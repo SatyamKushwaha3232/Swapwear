@@ -15,9 +15,9 @@ This file tracks the move from Supabase direct frontend calls to a self-managed 
 | Payments | Backend-ready behind `VITE_AUTH_PROVIDER=backend` | `/api/payments/*` | 6 complete |
 | Chat | Backend-ready behind `VITE_AUTH_PROVIDER=backend` | `/api/chat/*` and Socket.IO | 7 complete |
 | Audio/video calls | Backend call sessions and signaling-ready events | Socket.IO signaling + WebRTC hooks | 7 complete |
-| Reports | Frontend Supabase RPC | `/api/reports/*` | 8 |
-| Reviews | Frontend Supabase RPC | `/api/reviews/*` | 8 |
-| Admin | Frontend Supabase RPC | `/api/admin/*` | 8 |
+| Reports | Backend-ready behind `VITE_AUTH_PROVIDER=backend` | `/api/trust/reports` | 8 complete |
+| Reviews | Backend-ready behind `VITE_AUTH_PROVIDER=backend` | `/api/trust/reviews` | 8 complete |
+| Admin | Backend-ready behind `VITE_AUTH_PROVIDER=backend` | `/api/trust/admin/*` | 8 complete |
 | Notifications | Frontend Supabase table | `/api/notifications/*` + socket events | 9 |
 
 ## Migration Rule

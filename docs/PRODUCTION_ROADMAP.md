@@ -145,7 +145,7 @@ Notes:
 
 ## Batch 8: Admin, Reports, Reviews
 
-Status: next
+Status: complete
 
 Goal: Complete trust and moderation.
 
@@ -157,7 +157,12 @@ Deliverables:
 - Admin dashboard backed by backend APIs
 - Audit log
 
+Notes:
+- Backend mode now supports marketplace reports, report resolution/block listing action, swap reviews, user review retrieval, admin dashboard stats, moderation queues, and trust score data.
+
 ## Batch 9: Notifications
+
+Status: next
 
 Goal: Move notifications to backend events.
 
