@@ -217,6 +217,24 @@ Notes:
 - `npm run smoke` confirms database connectivity and core model availability.
 - Demo credentials are documented in `docs/RUNNABLE_QA.md`.
 
+## Batch 12: Error Handling And Stability
+
+Status: complete
+
+Goal: Prevent rough crashes and make temporary failures feel intentional.
+
+Deliverables:
+- App-level error boundary
+- Friendly backend API errors
+- Offline status banner
+- Reusable inline error component
+- More consistent empty-state component
+
+Notes:
+- Runtime page crashes now show a polished recovery screen instead of a blank app.
+- Backend network failures are converted into user-friendly messages.
+- Offline users see a small non-blocking status banner.
+
 ## Rule For Every Batch
 
 - Keep current app working.

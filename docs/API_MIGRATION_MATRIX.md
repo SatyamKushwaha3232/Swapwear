@@ -21,6 +21,7 @@ This file tracks the move from Supabase direct frontend calls to a self-managed 
 | Notifications | Backend-ready behind `VITE_AUTH_PROVIDER=backend` | `/api/notifications/*` + socket events | 9 complete |
 | Deployment readiness | Backend-ready | `/health`, env validation, admin bootstrap | 10 complete |
 | Runnable QA data | Backend-ready | `npm run seed:demo`, `npm run smoke` | 11 complete |
+| Error/stability shell | Frontend-ready | Error boundary, friendly API errors, offline banner | 12 complete |
 
 ## Migration Rule
 

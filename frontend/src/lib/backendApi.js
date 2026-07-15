@@ -1,3 +1,5 @@
+import { ApiError } from "./errors";
+
 export const backendAuthEnabled =
   String(import.meta.env.VITE_AUTH_PROVIDER || "supabase").toLowerCase() === "backend";
 
@@ -31,16 +33,24 @@ export async function backendRequest(path, options = {}) {
     headers.Authorization = `Bearer ${accessToken}`;
   }
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    credentials: "include",
-    ...options,
-    headers,
-  });
+  let response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      credentials: "include",
+      ...options,
+      headers,
+    });
+  } catch (error) {
+    throw new ApiError(error, { status: 0 });
+  }
 
   const result = await response.json().catch(() => ({}));
 
   if (!response.ok || result.success === false) {
-    throw new Error(result.error || "Request failed");
+    throw new ApiError(result.error || `Request failed with status ${response.status}`, {
+      status: response.status,
+      payload: result,
+    });
   }
 
   return result.data ?? result;

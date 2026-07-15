@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 
 import ProductCard from "../components/products/ProductCard";
+import InlineError from "../components/common/InlineError";
 import { useAuth } from "../context/AuthContext";
 import { getWishlist, removeWishlist } from "../services/wishlist";
 
@@ -21,31 +22,40 @@ export default function Wishlist() {
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [removingId, setRemovingId] = useState(null);
+  const [error, setError] = useState(null);
 
   const loadWishlist = useCallback(async () => {
     if (!user?.id) {
       setItems([]);
       setLoading(false);
+      setError(null);
       return;
     }
 
     setLoading(true);
-    const wishlist = await getWishlist(user.id);
+    setError(null);
+    try {
+      const wishlist = await getWishlist(user.id);
 
-    setItems(
-      wishlist
-        .map((wish) =>
-          wish.listing
-            ? {
-                ...wish.listing,
-                wishlistId: wish.id,
-                saved_at: wish.created_at,
-              }
-            : null
-        )
-        .filter(Boolean)
-    );
-    setLoading(false);
+      setItems(
+        wishlist
+          .map((wish) =>
+            wish.listing
+              ? {
+                  ...wish.listing,
+                  wishlistId: wish.id,
+                  saved_at: wish.created_at,
+                }
+              : null
+          )
+          .filter(Boolean)
+      );
+    } catch (loadError) {
+      setError(loadError);
+      setItems([]);
+    } finally {
+      setLoading(false);
+    }
   }, [user]);
 
   useEffect(() => {
@@ -71,13 +81,17 @@ export default function Wishlist() {
     if (!item?.wishlistId) return;
 
     setRemovingId(item.wishlistId);
-    const response = await removeWishlist(item.wishlistId);
+    try {
+      const response = await removeWishlist(item.wishlistId);
 
-    if (response.success) {
-      setItems((current) => current.filter((row) => row.wishlistId !== item.wishlistId));
-      toast.success("Removed from wishlist");
-    } else {
-      toast.error(response.error || "Unable to remove wishlist item");
+      if (response.success) {
+        setItems((current) => current.filter((row) => row.wishlistId !== item.wishlistId));
+        toast.success("Removed from wishlist");
+      } else {
+        toast.error(response.error || "Unable to remove wishlist item");
+      }
+    } catch (removeError) {
+      toast.error(removeError.message || "Unable to remove wishlist item");
     }
 
     setRemovingId(null);
@@ -135,6 +149,10 @@ export default function Wishlist() {
           <div className="mt-10 grid place-items-center rounded-[34px] border border-white/60 bg-white/70 p-14">
             <Loader2 size={34} className="animate-spin text-pink-500" />
             <h2 className="mt-5 text-2xl font-black">Loading wishlist...</h2>
+          </div>
+        ) : error ? (
+          <div className="mt-10">
+            <InlineError error={error} title="Unable to load wishlist" onRetry={loadWishlist} />
           </div>
         ) : filteredItems.length === 0 ? (
           <div className="mt-10 rounded-[38px] border border-pink-100 bg-white/85 p-10 text-center shadow-[0_24px_80px_rgba(15,23,42,0.08)] md:p-14">

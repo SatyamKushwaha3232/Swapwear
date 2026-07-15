@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 
 import Sidebar from "../components/layout/Sidebar";
+import InlineError from "../components/common/InlineError";
 
 import { getListings, deleteListing } from "../services/listings";
 
@@ -28,6 +29,7 @@ export default function Dashboard() {
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState(null);
+  const [error, setError] = useState(null);
 
   const userName =
     profile?.full_name ||
@@ -61,13 +63,19 @@ export default function Dashboard() {
       }
 
       setLoading(true);
+      setError(null);
 
-      const response = await getListings(user.id);
+      try {
+        const response = await getListings(user.id);
 
-      if (response.success) {
-        setListings(response.data || []);
-      } else {
-        console.error(response.error);
+        if (response.success) {
+          setListings(response.data || []);
+        } else {
+          setError(response.error || "Unable to load listings");
+          setListings([]);
+        }
+      } catch (loadError) {
+        setError(loadError);
         setListings([]);
       }
 
@@ -266,6 +274,10 @@ export default function Dashboard() {
                           className="h-28 animate-pulse rounded-[28px] bg-white/45"
                     />
                   ))}
+                </div>
+              ) : error ? (
+                <div className="p-6">
+                  <InlineError error={error} title="Unable to load your listings" onRetry={() => window.location.reload()} />
                 </div>
               ) : listings.length === 0 ? (
                 <div className="p-10 text-center">

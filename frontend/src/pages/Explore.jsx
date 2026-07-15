@@ -6,6 +6,7 @@ import ExploreHero from "../components/products/ExploreHero";
 import ExploreToolbar from "../components/products/ExploreToolbar";
 import ProductFilters from "../components/products/ProductFilters";
 import ProductGrid from "../components/products/ProductGrid";
+import InlineError from "../components/common/InlineError";
 import { getListings } from "../services/listings";
 
 const defaultFilters = {
@@ -22,20 +23,28 @@ export default function Explore() {
   const [sort, setSort] = useState("newest");
   const [filters, setFilters] = useState(defaultFilters);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const [error, setError] = useState(null);
 
-  useEffect(() => {
-    async function loadListings() {
-      setLoading(true);
+  async function loadListings() {
+    setLoading(true);
+    setError(null);
 
+    try {
       const response = await getListings();
 
       if (response.success) {
         setItems(response.data || []);
+      } else {
+        setError(response.error || "Unable to load listings");
       }
-
+    } catch (loadError) {
+      setError(loadError);
+    } finally {
       setLoading(false);
     }
+  }
 
+  useEffect(() => {
     loadListings();
   }, []);
 
@@ -128,6 +137,8 @@ export default function Explore() {
             <div className="mt-6 min-w-0">
               {loading ? (
                 <ProductGrid loading />
+              ) : error ? (
+                <InlineError error={error} title="Unable to load products" onRetry={loadListings} />
               ) : filteredItems.length === 0 ? (
                 <EmptyProductState onReset={resetFilters} />
               ) : (
