@@ -20,14 +20,17 @@ import deliveryRoutes from "./modules/delivery/delivery.routes.js";
 import paymentRoutes from "./modules/payments/payments.routes.js";
 import trustRoutes from "./modules/trust/trust.routes.js";
 import { appConfig } from "./config/app.config.js";
+import { validateProductionConfig } from "./config/app.config.js";
+import { prisma } from "./config/prisma.js";
 
 dotenv.config();
+validateProductionConfig();
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
-        origin: appConfig.clientUrl,
+        origin: appConfig.clientUrls,
         credentials: true
     }
 });
@@ -68,7 +71,13 @@ io.on("connection", (socket) => {
 
 app.use(helmet());
 app.use(cors({
-    origin: appConfig.clientUrl,
+    origin(origin, callback) {
+        if (!origin || appConfig.clientUrls.includes(origin)) {
+            callback(null, true);
+            return;
+        }
+        callback(new Error("Not allowed by CORS"));
+    },
     credentials: true
 }));
 
@@ -83,12 +92,32 @@ app.use(express.json());
 app.use(cookieParser());
 app.use("/uploads", express.static(path.resolve(appConfig.uploadDir)));
 
-app.get("/", (req,res)=>{
+app.get("/", (_req,res)=>{
     res.json({
         success:true,
         message:"SwapWear Backend Running",
         mode:"manual-postgres-ready"
     });
+});
+
+app.get("/health", async (_req, res) => {
+    try {
+        await prisma.$queryRaw`select 1`;
+        res.json({
+            success: true,
+            status: "ok",
+            database: "ok",
+            uptime: Math.round(process.uptime()),
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        res.status(503).json({
+            success: false,
+            status: "unhealthy",
+            database: "error",
+            error: error.message
+        });
+    }
 });
 
 app.use("/api/auth", authRoutes);
@@ -119,3 +148,14 @@ const PORT=appConfig.port;
 server.listen(PORT,()=>{
     console.log(`Server Running On ${PORT}`);
 });
+
+async function shutdown(signal) {
+    console.log(`${signal} received, closing server`);
+    server.close(async () => {
+        await prisma.$disconnect();
+        process.exit(0);
+    });
+}
+
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => shutdown("SIGINT"));

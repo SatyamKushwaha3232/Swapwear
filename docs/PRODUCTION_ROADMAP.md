@@ -179,7 +179,7 @@ Notes:
 
 ## Batch 10: Deployment
 
-Status: next
+Status: complete
 
 Goal: Production launch.
 
@@ -190,6 +190,12 @@ Deliverables:
 - Frontend hosting
 - Storage setup
 - Monitoring and logs
+
+Notes:
+- Backend now has production env validation, multi-origin CORS config, graceful shutdown, and `/health` database checks.
+- Backend package scripts now include `db:deploy` and `admin:create`.
+- Frontend and backend env examples are ready for backend mode.
+- `docs/DEPLOYMENT_CHECKLIST.md` documents launch steps and final manual QA.
 
 ## Rule For Every Batch
 

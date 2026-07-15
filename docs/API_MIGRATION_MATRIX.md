@@ -19,6 +19,7 @@ This file tracks the move from Supabase direct frontend calls to a self-managed 
 | Reviews | Backend-ready behind `VITE_AUTH_PROVIDER=backend` | `/api/trust/reviews` | 8 complete |
 | Admin | Backend-ready behind `VITE_AUTH_PROVIDER=backend` | `/api/trust/admin/*` | 8 complete |
 | Notifications | Backend-ready behind `VITE_AUTH_PROVIDER=backend` | `/api/notifications/*` + socket events | 9 complete |
+| Deployment readiness | Backend-ready | `/health`, env validation, admin bootstrap | 10 complete |
 
 ## Migration Rule
 

@@ -26,7 +26,6 @@ export async function registerUser({ fullName, email, password }) {
       profile: {
         create: {
           fullName: cleanName,
-          email: cleanEmail,
           provider: "email",
         },
       },
