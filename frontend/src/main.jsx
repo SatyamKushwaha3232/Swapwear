@@ -9,6 +9,12 @@ import ErrorBoundary from "./components/common/ErrorBoundary";
 import NetworkStatus from "./components/common/NetworkStatus";
 import "./index.css";
 
+document.documentElement.classList.add("swapwear-js-ready");
+
+window.addEventListener("vite:preloadError", () => {
+  window.location.reload();
+});
+
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <ErrorBoundary>
