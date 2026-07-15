@@ -20,8 +20,10 @@ Use this when moving from local development to a real server.
 7. Create first admin:
    - Set `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_NAME`
    - Run `npm run admin:create`
-8. Start backend with `npm start`.
-9. Confirm `/health` returns `status: ok`.
+8. Optional staging/demo data: run `npm run seed:demo`.
+9. Run `npm run smoke`.
+10. Start backend with `npm start`.
+11. Confirm `/health` returns `status: ok`.
 
 ## Frontend
 

@@ -197,6 +197,26 @@ Notes:
 - Frontend and backend env examples are ready for backend mode.
 - `docs/DEPLOYMENT_CHECKLIST.md` documents launch steps and final manual QA.
 
+## Batch 11: Runnable QA Data
+
+Status: complete
+
+Goal: Make the app easy to run and verify without starting from an empty database.
+
+Deliverables:
+- Demo users
+- Demo listings
+- Demo pending swap
+- Demo chat conversation
+- Demo notification records
+- Demo admin report queue
+- Backend smoke check script
+
+Notes:
+- `npm run seed:demo` creates idempotent demo data for backend mode.
+- `npm run smoke` confirms database connectivity and core model availability.
+- Demo credentials are documented in `docs/RUNNABLE_QA.md`.
+
 ## Rule For Every Batch
 
 - Keep current app working.

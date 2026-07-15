@@ -20,6 +20,7 @@ This file tracks the move from Supabase direct frontend calls to a self-managed 
 | Admin | Backend-ready behind `VITE_AUTH_PROVIDER=backend` | `/api/trust/admin/*` | 8 complete |
 | Notifications | Backend-ready behind `VITE_AUTH_PROVIDER=backend` | `/api/notifications/*` + socket events | 9 complete |
 | Deployment readiness | Backend-ready | `/health`, env validation, admin bootstrap | 10 complete |
+| Runnable QA data | Backend-ready | `npm run seed:demo`, `npm run smoke` | 11 complete |
 
 ## Migration Rule
 
