@@ -19,7 +19,6 @@ import SwapRequestModal from "../components/swaps/SwapRequestModal";
 import { getListingById } from "../services/listings";
 import { createMarketplaceReport } from "../services/trust";
 import { useAuth } from "../context/AuthContext";
-import { items } from "../data/items";
 
 export default function ItemDetails() {
   const { id } = useParams();
@@ -27,11 +26,13 @@ export default function ItemDetails() {
 
   const [item, setItem] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [swapModalOpen, setSwapModalOpen] = useState(false);
 
   useEffect(() => {
     async function loadItem() {
       setLoading(true);
+      setError("");
 
       const response = await getListingById(id);
 
@@ -41,8 +42,8 @@ export default function ItemDetails() {
         return;
       }
 
-      const demoItem = items.find((product) => String(product.id) === String(id));
-      setItem(demoItem || null);
+      setItem(null);
+      setError(response.success ? "" : response.error || "Unable to load this listing");
       setLoading(false);
     }
 
@@ -146,7 +147,14 @@ export default function ItemDetails() {
       <section className="section-space pt-6">
         <div className="container-main">
           <div className="rounded-[34px] bg-white p-10 shadow-lg">
-            <h1 className="text-4xl font-black">Item not found</h1>
+            <h1 className="text-4xl font-black">
+              {error ? "Unable to load item" : "Item not found"}
+            </h1>
+            {error && (
+              <p className="mt-3 max-w-xl font-semibold text-slate-500">
+                {error}
+              </p>
+            )}
             <Link
               to="/explore"
               className="mt-6 inline-flex rounded-full bg-slate-950 px-6 py-3 font-black text-white"

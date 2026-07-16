@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import toast from "react-hot-toast";
 
 import {
   Package,
@@ -89,12 +90,13 @@ export default function Dashboard() {
     const response = await deleteListing(id);
 
     if (!response.success) {
-      alert(response.error || "Unable to delete listing");
+      toast.error(response.error || "Unable to delete listing");
       setDeletingId(null);
       return;
     }
 
     setListings((prev) => prev.filter((item) => item.id !== id));
+    toast.success("Listing removed");
     setDeletingId(null);
   }
 

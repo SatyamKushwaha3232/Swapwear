@@ -5,7 +5,6 @@ import { Link } from "react-router-dom";
 import ProductCard from "./ProductCard";
 import ProductSkeleton from "./ProductSkeleton";
 import { getListings } from "../../services/listings";
-import { items as demoItems } from "../../data/items";
 
 export default function SimilarProducts({ currentId }) {
   const [products, setProducts] = useState([]);
@@ -17,11 +16,7 @@ export default function SimilarProducts({ currentId }) {
 
       const response = await getListings();
 
-      if (response.success && response.data?.length) {
-        setProducts(response.data);
-      } else {
-        setProducts(demoItems);
-      }
+      setProducts(response.success ? response.data || [] : []);
 
       setLoading(false);
     }
