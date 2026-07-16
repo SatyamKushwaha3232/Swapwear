@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import {
   Lock,
@@ -10,9 +10,12 @@ import {
   CheckCircle2,
   XCircle,
 } from "lucide-react";
+import { resetBackendPassword } from "../services/backendAuth";
 
 export default function ResetPassword() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const resetToken = searchParams.get("token") || "";
 
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -53,10 +56,22 @@ export default function ResetPassword() {
       return;
     }
 
+    if (!resetToken) {
+      toast.error("Reset link is missing or invalid");
+      return;
+    }
+
     setLoading(true);
-    toast("Password reset will be available after backend mail setup.");
+
+    try {
+      await resetBackendPassword({ token: resetToken, password: form.password });
+      toast.success("Password updated. Please login again.");
+      navigate("/login");
+    } catch (error) {
+      toast.error(error.message || "Unable to reset password");
+    }
+
     setLoading(false);
-    navigate("/login");
   }
 
   return (
@@ -88,6 +103,11 @@ export default function ResetPassword() {
           <p className="mt-2 font-semibold text-[var(--muted)]">
             Enter and confirm your new password.
           </p>
+          {!resetToken && (
+            <p className="mt-3 rounded-2xl bg-red-50 px-4 py-3 text-sm font-black text-red-600">
+              Reset token missing. Start again from forgot password.
+            </p>
+          )}
         </div>
 
         <Field icon={Lock} label="New Password">

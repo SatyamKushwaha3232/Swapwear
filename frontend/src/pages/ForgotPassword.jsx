@@ -1,23 +1,35 @@
 import { useState } from "react";
 import toast from "react-hot-toast";
+import { Link } from "react-router-dom";
 import { Mail, Sparkles } from "lucide-react";
+import { requestBackendPasswordReset } from "../services/backendAuth";
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
+  const [resetLink, setResetLink] = useState("");
 
-    async function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
 
     if (!email) {
-        toast.error("Enter your email");
-        return;
+      toast.error("Enter your email");
+      return;
     }
 
     setLoading(true);
-    toast("Password reset email will be available after backend mail setup.");
-    setLoading(false);
+    setResetLink("");
+
+    try {
+      const data = await requestBackendPasswordReset(email);
+      setResetLink(data?.reset_url || "");
+      toast.success("Reset link generated");
+    } catch (error) {
+      toast.error(error.message || "Unable to create reset link");
     }
+
+    setLoading(false);
+  }
 
   return (
     <section className="section-space pt-32">
@@ -55,6 +67,21 @@ export default function ForgotPassword() {
           >
             {loading ? "Sending..." : "Send Reset Link"}
           </button>
+
+          {resetLink && (
+            <div className="rounded-[28px] border border-pink-100 bg-pink-50/80 p-5">
+              <p className="text-sm font-black text-pink-500">Development reset link</p>
+              <p className="mt-2 text-sm font-semibold text-slate-600">
+                Mail provider add hone tak local testing ke liye ye link use karo.
+              </p>
+              <Link
+                to={new URL(resetLink).pathname + new URL(resetLink).search}
+                className="mt-4 inline-flex break-all rounded-2xl bg-white px-4 py-3 text-sm font-black text-slate-900 shadow-sm"
+              >
+                {resetLink}
+              </Link>
+            </div>
+          )}
         </form>
       </div>
     </section>

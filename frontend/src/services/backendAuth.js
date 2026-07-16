@@ -66,6 +66,20 @@ export async function signupWithBackend({ fullName, email, password }) {
   return saveSession(data);
 }
 
+export async function requestBackendPasswordReset(email) {
+  return backendRequest("/auth/forgot-password", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+}
+
+export async function resetBackendPassword({ token, password }) {
+  return backendRequest("/auth/reset-password", {
+    method: "POST",
+    body: JSON.stringify({ token, password }),
+  });
+}
+
 export async function logoutBackend() {
   try {
     await backendRequest("/auth/logout", { method: "POST" });

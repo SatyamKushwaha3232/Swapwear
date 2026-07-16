@@ -1,137 +1,79 @@
-﻿# ðŸŒ¸ SwapWear â€” Premium Clothing Swap Marketplace
+﻿# SwapWear
 
-SwapWear is a modern premium clothing exchange & swap marketplace built with React, Vite, and Tailwind CSS.
+Premium clothing swap marketplace with a self-managed backend. The app is no longer tied to Supabase runtime services.
 
-Designed with:
-- Glassmorphism UI
-- Pastel luxury aesthetic
-- Dribbble-inspired layouts
-- Smooth animations
-- Premium hover interactions
-- Responsive mobile experience
+## Stack
 
----
+- React, Vite, Tailwind CSS
+- Node.js, Express, Socket.IO
+- PostgreSQL with Prisma
+- JWT auth with refresh cookies
+- Local backend uploads for profile avatars
+- Manual payment, delivery, trust, chat, and swap APIs
 
-# âœ¨ Features
-
-## ðŸŽ€ Premium UI/UX
-- Liquid glass navbar
-- Pastel pink accents
-- Soft shadows
-- Large rounded cards
-- Responsive premium layout
-
-## ðŸ› Marketplace Features
-- Clothing swap marketplace
-- Same-product image hover slideshow
-- Product video previews
-- Search & filters
-- Item details page
-- Wishlist & listings
-
-## ðŸ’¬ Community Features
-- Real-time style chat UI
-- Swap requests
-- Negotiation section
-- Dashboard & Admin Panel
-
-## ðŸ“± Responsive
-- Mobile dropdown navbar
-- Accordion menus
-- Tablet optimized layouts
-- Smooth scaling
-
----
-
-# âš™ï¸ Tech Stack
-
-- React
-- Vite
-- Tailwind CSS
-- React Router
-- Lucide React
-- Framer Motion
-
----
-
-# ðŸš€ Installation
+## Frontend
 
 ```bash
+cd frontend
 npm install
+npm run dev
+npm run build
+```
+
+Default API URL:
+
+```env
+VITE_API_BASE_URL=http://localhost:5000/api
+VITE_AUTH_PROVIDER=backend
+```
+
+## Backend
+
+```bash
+cd backend
+npm install
+npm run db:push
+npm run db:generate
 npm run dev
 ```
 
----
+Required backend environment:
 
-# ðŸ“‚ Project Structure
-
-```bash
-src/
- â”œâ”€â”€ assets/
- â”œâ”€â”€ components/
- â”œâ”€â”€ pages/
- â”œâ”€â”€ hooks/
- â”œâ”€â”€ data/
- â”œâ”€â”€ utils/
- â”œâ”€â”€ context/
- â””â”€â”€ layouts/
+```env
+DATABASE_URL=postgresql://USER:PASSWORD@localhost:5432/swapwear
+JWT_ACCESS_SECRET=change-me-access
+JWT_REFRESH_SECRET=change-me-refresh
+CLIENT_URL=http://localhost:5173
+PORT=5000
 ```
 
----
+`npm run db:push` syncs the Prisma schema to PostgreSQL. Use it after schema changes such as password reset tokens.
 
-# ðŸŒŸ Screens Included
+## Current Features
 
-- Home
-- Explore
-- Item Details
-- Add Listing
-- Dashboard
-- Swap Requests
-- Chat
-- Admin Panel
+- Manual email/password auth
+- Forgot/reset password token flow
+- Profile editing and backend avatar uploads
+- Product listings, wishlist, dashboard, explore, and item details
+- Swap requests and structured swap lifecycle
+- Delivery, payment, trust, admin, notifications, and chat API layers
+- Responsive premium UI for mobile, tablet, and desktop
 
----
+## Useful Checks
 
-# ðŸ’– UI Design Style
+```bash
+cd frontend
+npm run lint
+npm run build
 
-Inspired by:
-- Dribbble
-- Awwwards
-- Modern fashion marketplaces
-- Glassmorphism interfaces
+cd ../backend
+npx prisma validate
+node -e "Promise.all([import('./src/modules/auth/auth.routes.js'), import('./src/modules/users/user.routes.js')]).then(()=>console.log('imports ok'))"
+```
 
----
+## Production Notes
 
-# ðŸ‘¨â€ðŸ’» Developer
-
-Satyam Kushwaha
-
-GitHub:
-https://github.com/SatyamKushwaha3232
-
----
-
-# ðŸ“Œ Status
-
-Currently under active premium UI development.
-
----
-
-# Manual Backend Roadmap
-
-SwapWear now uses a self-managed backend:
-
-- PostgreSQL
-- Node.js/Express
-- Prisma
-- JWT auth
-- Socket.IO
-- WebRTC signaling
-- Manual courier and payment adapters first
-
-Roadmap files:
-
-- `docs/PRODUCTION_ROADMAP.md`
-- `docs/API_MIGRATION_MATRIX.md`
-
-The React frontend now talks to the Node/PostgreSQL backend APIs.
+- Add a real mail adapter before production password reset emails. Until then, local development returns a reset link on the forgot-password screen.
+- Add payment/courier provider credentials only after final provider selection.
+- Keep `uploads/` on persistent storage in production.
+- Run full protected-page QA with backend and PostgreSQL running before deployment.

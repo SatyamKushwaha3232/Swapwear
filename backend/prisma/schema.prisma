@@ -119,6 +119,7 @@ model User {
   ownerSwaps     Swap[]        @relation("OwnerSwaps")
   messages       ChatMessage[]
   notifications  Notification[]
+  passwordResetTokens PasswordResetToken[]
   reviewsGiven   Review[]      @relation("ReviewsGiven")
   reviewsReceived Review[]     @relation("ReviewsReceived")
   reportsMade    Report[]      @relation("ReportsMade")
@@ -127,6 +128,20 @@ model User {
   payments       Payment[]
   callsStarted   CallSession[] @relation("CallsStarted")
   callsReceived  CallSession[] @relation("CallsReceived")
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 model Profile {
