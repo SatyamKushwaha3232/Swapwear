@@ -13,6 +13,150 @@ const SWAP_STATUS_TO_API = {
   BLOCKED: "blocked",
 };
 
+const DEV_FALLBACK_LISTINGS = [
+  {
+    id: "demo-1",
+    title: "Vintage Denim Jacket",
+    owner: "Rohit Sharma",
+    owner_name: "Rohit Sharma",
+    brand: "Levi's",
+    size: "M",
+    condition: "Excellent",
+    location: "Mumbai",
+    category: "Jackets",
+    points: 1200,
+    likes: 248,
+    views: "3.2k",
+    video: "https://videos.pexels.com/video-files/853889/853889-hd_1920_1080_25fps.mp4",
+    images: [
+      "https://images.unsplash.com/photo-1543076447-215ad9ba6923?q=80&w=900&auto=format&fit=crop",
+      "https://images.unsplash.com/photo-1523398002811-999ca8dec234?q=80&w=900&auto=format&fit=crop",
+    ],
+    image: "https://images.unsplash.com/photo-1543076447-215ad9ba6923?q=80&w=900&auto=format&fit=crop",
+  },
+  {
+    id: "demo-2",
+    title: "Beige Oversized Hoodie",
+    owner: "Sneha Patel",
+    owner_name: "Sneha Patel",
+    brand: "Zara",
+    size: "L",
+    condition: "Good",
+    location: "Delhi",
+    category: "Hoodies",
+    points: 900,
+    likes: 186,
+    views: "2.1k",
+    video: "",
+    images: [
+      "https://images.unsplash.com/photo-1556821840-3a63f95609a7?q=80&w=900&auto=format&fit=crop",
+      "https://images.unsplash.com/photo-1578681994506-b8f463449011?q=80&w=900&auto=format&fit=crop",
+    ],
+    image: "https://images.unsplash.com/photo-1556821840-3a63f95609a7?q=80&w=900&auto=format&fit=crop",
+  },
+  {
+    id: "demo-3",
+    title: "Minimal White Sneakers",
+    owner: "Aman Verma",
+    owner_name: "Aman Verma",
+    brand: "Adidas",
+    size: "42",
+    condition: "Like New",
+    location: "Bangalore",
+    category: "Sneakers",
+    points: 1500,
+    likes: 322,
+    views: "4.7k",
+    video: "https://videos.pexels.com/video-files/4812207/4812207-hd_1920_1080_25fps.mp4",
+    images: [
+      "https://images.unsplash.com/photo-1549298916-b41d501d3772?q=80&w=900&auto=format&fit=crop",
+      "https://images.unsplash.com/photo-1525966222134-fcfa99b8ae77?q=80&w=900&auto=format&fit=crop",
+    ],
+    image: "https://images.unsplash.com/photo-1549298916-b41d501d3772?q=80&w=900&auto=format&fit=crop",
+  },
+  {
+    id: "demo-4",
+    title: "Floral Summer Dress",
+    owner: "Priya Mehta",
+    owner_name: "Priya Mehta",
+    brand: "Mango",
+    size: "S",
+    condition: "Like New",
+    location: "Chennai",
+    category: "Dresses",
+    points: 1300,
+    likes: 211,
+    views: "2.8k",
+    video: "",
+    images: [
+      "https://images.unsplash.com/photo-1550639525-c97d455acf70?q=80&w=900&auto=format&fit=crop",
+      "https://images.unsplash.com/photo-1483985988355-763728e1935b?q=80&w=900&auto=format&fit=crop",
+    ],
+    image: "https://images.unsplash.com/photo-1550639525-c97d455acf70?q=80&w=900&auto=format&fit=crop",
+  },
+].map((item) => ({
+  ...item,
+  description: "Demo listing shown while local PostgreSQL is unavailable.",
+  user_id: null,
+  created_at: new Date().toISOString(),
+  swap_status: "available",
+  active_swap_id: null,
+  swap_completed_at: null,
+  archive_after: null,
+  archived_at: null,
+  delete_eligible_at: null,
+  is_public: true,
+  is_available_for_swap: true,
+  source: "demo-fallback",
+}));
+
+function isDatabaseUnavailable(error) {
+  const message = String(error?.message || "");
+  return (
+    error?.code === "P1001" ||
+    error?.name === "PrismaClientInitializationError" ||
+    message.includes("Can't reach database server") ||
+    message.includes("Environment variable not found: DATABASE_URL")
+  );
+}
+
+function filterFallbackListings(options = {}) {
+  let items = [...DEV_FALLBACK_LISTINGS];
+
+  if (options.query) {
+    const query = String(options.query).toLowerCase();
+    items = items.filter((item) =>
+      [item.title, item.brand, item.category, item.location, item.description]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(query))
+    );
+  }
+
+  if (options.category && options.category !== "All") {
+    items = items.filter((item) => item.category === options.category);
+  }
+
+  if (options.size && options.size !== "All") {
+    items = items.filter((item) => item.size === options.size);
+  }
+
+  if (options.condition && options.condition !== "All") {
+    items = items.filter((item) => item.condition === options.condition);
+  }
+
+  if (options.maxPoints) {
+    const maxPoints = Number(options.maxPoints) || 5000;
+    items = items.filter((item) => item.points <= maxPoints);
+  }
+
+  if (options.sort === "points-low") return items.sort((a, b) => a.points - b.points);
+  if (options.sort === "points-high") return items.sort((a, b) => b.points - a.points);
+  if (options.sort === "liked") return items.sort((a, b) => b.likes - a.likes);
+  if (options.sort === "brand") return items.sort((a, b) => a.brand.localeCompare(b.brand));
+
+  return items;
+}
+
 function formatListing(item = {}) {
   const ownerName =
     item.ownerName ||
@@ -148,22 +292,43 @@ export async function fetchListings(userId = null, options = {}) {
       ? { brand: "asc" }
       : { createdAt: "desc" };
 
-  const listings = await prisma.listing.findMany({
-    where,
-    orderBy,
-    include: { user: { include: { profile: true } } },
-  });
+  try {
+    const listings = await prisma.listing.findMany({
+      where,
+      orderBy,
+      include: { user: { include: { profile: true } } },
+    });
 
-  return listings.map(formatListing);
+    return listings.map(formatListing);
+  } catch (error) {
+    if (isDatabaseUnavailable(error) && appConfig.env !== "production") {
+      console.warn("Database unavailable; returning development listing fallback.");
+      return filterFallbackListings(options);
+    }
+
+    throw error;
+  }
 }
 
 export async function fetchListingById(id) {
-  const listing = await prisma.listing.findUnique({
-    where: { id: parseListingId(id) },
-    include: { user: { include: { profile: true } } },
-  });
+  const fallbackListing = DEV_FALLBACK_LISTINGS.find((item) => item.id === String(id));
+  if (fallbackListing) return fallbackListing;
 
-  return listing ? formatListing(listing) : null;
+  try {
+    const listing = await prisma.listing.findUnique({
+      where: { id: parseListingId(id) },
+      include: { user: { include: { profile: true } } },
+    });
+
+    return listing ? formatListing(listing) : null;
+  } catch (error) {
+    if (isDatabaseUnavailable(error) && appConfig.env !== "production") {
+      console.warn("Database unavailable; returning development listing fallback.");
+      return DEV_FALLBACK_LISTINGS.find((item) => item.id === String(id)) || null;
+    }
+
+    throw error;
+  }
 }
 
 export async function createListingInDb(payload, user) {
