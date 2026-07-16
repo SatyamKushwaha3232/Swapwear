@@ -7,6 +7,7 @@ import ChatDesktop from "../components/chat/desktop/ChatDesktop";
 import ChatTablet from "../components/chat/tablet/ChatTablet";
 import ChatMobile from "../components/chat/mobile/ChatMobile";
 import ForwardMessageModal from "../components/chat/shared/ForwardMessageModal";
+import ActionDialog from "../components/common/ActionDialog";
 import { useAuth } from "../context/AuthContext";
 
 import {
@@ -43,6 +44,7 @@ export default function Chat() {
   const [messageSearch, setMessageSearch] = useState("");
   const [messageView, setMessageView] = useState("all");
   const [forwardingMessage, setForwardingMessage] = useState(null);
+  const [editingMessage, setEditingMessage] = useState(null);
   const [forwarding, setForwarding] = useState(false);
   const [loadingChats, setLoadingChats] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
@@ -275,11 +277,19 @@ export default function Chat() {
 
   async function handleEditMessage(message) {
     if (!message?.id || String(message.sender_id) !== String(user?.id)) return;
+    setEditingMessage(message);
+  }
 
-    const nextMessage = window.prompt("Edit message", message.message || "");
-    if (nextMessage === null || nextMessage.trim() === message.message) return;
+  async function confirmEditMessage(values) {
+    if (!editingMessage?.id) return;
 
-    const response = await editMessage(message.id, nextMessage);
+    const nextMessage = String(values.message || "").trim();
+    if (!nextMessage || nextMessage === editingMessage.message) {
+      setEditingMessage(null);
+      return;
+    }
+
+    const response = await editMessage(editingMessage.id, nextMessage);
 
     if (!response.success) {
       toast.error(response.error || "Unable to edit message");
@@ -287,6 +297,7 @@ export default function Chat() {
     }
 
     upsertMessage(response.data);
+    setEditingMessage(null);
     toast.success("Message edited");
   }
 
@@ -482,6 +493,24 @@ export default function Chat() {
         forwarding={forwarding}
         onClose={() => setForwardingMessage(null)}
         onForward={handleForwardToConversation}
+      />
+      <ActionDialog
+        open={Boolean(editingMessage)}
+        title="Edit message"
+        text="Update the text and save it back into the conversation."
+        confirmLabel="Save Message"
+        fields={[
+          {
+            name: "message",
+            label: "Message",
+            type: "textarea",
+            rows: 5,
+            placeholder: "Write your updated message...",
+          },
+        ]}
+        initialValues={{ message: editingMessage?.message || "" }}
+        onClose={() => setEditingMessage(null)}
+        onConfirm={confirmEditMessage}
       />
     </>
   );

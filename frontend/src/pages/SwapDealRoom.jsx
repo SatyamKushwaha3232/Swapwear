@@ -38,6 +38,7 @@ import {
 } from "../services/delivery";
 import { getOrCreateConversation } from "../services/chat";
 import { submitSwapReview } from "../services/trust";
+import ActionDialog from "../components/common/ActionDialog";
 
 const flowSteps = [
   ["pending", "Requested"],
@@ -74,6 +75,7 @@ export default function SwapDealRoom() {
   const [deliveryOrders, setDeliveryOrders] = useState([]);
   const [addressForm, setAddressForm] = useState(emptyAddressForm);
   const [deliverySaving, setDeliverySaving] = useState(false);
+  const [dialog, setDialog] = useState(null);
 
   const loadSwap = useCallback(async () => {
     if (!swapId) return;
@@ -155,19 +157,31 @@ export default function SwapDealRoom() {
   }
 
   async function saveTracking(order) {
-    const trackingNumber = window.prompt("Tracking number", order.tracking_number || "");
-    if (trackingNumber === null) return;
+    setDialog({
+      title: "Update courier tracking",
+      text: "Add the courier name and tracking number visible to both users.",
+      confirmLabel: "Save Tracking",
+      fields: [
+        { name: "trackingNumber", label: "Tracking number", placeholder: "AWB / tracking id" },
+        { name: "courierProvider", label: "Courier provider", placeholder: "Delhivery, DTDC, Blue Dart..." },
+      ],
+      initialValues: {
+        trackingNumber: order.tracking_number || "",
+        courierProvider: order.courier_provider || "",
+      },
+      onConfirm: (values) => saveTrackingValues(order, values),
+    });
+  }
 
-    const courierProvider = window.prompt("Courier provider", order.courier_provider || "");
-    if (courierProvider === null) return;
-
+  async function saveTrackingValues(order, values) {
     setDeliverySaving(true);
     const response = await updateDeliveryTracking(order.id, {
-      trackingNumber,
-      courierProvider,
+      trackingNumber: values.trackingNumber,
+      courierProvider: values.courierProvider,
     });
 
     if (response.success) {
+      setDialog(null);
       toast.success("Tracking updated");
       await loadSwap();
     } else {
@@ -178,13 +192,28 @@ export default function SwapDealRoom() {
   }
 
   async function saveProof(order) {
-    const proofUrl = window.prompt("Proof image/link URL", order.proof_url || "");
-    if (proofUrl === null) return;
+    setDialog({
+      title: "Add delivery proof",
+      text: "Paste a proof image/link after shipping or handover.",
+      confirmLabel: "Save Proof",
+      fields: [
+        {
+          name: "proofUrl",
+          label: "Proof URL",
+          placeholder: "https://...",
+        },
+      ],
+      initialValues: { proofUrl: order.proof_url || "" },
+      onConfirm: (values) => saveProofValue(order, values),
+    });
+  }
 
+  async function saveProofValue(order, values) {
     setDeliverySaving(true);
-    const response = await addDeliveryProof(order.id, { proofUrl });
+    const response = await addDeliveryProof(order.id, { proofUrl: values.proofUrl });
 
     if (response.success) {
+      setDialog(null);
       toast.success("Delivery proof saved");
       await loadSwap();
     } else {
@@ -212,16 +241,31 @@ export default function SwapDealRoom() {
   }
 
   async function openDispute() {
-    const reason = window.prompt(
-      "Tell us what went wrong. This will freeze the swap for review."
-    );
+    setDialog({
+      title: "Open dispute?",
+      text: "This will freeze the swap for admin review. Explain the issue clearly.",
+      confirmLabel: "Open Dispute",
+      tone: "danger",
+      fields: [
+        {
+          name: "reason",
+          label: "Reason",
+          type: "textarea",
+          rows: 4,
+          placeholder: "Item condition, delivery issue, missing response...",
+        },
+      ],
+      initialValues: { reason: "" },
+      onConfirm: (values) =>
+        runAction(
+          (id) => openSwapDispute(id, values.reason || "Swap issue reported"),
+          "Dispute opened"
+        ).then(() => setDialog(null)),
+    });
+  }
 
-    if (reason === null) return;
-
-    await runAction(
-      (id) => openSwapDispute(id, reason || "Swap issue reported"),
-      "Dispute opened"
-    );
+  function confirmAction(config) {
+    setDialog(config);
   }
 
   async function submitReview() {
@@ -401,15 +445,15 @@ export default function SwapDealRoom() {
                 <>
                   <ActionButton
                     disabled={updating}
-                    onClick={() => {
-                      if (
-                        window.confirm(
-                          "Accepting this swap will reserve both products and expire competing pending requests."
-                        )
-                      ) {
-                        runAction(acceptSwap, "Swap accepted");
-                      }
-                    }}
+                    onClick={() =>
+                      confirmAction({
+                        title: "Accept and lock swap?",
+                        text: "Both products will be reserved and competing pending requests will expire.",
+                        confirmLabel: "Accept Swap",
+                        onConfirm: () =>
+                          runAction(acceptSwap, "Swap accepted").then(() => setDialog(null)),
+                      })
+                    }
                   >
                     Accept & Lock
                   </ActionButton>
@@ -498,15 +542,18 @@ export default function SwapDealRoom() {
                   <ActionButton
                     danger
                     disabled={updating}
-                    onClick={() => {
-                      if (
-                        window.confirm(
-                          "Cancel this active swap? Products will be relisted if safe, and eligible expired requests may return to pending."
-                        )
-                      ) {
-                        runAction(cancelSwap, "Swap cancelled and products relisted");
-                      }
-                    }}
+                    onClick={() =>
+                      confirmAction({
+                        title: "Cancel and relist?",
+                        text: "Products will be relisted if safe, and eligible expired requests may return to pending.",
+                        confirmLabel: "Cancel Swap",
+                        tone: "danger",
+                        onConfirm: () =>
+                          runAction(cancelSwap, "Swap cancelled and products relisted").then(() =>
+                            setDialog(null)
+                          ),
+                      })
+                    }
                   >
                     Cancel & Relist
                   </ActionButton>
@@ -522,7 +569,18 @@ export default function SwapDealRoom() {
                   <ActionButton
                     danger
                     disabled={updating}
-                    onClick={() => runAction(cancelSwap, "Swap cancelled and products relisted")}
+                    onClick={() =>
+                      confirmAction({
+                        title: "Cancel completed swap?",
+                        text: "Products will be relisted if the mechanism says it is safe.",
+                        confirmLabel: "Cancel & Relist",
+                        tone: "danger",
+                        onConfirm: () =>
+                          runAction(cancelSwap, "Swap cancelled and products relisted").then(() =>
+                            setDialog(null)
+                          ),
+                      })
+                    }
                   >
                     Cancel & Relist
                   </ActionButton>
@@ -558,6 +616,13 @@ export default function SwapDealRoom() {
           </aside>
         </div>
       </div>
+      <ActionDialog
+        open={Boolean(dialog)}
+        {...(dialog || {})}
+        loading={deliverySaving || updating}
+        onClose={() => setDialog(null)}
+        onConfirm={(values) => dialog?.onConfirm?.(values)}
+      />
     </section>
   );
 }

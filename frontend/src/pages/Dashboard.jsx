@@ -19,6 +19,7 @@ import {
 
 import Sidebar from "../components/layout/Sidebar";
 import InlineError from "../components/common/InlineError";
+import ActionDialog from "../components/common/ActionDialog";
 
 import { getListings, deleteListing } from "../services/listings";
 import { getCurrentProfile } from "../services/profile";
@@ -30,6 +31,7 @@ export default function Dashboard() {
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState(null);
+  const [deleteDialogItem, setDeleteDialogItem] = useState(null);
   const [error, setError] = useState(null);
 
   const userName =
@@ -82,8 +84,12 @@ export default function Dashboard() {
   }, [user?.id]);
 
   async function handleDelete(id) {
-    const confirmDelete = window.confirm("Delete this listing?");
-    if (!confirmDelete) return;
+    setDeleteDialogItem(listings.find((item) => item.id === id) || { id });
+  }
+
+  async function confirmDelete() {
+    const id = deleteDialogItem?.id;
+    if (!id) return;
 
     setDeletingId(id);
 
@@ -96,6 +102,7 @@ export default function Dashboard() {
     }
 
     setListings((prev) => prev.filter((item) => item.id !== id));
+    setDeleteDialogItem(null);
     toast.success("Listing removed");
     setDeletingId(null);
   }
@@ -422,6 +429,18 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+      <ActionDialog
+        open={Boolean(deleteDialogItem)}
+        title="Remove this listing?"
+        text={`${
+          deleteDialogItem?.title || "This item"
+        } will be removed if it is still available. Reserved items are archived safely.`}
+        tone="danger"
+        confirmLabel="Remove Listing"
+        loading={Boolean(deletingId)}
+        onClose={() => setDeleteDialogItem(null)}
+        onConfirm={confirmDelete}
+      />
     </section>
   );
 }

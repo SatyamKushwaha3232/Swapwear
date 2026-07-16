@@ -22,6 +22,7 @@ import {
 
 import Sidebar from "../components/layout/Sidebar";
 import SectionTitle from "../components/common/SectionTitle";
+import ActionDialog from "../components/common/ActionDialog";
 import { getAdminDashboardData, resolveMarketplaceReport } from "../services/admin";
 import { getAdminPayments, updatePaymentStatus } from "../services/payments";
 import { getOpenSwapDisputes, resolveSwapDispute } from "../services/swaps";
@@ -208,6 +209,7 @@ export default function Admin() {
   const [loadingDisputes, setLoadingDisputes] = useState(true);
   const [resolvingId, setResolvingId] = useState(null);
   const [resolvingReportId, setResolvingReportId] = useState(null);
+  const [dialog, setDialog] = useState(null);
 
   const loadDashboard = async () => {
     setLoadingAdmin(true);
@@ -253,14 +255,31 @@ export default function Admin() {
       complete: "force complete this swap",
     };
 
-    const confirmed = window.confirm(`Admin decision: ${labels[decision]}?`);
-    if (!confirmed) return;
+    setDialog({
+      title: "Resolve dispute?",
+      text: `Admin decision: ${labels[decision]}. This will update the swap workflow.`,
+      confirmLabel: "Resolve Dispute",
+      tone: decision === "cancel" ? "danger" : "default",
+      fields: [
+        {
+          name: "note",
+          label: "Resolution note",
+          type: "textarea",
+          rows: 3,
+          placeholder: labels[decision],
+        },
+      ],
+      initialValues: { note: labels[decision] },
+      onConfirm: (values) => confirmResolveDispute(dispute, decision, values.note),
+    });
+  };
 
-    const note = window.prompt("Resolution note for history:", labels[decision]) || labels[decision];
+  const confirmResolveDispute = async (dispute, decision, note) => {
     setResolvingId(dispute.id);
 
-    const response = await resolveSwapDispute(dispute.id, decision, note);
+    const response = await resolveSwapDispute(dispute.id, decision, note || decision);
     if (response.success) {
+      setDialog(null);
       toast.success("Dispute resolved");
       await loadDisputes();
     } else {
@@ -272,14 +291,32 @@ export default function Admin() {
 
   const handleResolveReport = async (report, status) => {
     const label = status === "blocked" ? "block this listing" : status;
-    const confirmed = window.confirm(`Mark this report as ${label}?`);
-    if (!confirmed) return;
 
-    const note = window.prompt("Admin note:", label) || "";
+    setDialog({
+      title: "Update marketplace report?",
+      text: `Mark this report as ${label}. Add a short admin note for history.`,
+      confirmLabel: "Update Report",
+      tone: status === "blocked" ? "danger" : "default",
+      fields: [
+        {
+          name: "note",
+          label: "Admin note",
+          type: "textarea",
+          rows: 3,
+          placeholder: label,
+        },
+      ],
+      initialValues: { note: label },
+      onConfirm: (values) => confirmResolveReport(report, status, values.note),
+    });
+  };
+
+  const confirmResolveReport = async (report, status, note) => {
     setResolvingReportId(report.id);
 
     const response = await resolveMarketplaceReport(report.id, status, note);
     if (response.success) {
+      setDialog(null);
       toast.success("Report updated");
       await loadDashboard();
     } else {
@@ -290,15 +327,23 @@ export default function Admin() {
   };
 
   const handlePaymentStatus = async (payment, status) => {
-    const confirmed = window.confirm(`Mark this payment as ${status}?`);
-    if (!confirmed) return;
+    setDialog({
+      title: "Update payment status?",
+      text: `Mark this payment as ${status}. Use this only after provider/admin verification.`,
+      confirmLabel: "Update Payment",
+      tone: status === "failed" ? "danger" : "default",
+      onConfirm: () => confirmPaymentStatus(payment, status),
+    });
+  };
 
+  const confirmPaymentStatus = async (payment, status) => {
     setUpdatingPaymentId(payment.id);
     const response = await updatePaymentStatus(payment.id, status, {
       adminNote: `Marked ${status} from admin panel`,
     });
 
     if (response.success) {
+      setDialog(null);
       toast.success("Payment updated");
       await loadPayments();
       await loadDashboard();
@@ -765,6 +810,13 @@ export default function Admin() {
           </div>
         </div>
       </div>
+      <ActionDialog
+        open={Boolean(dialog)}
+        {...(dialog || {})}
+        loading={Boolean(resolvingId || resolvingReportId || updatingPaymentId)}
+        onClose={() => setDialog(null)}
+        onConfirm={(values) => dialog?.onConfirm?.(values)}
+      />
     </section>
   );
 }

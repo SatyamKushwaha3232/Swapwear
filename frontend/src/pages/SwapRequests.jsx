@@ -27,6 +27,7 @@ import {
   setSwapDeliveryMethod,
 } from "../services/swaps";
 import { getOrCreateConversation } from "../services/chat";
+import ActionDialog from "../components/common/ActionDialog";
 
 const tabs = [
   "all",
@@ -51,6 +52,7 @@ export default function SwapRequests() {
   const [updatingId, setUpdatingId] = useState(null);
   const [tab, setTab] = useState("all");
   const [query, setQuery] = useState("");
+  const [dialog, setDialog] = useState(null);
 
   const loadSwaps = useCallback(async () => {
     if (!user?.id) return;
@@ -101,6 +103,16 @@ export default function SwapRequests() {
     }
 
     navigate(`/chat/${response.data.id}`);
+  }
+
+  function askAction(config) {
+    setDialog(config);
+  }
+
+  async function confirmDialog(values) {
+    const next = dialog;
+    setDialog(null);
+    await next?.onConfirm?.(values);
   }
 
   const stats = useMemo(() => {
@@ -160,12 +172,13 @@ export default function SwapRequests() {
     onQueryChange: setQuery,
     onOpenDeal: (swap) => navigate(`/swaps/${swap.id}`),
     onOpenChat: handleOpenChat,
-    onAccept: (swap) => {
-      const ok = window.confirm(
-        "Accepting this swap will reserve both products and expire other pending requests for these items."
-      );
-      if (ok) handleAction(swap.id, acceptSwap, "Swap accepted");
-    },
+    onAccept: (swap) =>
+      askAction({
+        title: "Accept and lock swap?",
+        text: "Both products will be reserved and competing pending requests for these items will expire.",
+        confirmLabel: "Accept Swap",
+        onConfirm: () => handleAction(swap.id, acceptSwap, "Swap accepted"),
+      }),
     onReject: (swap) => handleAction(swap.id, rejectSwap, "Swap rejected"),
     onSetDeliveryMethod: (swap, method) =>
       handleAction(
@@ -175,47 +188,78 @@ export default function SwapRequests() {
       ),
     onConfirmHandover: (swap) => {
       const method = swap.delivery_method === "courier" ? "shipping" : "handover";
-      const ok = window.confirm(`Confirm that you have completed your ${method} side?`);
-      if (ok) handleAction(swap.id, confirmSwapHandover, "Your handover is confirmed");
+      askAction({
+        title: `Confirm ${method}?`,
+        text: "Only confirm after your item is shipped or handed over.",
+        confirmLabel: "Confirm",
+        onConfirm: () =>
+          handleAction(swap.id, confirmSwapHandover, "Your handover is confirmed"),
+      });
     },
-    onConfirmReceived: (swap) => {
-      const ok = window.confirm("Confirm that you received the other user's item?");
-      if (ok) handleAction(swap.id, confirmSwapReceived, "Receipt confirmed");
-    },
+    onConfirmReceived: (swap) =>
+      askAction({
+        title: "Received the item?",
+        text: "Confirm only after checking the other user's item.",
+        confirmLabel: "I Received It",
+        onConfirm: () => handleAction(swap.id, confirmSwapReceived, "Receipt confirmed"),
+      }),
     onCancel: (swap) => {
       const status = normalizeStatus(swap.status);
-      const ok =
-        status === "completed"
-          ? window.confirm(
-              "Cancel this completed swap? Both products will be relisted if safe, and eligible expired requests for these products will return to pending."
-            )
-          : status === "accepted"
-          ? window.confirm(
-              "Cancel this accepted swap? Both products will become available again if they are still reserved for this swap."
-            )
-          : true;
-
-      if (ok) {
+      if (!["accepted", "completed"].includes(status)) {
         handleAction(
           swap.id,
           cancelSwap,
           status === "completed" ? "Swap cancelled and products relisted" : "Swap cancelled"
         );
+        return;
       }
+
+      askAction({
+        title: status === "completed" ? "Cancel completed swap?" : "Cancel active swap?",
+        text:
+          status === "completed"
+            ? "Both products will be relisted if safe, and eligible expired requests may return to pending."
+            : "Both products will become available again if they are still reserved for this swap.",
+        confirmLabel: "Cancel Swap",
+        tone: "danger",
+        onConfirm: () =>
+          handleAction(
+            swap.id,
+            cancelSwap,
+            status === "completed" ? "Swap cancelled and products relisted" : "Swap cancelled"
+          ),
+      });
     },
-    onComplete: (swap) => {
-      const ok = window.confirm(
-        "Complete this swap? This is allowed only after both users confirmed receipt. The listings will stay hidden and archive after 3 days."
-      );
-      if (ok) handleAction(swap.id, completeSwap, "Swap completed");
-    },
+    onComplete: (swap) =>
+      askAction({
+        title: "Complete this swap?",
+        text: "This is allowed only after both users confirmed receipt. Listings will stay hidden and archive after 3 days.",
+        confirmLabel: "Complete Swap",
+        onConfirm: () => handleAction(swap.id, completeSwap, "Swap completed"),
+      }),
     onDeleteCompletedItems: (swap) =>
       handleAction(swap.id, deleteCompletedSwapItems, "Completed swap items archived"),
   };
 
-  if (isDesktop) return <SwapDesktop {...commonProps} />;
-  if (isTablet) return <SwapTablet {...commonProps} />;
-  return <SwapMobile {...commonProps} />;
+  const content = isDesktop ? (
+    <SwapDesktop {...commonProps} />
+  ) : isTablet ? (
+    <SwapTablet {...commonProps} />
+  ) : (
+    <SwapMobile {...commonProps} />
+  );
+
+  return (
+    <>
+      {content}
+      <ActionDialog
+        open={Boolean(dialog)}
+        {...(dialog || {})}
+        onClose={() => setDialog(null)}
+        onConfirm={confirmDialog}
+      />
+    </>
+  );
 }
 
 function SwapDesktop(props) {

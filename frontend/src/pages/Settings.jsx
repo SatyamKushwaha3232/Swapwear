@@ -17,6 +17,7 @@ import {
 import { useAuth } from "../context/AuthContext";
 import { getCurrentProfile, updateProfile } from "../services/profile";
 import { cancelPayment, createPaymentOrder, getMyPayments } from "../services/payments";
+import ActionDialog from "../components/common/ActionDialog";
 
 const defaultPreferences = {
   swapAlerts: true,
@@ -44,6 +45,7 @@ export default function Settings() {
   const [saving, setSaving] = useState(false);
   const [payments, setPayments] = useState([]);
   const [paymentLoading, setPaymentLoading] = useState(false);
+  const [signOutDialogOpen, setSignOutDialogOpen] = useState(false);
 
   useEffect(() => {
     async function loadSettings() {
@@ -119,11 +121,9 @@ export default function Settings() {
   }
 
   async function handleSignOut() {
-    const confirmed = window.confirm("Sign out from this device?");
-    if (!confirmed) return;
-
     try {
       await signOut();
+      setSignOutDialogOpen(false);
       toast.success("Signed out");
     } catch (error) {
       toast.error(error.message || "Unable to sign out");
@@ -345,7 +345,7 @@ export default function Settings() {
               >
                 <button
                   type="button"
-                  onClick={handleSignOut}
+                  onClick={() => setSignOutDialogOpen(true)}
                   className="flex h-13 w-full items-center justify-center gap-2 rounded-full bg-red-50 font-black text-red-600 transition hover:bg-red-100"
                 >
                   <LogOut size={18} />
@@ -356,6 +356,15 @@ export default function Settings() {
           </div>
         )}
       </div>
+      <ActionDialog
+        open={signOutDialogOpen}
+        title="Sign out from this device?"
+        text="Your local session will be cleared and you will need to sign in again."
+        tone="danger"
+        confirmLabel="Sign Out"
+        onClose={() => setSignOutDialogOpen(false)}
+        onConfirm={handleSignOut}
+      />
     </section>
   );
 }

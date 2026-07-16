@@ -19,6 +19,7 @@ import SwapRequestModal from "../components/swaps/SwapRequestModal";
 import { getListingById } from "../services/listings";
 import { createMarketplaceReport } from "../services/trust";
 import { useAuth } from "../context/AuthContext";
+import ActionDialog from "../components/common/ActionDialog";
 
 export default function ItemDetails() {
   const { id } = useParams();
@@ -28,6 +29,7 @@ export default function ItemDetails() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [swapModalOpen, setSwapModalOpen] = useState(false);
+  const [reportDialogOpen, setReportDialogOpen] = useState(false);
 
   useEffect(() => {
     async function loadItem() {
@@ -112,17 +114,19 @@ export default function ItemDetails() {
       return;
     }
 
-    const reason = window.prompt("What should admin review about this listing?");
-    if (reason === null) return;
+    setReportDialogOpen(true);
+  }
 
+  async function submitReport(values) {
     const response = await createMarketplaceReport({
       listingId: safeItem.id,
       reportedUserId: safeItem.ownerId,
       reportType: "listing",
-      reason: reason || "Listing needs admin review",
+      reason: values.reason || "Listing needs admin review",
     });
 
     if (response.success) {
+      setReportDialogOpen(false);
       toast.success("Report sent to admin");
     } else {
       toast.error(response.error || "Unable to report listing");
@@ -249,6 +253,25 @@ export default function ItemDetails() {
         user={user}
         ownerItem={safeItem}
         onSuccess={() => {}}
+      />
+      <ActionDialog
+        open={reportDialogOpen}
+        title="Report listing"
+        text="Tell admin what should be reviewed. Reports help keep swaps safe."
+        confirmLabel="Send Report"
+        tone="danger"
+        fields={[
+          {
+            name: "reason",
+            label: "Reason",
+            type: "textarea",
+            rows: 4,
+            placeholder: "Fake item, unsafe behavior, wrong details...",
+          },
+        ]}
+        initialValues={{ reason: "" }}
+        onClose={() => setReportDialogOpen(false)}
+        onConfirm={submitReport}
       />
     </>
   );

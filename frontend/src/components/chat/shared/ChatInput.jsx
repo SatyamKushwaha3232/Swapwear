@@ -1,5 +1,6 @@
 import { ImagePlus, Mic, Paperclip, Send, Smile, Square, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import toast from "react-hot-toast";
 
 const emojis = [
   "\ud83d\ude00",
@@ -100,7 +101,7 @@ export default function ChatInput({
       setRecording(true);
       setRecordSeconds(0);
     } catch {
-      alert("Microphone permission is required for voice notes.");
+      toast.error("Microphone permission is required for voice notes.");
     }
   }
 
