@@ -7,6 +7,12 @@ function normalizeEmail(email) {
   return String(email || "").trim().toLowerCase();
 }
 
+function authError(message, status = 400) {
+  const error = new Error(message);
+  error.status = status;
+  return error;
+}
+
 function hashResetToken(token) {
   return crypto.createHash("sha256").update(token).digest("hex");
 }
@@ -15,12 +21,12 @@ export async function registerUser({ fullName, email, password }) {
   const cleanEmail = normalizeEmail(email);
   const cleanName = String(fullName || "").trim();
 
-  if (!cleanName) throw new Error("Full name is required");
-  if (!cleanEmail) throw new Error("Email is required");
+  if (!cleanName) throw authError("Full name is required");
+  if (!cleanEmail) throw authError("Email is required");
   assertStrongPassword(password);
 
   const existing = await prisma.user.findUnique({ where: { email: cleanEmail } });
-  if (existing) throw new Error("Email is already registered");
+  if (existing) throw authError("Email is already registered", 409);
 
   const passwordHash = await hashPassword(password);
 
@@ -43,7 +49,7 @@ export async function registerUser({ fullName, email, password }) {
 
 export async function loginUser({ email, password }) {
   const cleanEmail = normalizeEmail(email);
-  if (!cleanEmail || !password) throw new Error("Email and password are required");
+  if (!cleanEmail || !password) throw authError("Email and password are required");
 
   const user = await prisma.user.findUnique({
     where: { email: cleanEmail },
@@ -51,17 +57,17 @@ export async function loginUser({ email, password }) {
   });
 
   if (!user || user.status !== "ACTIVE") {
-    throw new Error("Invalid email or password");
+    throw authError("Invalid email or password", 401);
   }
 
   const ok = await verifyPassword(password, user.passwordHash);
-  if (!ok) throw new Error("Invalid email or password");
+  if (!ok) throw authError("Invalid email or password", 401);
 
   return createAuthPayload(user);
 }
 
 export async function refreshAuth(refreshToken) {
-  if (!refreshToken) throw new Error("Refresh token missing");
+  if (!refreshToken) throw authError("Refresh token missing", 401);
 
   const payload = verifyRefreshToken(refreshToken);
   const user = await prisma.user.findUnique({
@@ -70,7 +76,7 @@ export async function refreshAuth(refreshToken) {
   });
 
   if (!user || user.status !== "ACTIVE") {
-    throw new Error("Account unavailable");
+    throw authError("Account unavailable", 401);
   }
 
   return createAuthPayload(user);
@@ -78,7 +84,7 @@ export async function refreshAuth(refreshToken) {
 
 export async function requestPasswordReset({ email }, { clientUrl } = {}) {
   const cleanEmail = normalizeEmail(email);
-  if (!cleanEmail) throw new Error("Email is required");
+  if (!cleanEmail) throw authError("Email is required");
 
   const user = await prisma.user.findUnique({ where: { email: cleanEmail } });
 
@@ -112,7 +118,7 @@ export async function requestPasswordReset({ email }, { clientUrl } = {}) {
 }
 
 export async function resetPassword({ token, password }) {
-  if (!token) throw new Error("Reset token is required");
+  if (!token) throw authError("Reset token is required");
   assertStrongPassword(password);
 
   const tokenHash = hashResetToken(token);
@@ -135,7 +141,7 @@ export async function resetPassword({ token, password }) {
     resetRecord.expiresAt < new Date() ||
     resetRecord.userStatus !== "ACTIVE"
   ) {
-    throw new Error("Reset link is invalid or expired");
+    throw authError("Reset link is invalid or expired", 400);
   }
 
   const passwordHash = await hashPassword(password);

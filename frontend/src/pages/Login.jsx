@@ -108,6 +108,25 @@ export default function Login() {
 
           <Divider text="OR LOGIN WITH EMAIL" />
 
+          <button
+            type="button"
+            onClick={() =>
+              setForm((prev) => ({
+                ...prev,
+                email: "aisha@swapwear.local",
+                password: "SwapWear123",
+              }))
+            }
+            className="w-full rounded-[22px] border border-pink-100 bg-pink-50/80 px-5 py-4 text-left shadow-sm transition hover:border-pink-300 hover:bg-pink-100/80"
+          >
+            <span className="block text-sm font-black text-pink-500">
+              Use demo account
+            </span>
+            <span className="mt-1 block text-sm font-bold text-slate-600">
+              aisha@swapwear.local / SwapWear123
+            </span>
+          </button>
+
           <Field icon={Mail} label="Email">
             <input
               name="email"
