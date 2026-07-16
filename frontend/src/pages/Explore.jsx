@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
 import CollectionBanner from "../components/products/CollectionBanner";
 import EmptyProductState from "../components/products/EmptyProductState";
@@ -8,6 +9,7 @@ import ProductFilters from "../components/products/ProductFilters";
 import ProductGrid from "../components/products/ProductGrid";
 import InlineError from "../components/common/InlineError";
 import { getListings } from "../services/listings";
+import { uniqueLabels } from "../utils/marketplaceHighlights";
 
 const defaultFilters = {
   category: "All",
@@ -17,6 +19,7 @@ const defaultFilters = {
 };
 
 export default function Explore() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
@@ -47,6 +50,23 @@ export default function Explore() {
   useEffect(() => {
     loadListings();
   }, []);
+
+  useEffect(() => {
+    const category = searchParams.get("category");
+    const search = searchParams.get("q");
+
+    setFilters((prev) => ({
+      ...prev,
+      category: category || "All",
+    }));
+    setQuery(search || "");
+  }, [searchParams]);
+
+  const categoryOptions = useMemo(() => {
+    const uploadedCategories = uniqueLabels(items, "category", 24);
+    const current = filters.category !== "All" ? [filters.category] : [];
+    return ["All", ...new Set([...current, ...uploadedCategories])];
+  }, [items, filters.category]);
 
   const filteredItems = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -97,12 +117,25 @@ export default function Explore() {
 
   function updateFilter(key, value) {
     setFilters((prev) => ({ ...prev, [key]: value }));
+
+    if (key === "category") {
+      const nextParams = new URLSearchParams(searchParams);
+
+      if (value === "All") {
+        nextParams.delete("category");
+      } else {
+        nextParams.set("category", value);
+      }
+
+      setSearchParams(nextParams, { replace: true });
+    }
   }
 
   function resetFilters() {
     setFilters(defaultFilters);
     setQuery("");
     setSort("newest");
+    setSearchParams({}, { replace: true });
   }
 
   return (
@@ -117,6 +150,7 @@ export default function Explore() {
         <div className="mt-7 grid min-w-0 gap-7 min-[1180px]:grid-cols-[285px_minmax(0,1fr)]">
           <ProductFilters
             filters={filters}
+            categoryOptions={categoryOptions}
             onChange={updateFilter}
             onReset={resetFilters}
             mobileOpen={mobileFiltersOpen}

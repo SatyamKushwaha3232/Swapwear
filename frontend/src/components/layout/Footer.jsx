@@ -1,6 +1,9 @@
 import { ArrowUpRight, Recycle } from "lucide-react";
 import { Link } from "react-router-dom";
 
+import useRotatingListings from "../../hooks/useRotatingListings";
+import { marketplaceStats, uniqueLabels } from "../../utils/marketplaceHighlights";
+
 const footerLinks = [
   { label: "Explore", path: "/explore" },
   { label: "Add Listing", path: "/add-listing" },
@@ -13,6 +16,14 @@ const footerLinks = [
 const socialLinks = ["IG", "X", "IN", "GH"];
 
 export default function Footer() {
+  const { allItems } = useRotatingListings(8, { includeUnavailable: true });
+  const stats = marketplaceStats(allItems);
+  const dynamicLinks = uniqueLabels(allItems, "category", 4).map((category) => ({
+    label: category,
+    path: `/explore?category=${encodeURIComponent(category)}`,
+  }));
+  const links = dynamicLinks.length ? [...dynamicLinks, ...footerLinks.slice(0, 4)] : footerLinks;
+
   return (
     <footer className="px-3 pb-4 pt-3 md:px-5 md:pb-5">
       <div className="mx-auto max-w-[1500px] overflow-hidden rounded-[34px] bg-slate-950 text-white shadow-[0_32px_100px_rgba(15,23,42,0.22)] md:rounded-[42px]">
@@ -34,9 +45,23 @@ export default function Footer() {
               </Link>
 
               <p className="mt-6 max-w-xl text-base font-semibold leading-relaxed text-white/60 md:text-lg">
-                Swap pre-loved fashion, manage requests, chat with swappers, and
-                keep good clothes in circulation.
+                Swap {stats.availableItems || "fresh"} available pieces across{" "}
+                {stats.categoryCount || "new"} categories, manage requests, chat
+                with swappers, and keep good clothes in circulation.
               </p>
+
+              <div className="mt-6 grid max-w-xl grid-cols-3 gap-3">
+                {[
+                  [stats.totalItems, "Listings"],
+                  [stats.brandCount, "Brands"],
+                  [stats.averagePoints, "Avg pts"],
+                ].map(([value, label]) => (
+                  <div key={label} className="rounded-2xl border border-white/10 bg-white/8 p-4">
+                    <p className="text-2xl font-black">{value || 0}</p>
+                    <p className="mt-1 text-xs font-black uppercase text-white/42">{label}</p>
+                  </div>
+                ))}
+              </div>
 
               <Link
                 to="/add-listing"
@@ -49,9 +74,9 @@ export default function Footer() {
 
             <div className="lg:text-right">
               <div className="flex flex-wrap gap-3 lg:justify-end">
-                {footerLinks.map((link) => (
+                {links.map((link) => (
                   <Link
-                    key={link.label}
+                    key={`${link.label}-${link.path}`}
                     to={link.path}
                     className="rounded-full border border-white/12 bg-white/8 px-4 py-2 text-sm font-black text-white/68 transition hover:bg-white hover:text-slate-950"
                   >

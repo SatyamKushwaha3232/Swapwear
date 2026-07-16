@@ -1,6 +1,13 @@
 import { Mail } from "lucide-react";
 
+import useRotatingListings from "../../hooks/useRotatingListings";
+import { uniqueLabels } from "../../utils/marketplaceHighlights";
+
 export default function Newsletter() {
+  const { allItems } = useRotatingListings(6);
+  const categories = uniqueLabels(allItems, "category", 3);
+  const categoryText = categories.length ? categories.join(", ") : "new listings";
+
   return (
     <section className="container-main py-12 md:py-16">
       <div className="relative overflow-hidden rounded-[34px] bg-gradient-to-br from-pink-500 via-fuchsia-500 to-violet-500 p-8 text-white shadow-[0_30px_90px_rgba(255,79,163,0.30)] md:p-12">
@@ -12,7 +19,7 @@ export default function Newsletter() {
               Never miss the next good swap.
             </h2>
             <p className="mt-4 text-lg font-medium leading-relaxed text-white/82">
-              Join the SwapWear community and discover new listings first.
+              Join the SwapWear community and discover {categoryText} first.
             </p>
           </div>
 

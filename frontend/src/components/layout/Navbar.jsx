@@ -17,17 +17,8 @@ import NavLinks from "./NavLinks";
 import NotificationBell from "./NotificationBell";
 import SearchBar from "./SearchBar";
 import UserMenu from "./UserMenu";
-
-const categories = [
-  "Jackets",
-  "Hoodies",
-  "Sneakers",
-  "Ethnic Wear",
-  "Streetwear",
-  "Vintage",
-  "Luxury",
-  "Accessories",
-];
+import useRotatingListings from "../../hooks/useRotatingListings";
+import { categoryHighlights } from "../../utils/marketplaceHighlights";
 
 export default function Navbar() {
   const { user, signOut } = useAuth();
@@ -39,6 +30,8 @@ export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const categoryRef = useRef(null);
   const profileRef = useRef(null);
+  const { allItems } = useRotatingListings(8, { includeUnavailable: true });
+  const categories = categoryHighlights(allItems, 8);
 
   useClickOutside(categoryRef, () => setCategoryOpen(false), categoryOpen);
   useClickOutside(profileRef, () => setProfileOpen(false), profileOpen);
@@ -116,14 +109,23 @@ export default function Navbar() {
                   </div>
 
                   <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                    {categories.map((item) => (
+                    {categories.length === 0 && (
                       <Link
-                        key={item}
                         to="/explore"
                         onClick={() => setCategoryOpen(false)}
                         className="interactive-lift min-w-0 truncate rounded-2xl border border-white/80 bg-white/70 px-4 py-3 text-sm font-black shadow-sm hover:bg-pink-50 hover:text-pink-500"
                       >
-                        {item}
+                        Browse Listings
+                      </Link>
+                    )}
+                    {categories.map((item) => (
+                      <Link
+                        key={item.title}
+                        to={`/explore?category=${encodeURIComponent(item.title)}`}
+                        onClick={() => setCategoryOpen(false)}
+                        className="interactive-lift min-w-0 truncate rounded-2xl border border-white/80 bg-white/70 px-4 py-3 text-sm font-black shadow-sm hover:bg-pink-50 hover:text-pink-500"
+                      >
+                        {item.title}
                       </Link>
                     ))}
                   </div>

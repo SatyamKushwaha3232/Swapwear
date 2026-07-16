@@ -10,10 +10,12 @@ import {
 } from "lucide-react";
 
 import useRotatingListings, { listingImage } from "../../hooks/useRotatingListings";
-
-const tags = ["Jackets", "Hoodies", "Sneakers", "Vintage"];
+import { categoryHighlights } from "../../utils/marketplaceHighlights";
 
 export default function Hero() {
+  const { allItems } = useRotatingListings(4);
+  const tags = categoryHighlights(allItems, 4).map((item) => item.title);
+
   return (
     <section className="relative overflow-hidden px-3 pt-3 md:px-5 md:pt-4">
       <div className="relative mx-auto min-h-[calc(100vh-120px)] max-w-[1500px] overflow-hidden rounded-[34px] bg-slate-950 text-white shadow-[0_42px_120px_rgba(15,23,42,0.28)] md:rounded-[44px]">
@@ -62,12 +64,20 @@ export default function Hero() {
               {tags.map((item) => (
                 <Link
                   key={item}
-                  to="/explore"
+                  to={`/explore?category=${encodeURIComponent(item)}`}
                   className="rounded-full border border-white/12 bg-white/10 px-4 py-2.5 text-sm font-black text-white/84 backdrop-blur-xl transition hover:bg-white hover:text-slate-950"
                 >
                   {item}
                 </Link>
               ))}
+              {tags.length === 0 && (
+                <Link
+                  to="/explore"
+                  className="rounded-full border border-white/12 bg-white/10 px-4 py-2.5 text-sm font-black text-white/84 backdrop-blur-xl transition hover:bg-white hover:text-slate-950"
+                >
+                  Browse live listings
+                </Link>
+              )}
             </div>
           </div>
 

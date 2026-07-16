@@ -1,23 +1,5 @@
 import { RotateCcw, SlidersHorizontal, X } from "lucide-react";
 
-const categories = [
-  "All",
-  "Jackets",
-  "Hoodies",
-  "Shirts",
-  "Tshirts",
-  "Jeans",
-  "Sneakers",
-  "Ethnic",
-  "Dresses",
-  "Kurti",
-  "Saree",
-  "Accessories",
-  "Streetwear",
-  "Vintage",
-  "Luxury",
-];
-
 const sizes = [
   "All",
   "XS",
@@ -38,6 +20,7 @@ const conditions = ["All", "New", "Like New", "Excellent", "Good", "Used"];
 
 export default function ProductFilters({
   filters,
+  categoryOptions = ["All"],
   onChange,
   onReset,
   mobileOpen,
@@ -48,6 +31,7 @@ export default function ProductFilters({
       <aside className="premium-surface sticky top-32 hidden h-fit min-w-0 rounded-[30px] p-5 min-[1180px]:block">
         <FilterContent
           filters={filters}
+          categoryOptions={categoryOptions}
           onChange={onChange}
           onReset={onReset}
         />
@@ -82,6 +66,7 @@ export default function ProductFilters({
 
           <FilterContent
             filters={filters}
+            categoryOptions={categoryOptions}
             onChange={onChange}
             onReset={() => {
               onReset();
@@ -94,7 +79,7 @@ export default function ProductFilters({
   );
 }
 
-function FilterContent({ filters, onChange, onReset }) {
+function FilterContent({ filters, categoryOptions, onChange, onReset }) {
   return (
     <div className="min-w-0">
       <div className="flex items-center justify-between gap-4">
@@ -112,7 +97,7 @@ function FilterContent({ filters, onChange, onReset }) {
 
       <FilterGroup
         title="Category"
-        options={categories}
+        options={categoryOptions}
         value={filters.category}
         onSelect={(v) => onChange("category", v)}
       />

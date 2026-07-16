@@ -1,24 +1,35 @@
 import { MessageCircle, Recycle, ShieldCheck } from "lucide-react";
 
-const items = [
-  {
-    icon: Recycle,
-    title: "Swap, don't waste",
-    text: "Refresh your wardrobe while keeping wearable fashion in use.",
-  },
-  {
-    icon: ShieldCheck,
-    title: "Trust-first profiles",
-    text: "Owner details, profile data, and swap history make exchanges safer.",
-  },
-  {
-    icon: MessageCircle,
-    title: "Chat before swap",
-    text: "Discuss condition, value, and location before confirming any request.",
-  },
-];
+import useRotatingListings from "../../hooks/useRotatingListings";
+import { marketplaceStats, uniqueLabels } from "../../utils/marketplaceHighlights";
 
 export default function WhySwapWear() {
+  const { allItems, loading } = useRotatingListings(6, { includeUnavailable: true });
+  const stats = marketplaceStats(allItems);
+  const topCategories = uniqueLabels(allItems, "category", 2, ["fashion"]);
+  const topBrands = uniqueLabels(allItems, "brand", 2, ["trusted brands"]);
+  const items = [
+    {
+      icon: Recycle,
+      title: `${stats.availableItems || (loading ? "Live" : 0)} swappable items`,
+      text: topCategories.length
+        ? `Browse real uploaded ${topCategories.join(" and ")} pieces instead of static demo cards.`
+        : "Upload products and this section will start reflecting live marketplace stock.",
+    },
+    {
+      icon: ShieldCheck,
+      title: `${stats.brandCount || (loading ? "Verified" : 0)} product brands`,
+      text: topBrands.length
+        ? `Listings are grouped around ${topBrands.join(" and ")} with owner details and structured swap history.`
+        : "Owner details, profile data, and swap history make exchanges safer.",
+    },
+    {
+      icon: MessageCircle,
+      title: `${stats.averagePoints || (loading ? "Smart" : 0)} avg points`,
+      text: "Compare condition, points, location, and chat before confirming any exchange.",
+    },
+  ];
+
   return (
     <section className="container-main py-16 md:py-20">
       <div className="grid gap-6 lg:grid-cols-3">

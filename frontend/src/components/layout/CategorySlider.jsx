@@ -1,62 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
 import { ArrowUpRight, Sparkles } from "lucide-react";
 import { Link } from "react-router-dom";
 
-import { getListings } from "../../services/listings";
-
-function getListingImage(item) {
-  return item?.image || (Array.isArray(item?.images) ? item.images[0] : "") || "/icons.svg";
-}
+import useRotatingListings from "../../hooks/useRotatingListings";
+import { categoryHighlights } from "../../utils/marketplaceHighlights";
 
 export default function CategorySlider() {
-  const [items, setItems] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let mounted = true;
-
-    async function loadCategories() {
-      setLoading(true);
-      const response = await getListings(null, { includeUnavailable: true });
-
-      if (mounted && response.success) {
-        setItems(response.data || []);
-      }
-
-      if (mounted) setLoading(false);
-    }
-
-    loadCategories();
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  const categories = useMemo(() => {
-    const grouped = new Map();
-
-    items.forEach((item) => {
-      const title = item.category || "Fashion";
-      const current = grouped.get(title) || {
-        title,
-        count: 0,
-        image: getListingImage(item),
-        latest: item.created_at || "",
-      };
-
-      current.count += 1;
-
-      if (new Date(item.created_at || 0) > new Date(current.latest || 0)) {
-        current.image = getListingImage(item);
-        current.latest = item.created_at || "";
-      }
-
-      grouped.set(title, current);
-    });
-
-    return [...grouped.values()].sort((a, b) => b.count - a.count).slice(0, 10);
-  }, [items]);
+  const { allItems, loading } = useRotatingListings(12, { includeUnavailable: true });
+  const categories = categoryHighlights(allItems, 10);
 
   if (!loading && categories.length === 0) {
     return (
@@ -109,7 +59,7 @@ export default function CategorySlider() {
                 />
               ) : (
                 <Link
-                  to="/explore"
+                  to={`/explore?category=${encodeURIComponent(cat.title)}`}
                   key={`${cat.title}-${index}`}
                   className="group w-[210px] shrink-0"
                 >
@@ -128,7 +78,7 @@ export default function CategorySlider() {
                     <div className="absolute bottom-4 left-4 right-4">
                       <h3 className="truncate text-xl font-black text-white">{cat.title}</h3>
                       <p className="mt-1 font-semibold text-white/72">
-                        {cat.count} item{cat.count === 1 ? "" : "s"}
+                        {cat.count} item{cat.count === 1 ? "" : "s"} - {cat.averagePoints} pts avg
                       </p>
                     </div>
 
