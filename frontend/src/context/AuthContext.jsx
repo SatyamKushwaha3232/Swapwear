@@ -1,5 +1,10 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { getBackendSession, logoutBackend } from "../services/backendAuth";
+import {
+  getBackendSession,
+  loginWithBackend,
+  logoutBackend,
+  signupWithBackend,
+} from "../services/backendAuth";
 
 const AuthContext = createContext(null);
 
@@ -33,13 +38,35 @@ export function AuthProvider({ children }) {
     };
   }, []);
 
+  async function signIn(email, password) {
+    const auth = await loginWithBackend(email, password);
+    setSession(auth.session);
+    setUser(auth.user);
+    return auth;
+  }
+
+  async function signUp(payload) {
+    const auth = await signupWithBackend(payload);
+    setSession(auth.session);
+    setUser(auth.user);
+    return auth;
+  }
+
+  async function signOut() {
+    await logoutBackend();
+    setSession(null);
+    setUser(null);
+  }
+
   const value = useMemo(
     () => ({
       session,
       user,
       loading,
       isAuthenticated: Boolean(user),
-      signOut: logoutBackend,
+      signIn,
+      signUp,
+      signOut,
     }),
     [session, user, loading]
   );

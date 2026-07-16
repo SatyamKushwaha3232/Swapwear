@@ -18,10 +18,11 @@ import GoogleIcon from "../assets/auth-icons/google.svg";
 import MicrosoftIcon from "../assets/auth-icons/microsoft.svg";
 import GithubIcon from "../assets/auth-icons/github.svg";
 import PhoneIcon from "../assets/auth-icons/phone.svg";
-import { signupWithBackend } from "../services/backendAuth";
+import { useAuth } from "../context/AuthContext";
 
 export default function Signup() {
   const navigate = useNavigate();
+  const { signUp } = useAuth();
 
   const [loading, setLoading] = useState(false);
   const [oauthLoading, setOauthLoading] = useState("");
@@ -69,7 +70,7 @@ export default function Signup() {
     try {
       setLoading(true);
 
-      await signupWithBackend({
+      await signUp({
         fullName: form.fullName.trim(),
         email: form.email.trim(),
         password: form.password,

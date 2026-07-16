@@ -13,10 +13,11 @@ import GoogleIcon from "../assets/auth-icons/google.svg";
 import MicrosoftIcon from "../assets/auth-icons/microsoft.svg";
 import GithubIcon from "../assets/auth-icons/github.svg";
 import PhoneIcon from "../assets/auth-icons/phone.svg";
-import { loginWithBackend } from "../services/backendAuth";
+import { useAuth } from "../context/AuthContext";
 
 export default function Login() {
   const navigate = useNavigate();
+  const { signIn } = useAuth();
   const [loading, setLoading] = useState(false);
   const [oauthLoading, setOauthLoading] = useState("");
 
@@ -44,7 +45,7 @@ export default function Login() {
     try {
       setLoading(true);
 
-      await loginWithBackend(form.email.trim(), form.password);
+      await signIn(form.email.trim(), form.password);
 
       toast.success("Welcome back");
       navigate("/dashboard", { replace: true });
