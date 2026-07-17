@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import toast from "react-hot-toast";
@@ -26,6 +26,7 @@ import { getCurrentProfile } from "../services/profile";
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const userId = user?.id || "";
 
   const [profile, setProfile] = useState(null);
   const [listings, setListings] = useState([]);
@@ -43,45 +44,45 @@ export default function Dashboard() {
 
   useEffect(() => {
     async function loadProfile() {
-      if (!user?.id) return;
+      if (!userId) return;
 
       const response = await getCurrentProfile();
       if (response.success) setProfile(response.data);
     }
 
     loadProfile();
-  }, [user?.id]);
+  }, [userId]);
 
-  useEffect(() => {
-    async function loadListings() {
-      if (!user?.id) {
-        setListings([]);
-        setLoading(false);
-        return;
-      }
-
-      setLoading(true);
-      setError(null);
-
-      try {
-        const response = await getListings(user.id);
-
-        if (response.success) {
-          setListings(response.data || []);
-        } else {
-          setError(response.error || "Unable to load listings");
-          setListings([]);
-        }
-      } catch (loadError) {
-        setError(loadError);
-        setListings([]);
-      }
-
+  const loadListings = useCallback(async () => {
+    if (!userId) {
+      setListings([]);
       setLoading(false);
+      return;
     }
 
+    setLoading(true);
+    setError(null);
+
+    try {
+      const response = await getListings(userId);
+
+      if (response.success) {
+        setListings(response.data || []);
+      } else {
+        setError(response.error || "Unable to load listings");
+        setListings([]);
+      }
+    } catch (loadError) {
+      setError(loadError);
+      setListings([]);
+    }
+
+    setLoading(false);
+  }, [userId]);
+
+  useEffect(() => {
     loadListings();
-  }, [user?.id]);
+  }, [loadListings]);
 
   async function handleDelete(id) {
     setDeleteDialogItem(listings.find((item) => item.id === id) || { id });
@@ -281,7 +282,7 @@ export default function Dashboard() {
                 </div>
               ) : error ? (
                 <div className="p-6">
-                  <InlineError error={error} title="Unable to load your listings" onRetry={() => window.location.reload()} />
+                  <InlineError error={error} title="Unable to load your listings" onRetry={loadListings} />
                 </div>
               ) : listings.length === 0 ? (
                 <div className="p-10 text-center">

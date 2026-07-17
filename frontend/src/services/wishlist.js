@@ -15,8 +15,7 @@ export async function getWishlist(userId) {
     if (!userId) return [];
     const data = await backendRequest(`/wishlist?userId=${encodeURIComponent(userId)}`);
     return (data || []).map(formatWishlist);
-  } catch (error) {
-    console.error("Wishlist fetch failed:", error.message || error);
+  } catch {
     return [];
   }
 }

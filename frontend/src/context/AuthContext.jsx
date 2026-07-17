@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import {
   getBackendSession,
   loginWithBackend,
@@ -24,8 +24,9 @@ export function AuthProvider({ children }) {
 
         setSession(backendSession.session);
         setUser(backendSession.user);
-      } catch (error) {
-        console.error("Auth init failed:", error);
+      } catch {
+        setSession(null);
+        setUser(null);
       } finally {
         if (mounted) setLoading(false);
       }
@@ -38,25 +39,25 @@ export function AuthProvider({ children }) {
     };
   }, []);
 
-  async function signIn(email, password) {
+  const signIn = useCallback(async (email, password) => {
     const auth = await loginWithBackend(email, password);
     setSession(auth.session);
     setUser(auth.user);
     return auth;
-  }
+  }, []);
 
-  async function signUp(payload) {
+  const signUp = useCallback(async (payload) => {
     const auth = await signupWithBackend(payload);
     setSession(auth.session);
     setUser(auth.user);
     return auth;
-  }
+  }, []);
 
-  async function signOut() {
+  const signOut = useCallback(async () => {
     await logoutBackend();
     setSession(null);
     setUser(null);
-  }
+  }, []);
 
   const value = useMemo(
     () => ({
@@ -68,7 +69,7 @@ export function AuthProvider({ children }) {
       signUp,
       signOut,
     }),
-    [session, user, loading]
+    [session, user, loading, signIn, signUp, signOut]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -145,6 +145,16 @@ app.use((err, _req, res, _next) => {
 
 const PORT=appConfig.port;
 
+server.on("error", (error) => {
+    if (error.code === "EADDRINUSE") {
+        console.error(`Port ${PORT} is already in use. Stop the existing backend or set PORT to another value.`);
+        process.exit(1);
+    }
+
+    console.error(error);
+    process.exit(1);
+});
+
 server.listen(PORT,()=>{
     console.log(`Server Running On ${PORT}`);
 });

@@ -143,11 +143,6 @@ export default function AddListing() {
   async function handleSubmit(e) {
     e.preventDefault();
 
-    console.log("Publish button clicked");
-    console.log("Form Data:", formData);
-    console.log("Images:", images);
-    console.log("Video:", video);
-
     if (!formData.title.trim()) {
       toast.error("Please enter item title");
       return;
@@ -178,8 +173,6 @@ export default function AddListing() {
 
       const response = await createListing(formData, images, video);
 
-      console.log("Create listing response:", response);
-
       if (!response.success) {
         toast.error(response.error || "Unable to publish listing");
         return;
@@ -188,7 +181,6 @@ export default function AddListing() {
       toast.success("Listing published successfully");
       navigate("/dashboard");
     } catch (error) {
-      console.error("Publish error:", error);
       toast.error(error.message || "Something went wrong");
     } finally {
       setLoading(false);

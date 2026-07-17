@@ -12,7 +12,16 @@ import "./index.css";
 document.documentElement.classList.add("swapwear-js-ready");
 
 window.addEventListener("vite:preloadError", () => {
-  window.location.reload();
+  const retryKey = "swapwear_preload_retry";
+  const alreadyRetried = sessionStorage.getItem(retryKey);
+
+  if (!alreadyRetried) {
+    sessionStorage.setItem(retryKey, "1");
+    window.location.reload();
+    return;
+  }
+
+  sessionStorage.removeItem(retryKey);
 });
 
 ReactDOM.createRoot(document.getElementById("root")).render(
