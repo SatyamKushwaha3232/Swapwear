@@ -69,7 +69,7 @@ io.on("connection", (socket) => {
     });
 });
 
-app.use(helmet());
+app.use(helmet({ crossOriginResourcePolicy: false }));
 app.use(cors({
     origin(origin, callback) {
         if (!origin || appConfig.clientUrls.includes(origin)) {
@@ -90,7 +90,14 @@ app.use(rateLimit({
 
 app.use(express.json());
 app.use(cookieParser());
-app.use("/uploads", express.static(path.resolve(appConfig.uploadDir)));
+app.use(
+    "/uploads",
+    (_req, res, next) => {
+        res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+        next();
+    },
+    express.static(path.resolve(appConfig.uploadDir))
+);
 
 app.get("/", (_req,res)=>{
     res.json({
