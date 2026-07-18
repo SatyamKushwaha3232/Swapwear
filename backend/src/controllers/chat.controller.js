@@ -82,6 +82,11 @@ export async function patchMessage(req, res) {
     const patch = {};
     if (req.body.message !== undefined) {
       patch.message = String(req.body.message || "").trim();
+      if (!patch.message) {
+        const error = new Error("Message cannot be empty");
+        error.status = 400;
+        throw error;
+      }
       patch.editedAt = new Date();
     }
     if (req.body.is_deleted !== undefined || req.body.isDeleted !== undefined) {

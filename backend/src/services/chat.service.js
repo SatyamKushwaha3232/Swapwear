@@ -19,14 +19,25 @@ function isAdmin(user) {
   return ["ADMIN", "OWNER", "MODERATOR"].includes(user.role);
 }
 
-function formatConversation(conversation = {}, userId = "") {
+function formatConversation(conversation = {}, userId = "", usersById = new Map()) {
   const unreadCounts = conversation.unreadCounts || {};
+  const otherUserId = conversation.user1Id === userId ? conversation.user2Id : conversation.user1Id;
+  const otherUser = usersById.get(otherUserId);
+  const otherProfile = otherUser?.profile || {};
+  const ownerName =
+    otherProfile.fullName ||
+    otherProfile.username ||
+    otherUser?.email?.split("@")[0] ||
+    "SwapWear User";
+
   return {
     id: String(conversation.id),
     swap_id: conversation.swapId,
     user1_id: conversation.user1Id,
     user2_id: conversation.user2Id,
-    owner_name: "SwapWear User",
+    owner_id: otherUser?.id || "",
+    owner_name: ownerName,
+    owner_avatar: otherProfile.avatarUrl || "",
     last_message: conversation.lastMessage || "",
     last_message_at:
       conversation.lastMessageAt?.toISOString?.() || conversation.lastMessageAt,
@@ -35,14 +46,33 @@ function formatConversation(conversation = {}, userId = "") {
   };
 }
 
+async function loadConversationUserMap(conversations = []) {
+  const ids = [
+    ...new Set(
+      conversations
+        .flatMap((conversation) => [conversation.user1Id, conversation.user2Id])
+        .filter(Boolean)
+    ),
+  ];
+
+  if (!ids.length) return new Map();
+
+  const users = await prisma.user.findMany({
+    where: { id: { in: ids } },
+    include: { profile: true },
+  });
+
+  return new Map(users.map((item) => [item.id, item]));
+}
+
 function formatMessage(message = {}) {
   return {
     id: String(message.id),
     conversation_id: String(message.conversationId),
     sender_id: message.senderId,
     message: message.message || "",
-    image_url: message.imageUrl || "",
-    file_url: message.fileUrl || "",
+    image_url: normalizeUploadUrl(message.imageUrl || ""),
+    file_url: normalizeUploadUrl(message.fileUrl || ""),
     file_name: message.fileName || "",
     file_type: message.fileType || "",
     message_type: message.messageType || "text",
@@ -54,12 +84,22 @@ function formatMessage(message = {}) {
     is_pinned: Boolean(message.isPinned),
     is_starred: Boolean(message.isStarred),
     seen: Boolean(message.seen),
-    voice_url: message.voiceUrl || "",
+    voice_url: normalizeUploadUrl(message.voiceUrl || ""),
     voice_duration: Number(message.voiceDuration || 0),
     edited_at: message.editedAt?.toISOString?.() || message.editedAt || null,
     deleted_at: message.deletedAt?.toISOString?.() || message.deletedAt || null,
     created_at: message.createdAt?.toISOString?.() || message.createdAt,
   };
+}
+
+function normalizeUploadUrl(url) {
+  if (!url) return "";
+  const value = String(url);
+  if (/^https?:\/\//i.test(value)) return value;
+  if (value.startsWith("/uploads/")) {
+    return `${appConfig.publicFileBaseUrl.replace(/\/uploads\/?$/, "/uploads")}${value.slice("/uploads".length)}`;
+  }
+  return value;
 }
 
 function lastMessageLabel(messageType, cleanMessage) {
@@ -90,7 +130,7 @@ async function assertConversationAccess(conversationId, user, tx = prisma) {
 }
 
 async function saveChatFile(file, userId) {
-  const ext = file.originalname?.split(".").pop() || "file";
+  const ext = (file.originalname?.split(".").pop() || "file").replace(/[^a-zA-Z0-9]/g, "") || "file";
   const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
   const folder = path.resolve(appConfig.uploadDir, "chat", userId);
   await fs.mkdir(folder, { recursive: true });
@@ -110,6 +150,7 @@ export async function uploadChatFile(file, user) {
     url,
     name: file.originalname || "file",
     type: file.mimetype || "application/octet-stream",
+    message_type: file.mimetype?.startsWith("image/") ? "image" : file.mimetype?.startsWith("audio/") ? "voice" : "file",
   };
 }
 
@@ -134,7 +175,10 @@ export async function getOrCreateConversation(payload, user) {
     where: { swapId: swap.id },
   });
 
-  if (existing) return formatConversation(existing, user.id);
+  if (existing) {
+    const usersById = await loadConversationUserMap([existing]);
+    return formatConversation(existing, user.id, usersById);
+  }
 
   const conversation = await prisma.chatConversation.create({
     data: {
@@ -146,7 +190,8 @@ export async function getOrCreateConversation(payload, user) {
     },
   });
 
-  return formatConversation(conversation, user.id);
+  const usersById = await loadConversationUserMap([conversation]);
+  return formatConversation(conversation, user.id, usersById);
 }
 
 export async function getMyConversations(user) {
@@ -155,7 +200,8 @@ export async function getMyConversations(user) {
     orderBy: { lastMessageAt: "desc" },
   });
 
-  return conversations.map((conversation) => formatConversation(conversation, user.id));
+  const usersById = await loadConversationUserMap(conversations);
+  return conversations.map((conversation) => formatConversation(conversation, user.id, usersById));
 }
 
 export async function getMessages(conversationId, user) {
@@ -164,6 +210,7 @@ export async function getMessages(conversationId, user) {
   const messages = await prisma.chatMessage.findMany({
     where: { conversationId: parseBigInt(conversationId, "conversation id") },
     orderBy: { createdAt: "asc" },
+    include: { replyTo: true },
   });
 
   return messages.map(formatMessage);
@@ -172,7 +219,9 @@ export async function getMessages(conversationId, user) {
 export async function sendMessage(payload, user) {
   const conversation = await assertConversationAccess(payload.conversationId, user);
   const cleanMessage = String(payload.message || "").trim();
-  const messageType = payload.messageType || "text";
+  const messageType = ["text", "image", "file", "voice"].includes(payload.messageType)
+    ? payload.messageType
+    : "text";
 
   if (!cleanMessage && !payload.fileUrl && !payload.imageUrl && !payload.voiceUrl) {
     const error = new Error("Message or file is required");
@@ -200,6 +249,7 @@ export async function sendMessage(payload, user) {
       reactions: {},
       seen: false,
     },
+    include: { replyTo: true },
   });
 
   await prisma.chatConversation.update({
@@ -242,6 +292,7 @@ export async function updateMessage(messageId, patch, user) {
   const updated = await prisma.chatMessage.update({
     where: { id: message.id },
     data: patch,
+    include: { replyTo: true },
   });
 
   return formatMessage(updated);
@@ -255,9 +306,16 @@ export async function reactToMessage(messageId, emoji, user) {
   await assertConversationAccess(message.conversationId, user);
 
   const reactions = message.reactions || {};
+  if (!emoji || String(emoji).length > 12) {
+    const error = new Error("Invalid reaction");
+    error.status = 400;
+    throw error;
+  }
+
   const updated = await prisma.chatMessage.update({
     where: { id: message.id },
     data: { reactions: { ...reactions, [emoji]: Number(reactions[emoji] || 0) + 1 } },
+    include: { replyTo: true },
   });
 
   return formatMessage(updated);
@@ -321,6 +379,11 @@ export async function updateCallSession(callId, status, user) {
   }
 
   const nextStatus = String(status || "").toUpperCase();
+  if (!["ACCEPTED", "REJECTED", "MISSED", "ENDED", "FAILED"].includes(nextStatus)) {
+    const error = new Error("Invalid call status");
+    error.status = 400;
+    throw error;
+  }
   const now = new Date();
   const updated = await prisma.callSession.update({
     where: { id: call.id },

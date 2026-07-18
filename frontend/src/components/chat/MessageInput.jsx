@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { ImagePlus, Paperclip, Send, Smile } from "lucide-react";
 
 export default function MessageInput({
@@ -6,7 +7,11 @@ export default function MessageInput({
   onSend,
   sending,
   disabled,
+  onAttach,
 }) {
+  const fileInputRef = useRef(null);
+  const imageInputRef = useRef(null);
+
   function handleKeyDown(e) {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -18,16 +23,58 @@ export default function MessageInput({
   return (
     <div className="border-t border-pink-50 bg-white/85 p-4 backdrop-blur-xl">
       <div className="flex min-w-0 items-center gap-2 rounded-[28px] border border-pink-100 bg-pink-50/70 px-3 py-3 shadow-[0_12px_35px_rgba(15,23,42,0.06)]">
-        {[Paperclip, ImagePlus, Smile].map((Icon, index) => (
-          <button
-            key={index}
-            type="button"
-            disabled
-            className="flex h-11 w-11 shrink-0 cursor-not-allowed items-center justify-center rounded-full bg-white text-pink-500 opacity-70"
-          >
-            <Icon size={19} />
-          </button>
-        ))}
+        <button
+          type="button"
+          disabled={disabled || sending}
+          onClick={() => fileInputRef.current?.click()}
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white text-pink-500 transition hover:bg-pink-100 disabled:cursor-not-allowed disabled:opacity-60"
+          title="Attach file"
+        >
+          <Paperclip size={19} />
+        </button>
+
+        <button
+          type="button"
+          disabled={disabled || sending}
+          onClick={() => imageInputRef.current?.click()}
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white text-pink-500 transition hover:bg-pink-100 disabled:cursor-not-allowed disabled:opacity-60"
+          title="Attach image"
+        >
+          <ImagePlus size={19} />
+        </button>
+
+        <button
+          type="button"
+          disabled
+          className="flex h-11 w-11 shrink-0 cursor-not-allowed items-center justify-center rounded-full bg-white text-pink-500 opacity-70"
+          title="Emoji reactions are available from message actions"
+        >
+          <Smile size={19} />
+        </button>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          hidden
+          accept=".pdf,.txt,.doc,.docx,audio/*"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            if (file) onAttach?.(file);
+            event.target.value = "";
+          }}
+        />
+
+        <input
+          ref={imageInputRef}
+          type="file"
+          hidden
+          accept="image/*"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            if (file) onAttach?.(file);
+            event.target.value = "";
+          }}
+        />
 
         <input
           type="text"

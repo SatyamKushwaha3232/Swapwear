@@ -26,6 +26,7 @@ import {
   subscribeToTyping,
   toggleMessagePin,
   toggleMessageStar,
+  uploadChatFile,
 } from "../services/chat";
 
 export default function Chat() {
@@ -234,12 +235,41 @@ export default function Chat() {
 
     await setTyping(activeId, user.id, false);
 
+    let attachment = null;
+    if (file) {
+      const upload = await uploadChatFile(file);
+
+      if (!upload.success) {
+        toast.error(upload.error || "Unable to upload file");
+        setInput(text);
+        setSending(false);
+        return;
+      }
+
+      attachment = upload.data;
+    }
+
+    const messageType =
+      attachment?.message_type ||
+      (file?.type?.startsWith("image/")
+        ? "image"
+        : file?.type?.startsWith("audio/")
+        ? "voice"
+        : file
+        ? "file"
+        : "text");
+
     const response = await sendMessage({
       conversationId: activeId,
       senderId: user.id,
       message: text,
-      file,
-      replyTo,
+      messageType,
+      imageUrl: messageType === "image" ? attachment?.url || "" : "",
+      fileUrl: messageType === "file" ? attachment?.url || "" : "",
+      fileName: attachment?.name || "",
+      fileType: attachment?.type || "",
+      voiceUrl: messageType === "voice" ? attachment?.url || "" : "",
+      replyToId: replyTo?.id || null,
       voiceDuration,
     });
 

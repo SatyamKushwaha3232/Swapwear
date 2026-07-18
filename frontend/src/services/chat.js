@@ -17,6 +17,9 @@ function formatConversation(item = {}) {
     swap_id: item.swap_id,
     user1_id: item.user1_id,
     user2_id: item.user2_id,
+    owner_id: item.owner_id || "",
+    owner_name: item.owner_name || "SwapWear User",
+    owner_avatar: item.owner_avatar || "",
     last_message: item.last_message || "",
     last_message_at: item.last_message_at,
     created_at: item.created_at,
@@ -54,6 +57,7 @@ function formatMessage(item = {}) {
 export async function uploadChatFile(file) {
   try {
     if (!file) return { success: false, error: "File missing" };
+    if (file.size > 25 * 1024 * 1024) return { success: false, error: "Attachment must be under 25MB" };
     const formData = new FormData();
     formData.append("file", file);
     const data = await backendRequest("/chat/upload", { method: "POST", body: formData });
@@ -100,7 +104,19 @@ export async function sendMessage(payload) {
 }
 
 export async function forwardMessage({ sourceMessage, targetConversationId, senderId }) {
-  return sendMessage({ ...sourceMessage, conversation_id: targetConversationId, sender_id: senderId, reply_to_id: null });
+  return sendMessage({
+    conversationId: targetConversationId,
+    senderId,
+    message: sourceMessage.message || "",
+    imageUrl: sourceMessage.image_url || "",
+    fileUrl: sourceMessage.file_url || "",
+    fileName: sourceMessage.file_name || "",
+    fileType: sourceMessage.file_type || "",
+    voiceUrl: sourceMessage.voice_url || "",
+    voiceDuration: sourceMessage.voice_duration || 0,
+    messageType: sourceMessage.message_type || "text",
+    replyToId: null,
+  });
 }
 
 export async function editMessage(messageId, nextMessage) {

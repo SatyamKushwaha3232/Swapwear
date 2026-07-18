@@ -16,7 +16,31 @@ import {
 import { requireAuth } from "../middleware/auth.middleware.js";
 
 const router = express.Router();
-const upload = multer({ storage: multer.memoryStorage() });
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 25 * 1024 * 1024,
+    files: 1,
+  },
+  fileFilter(_req, file, cb) {
+    const ok =
+      file.mimetype?.startsWith("image/") ||
+      file.mimetype?.startsWith("audio/") ||
+      [
+        "application/pdf",
+        "text/plain",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      ].includes(file.mimetype);
+
+    if (!ok) {
+      cb(new Error("Unsupported chat attachment type"));
+      return;
+    }
+
+    cb(null, true);
+  },
+});
 
 router.use(requireAuth);
 
