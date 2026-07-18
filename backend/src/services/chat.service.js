@@ -92,6 +92,27 @@ function formatMessage(message = {}) {
   };
 }
 
+async function attachReplyPreviews(messages = []) {
+  const list = Array.isArray(messages) ? messages : [messages];
+  const replyIds = [
+    ...new Set(list.map((message) => message.replyToId).filter(Boolean)),
+  ];
+
+  if (!replyIds.length) return Array.isArray(messages) ? list : list[0];
+
+  const replies = await prisma.chatMessage.findMany({
+    where: { id: { in: replyIds } },
+    select: { id: true, message: true, senderId: true },
+  });
+  const repliesById = new Map(replies.map((item) => [String(item.id), item]));
+  const hydrated = list.map((message) => ({
+    ...message,
+    replyTo: repliesById.get(String(message.replyToId)) || null,
+  }));
+
+  return Array.isArray(messages) ? hydrated : hydrated[0];
+}
+
 function normalizeUploadUrl(url) {
   if (!url) return "";
   const value = String(url);
@@ -210,10 +231,10 @@ export async function getMessages(conversationId, user) {
   const messages = await prisma.chatMessage.findMany({
     where: { conversationId: parseBigInt(conversationId, "conversation id") },
     orderBy: { createdAt: "asc" },
-    include: { replyTo: true },
   });
 
-  return messages.map(formatMessage);
+  const hydrated = await attachReplyPreviews(messages);
+  return hydrated.map(formatMessage);
 }
 
 export async function sendMessage(payload, user) {
@@ -249,7 +270,6 @@ export async function sendMessage(payload, user) {
       reactions: {},
       seen: false,
     },
-    include: { replyTo: true },
   });
 
   await prisma.chatConversation.update({
@@ -271,7 +291,7 @@ export async function sendMessage(payload, user) {
     data: { conversation_id: String(conversation.id) },
   });
 
-  return formatMessage(message);
+  return formatMessage(await attachReplyPreviews(message));
 }
 
 export async function updateMessage(messageId, patch, user) {
@@ -292,10 +312,9 @@ export async function updateMessage(messageId, patch, user) {
   const updated = await prisma.chatMessage.update({
     where: { id: message.id },
     data: patch,
-    include: { replyTo: true },
   });
 
-  return formatMessage(updated);
+  return formatMessage(await attachReplyPreviews(updated));
 }
 
 export async function reactToMessage(messageId, emoji, user) {
@@ -315,10 +334,9 @@ export async function reactToMessage(messageId, emoji, user) {
   const updated = await prisma.chatMessage.update({
     where: { id: message.id },
     data: { reactions: { ...reactions, [emoji]: Number(reactions[emoji] || 0) + 1 } },
-    include: { replyTo: true },
   });
 
-  return formatMessage(updated);
+  return formatMessage(await attachReplyPreviews(updated));
 }
 
 export async function markConversationSeen(conversationId, user) {
