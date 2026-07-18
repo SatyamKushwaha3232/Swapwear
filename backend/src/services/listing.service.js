@@ -13,6 +13,18 @@ const SWAP_STATUS_TO_API = {
   BLOCKED: "blocked",
 };
 
+const EDITABLE_STATUSES = new Set(["AVAILABLE"]);
+
+function normalizeMediaUrl(url) {
+  if (!url) return "";
+  const value = String(url);
+  if (/^https?:\/\//i.test(value)) return value;
+  if (value.startsWith("/uploads/")) {
+    return `${appConfig.publicFileBaseUrl.replace(/\/uploads\/?$/, "/uploads")}${value.slice("/uploads".length)}`;
+  }
+  return value;
+}
+
 function formatListing(item = {}) {
   const ownerName =
     item.ownerName ||
@@ -27,6 +39,7 @@ function formatListing(item = {}) {
       : item.image
       ? [item.image]
       : [];
+  const mediaImages = imageList.map(normalizeMediaUrl).filter(Boolean);
 
   return {
     id: String(item.id),
@@ -40,10 +53,10 @@ function formatListing(item = {}) {
     category: item.category || "Fashion",
     points: Number(item.points) || 0,
     likes: Number(item.likes) || 0,
-    views: item.views || "0",
-    video: item.video || "",
-    images: imageList,
-    image: imageList[0] || "",
+    views: Number(item.views) || 0,
+    video: normalizeMediaUrl(item.video || ""),
+    images: mediaImages,
+    image: mediaImages[0] || "",
     description: item.description || "",
     user_id: item.userId || null,
     created_at: item.createdAt?.toISOString?.() || item.createdAt || null,
@@ -78,9 +91,68 @@ function parseListingId(id) {
 }
 
 function ensureImageList(images) {
-  if (Array.isArray(images)) return images.filter(Boolean);
+  if (Array.isArray(images)) return [...new Set(images.map(normalizeMediaUrl).filter(Boolean))].slice(0, 5);
   if (typeof images === "string" && images) return [images];
   return [];
+}
+
+function validateListingPayload(payload = {}, { partial = false } = {}) {
+  const clean = {
+    title: String(payload.title || "").trim(),
+    brand: String(payload.brand || "").trim(),
+    category: String(payload.category || "Fashion").trim(),
+    size: String(payload.size || "").trim(),
+    condition: String(payload.condition || "Good").trim(),
+    location: String(payload.location || "").trim(),
+    points: Number(payload.points),
+    description: String(payload.description || "").trim(),
+  };
+
+  if (!partial || payload.title !== undefined) {
+    if (!clean.title || clean.title.length < 3) {
+      const error = new Error("Listing title must be at least 3 characters");
+      error.status = 400;
+      throw error;
+    }
+  }
+
+  if (!partial || payload.brand !== undefined) {
+    if (!clean.brand) {
+      const error = new Error("Brand is required");
+      error.status = 400;
+      throw error;
+    }
+  }
+
+  if (!partial || payload.size !== undefined) {
+    if (!clean.size) {
+      const error = new Error("Size is required");
+      error.status = 400;
+      throw error;
+    }
+  }
+
+  if (!partial || payload.location !== undefined) {
+    if (!clean.location) {
+      const error = new Error("Location is required");
+      error.status = 400;
+      throw error;
+    }
+  }
+
+  if (!Number.isFinite(clean.points) || clean.points < 0 || clean.points > 5000) {
+    const error = new Error("Points must be between 0 and 5000");
+    error.status = 400;
+    throw error;
+  }
+
+  if (clean.description.length > 500) {
+    const error = new Error("Description must be 500 characters or less");
+    error.status = 400;
+    throw error;
+  }
+
+  return clean;
 }
 
 export async function uploadListingFile(file, folder, userId) {
@@ -158,9 +230,13 @@ export async function fetchListings(userId = null, options = {}) {
 }
 
 export async function fetchListingById(id) {
-  const listing = await prisma.listing.findUnique({
+  const listing = await prisma.listing.update({
     where: { id: parseListingId(id) },
+    data: { views: { increment: 1 } },
     include: { user: { include: { profile: true } } },
+  }).catch((error) => {
+    if (error.code === "P2025") return null;
+    throw error;
   });
 
   return listing ? formatListing(listing) : null;
@@ -168,17 +244,24 @@ export async function fetchListingById(id) {
 
 export async function createListingInDb(payload, user) {
   const imageList = ensureImageList(payload.images);
+  const clean = validateListingPayload(payload);
+
+  if (imageList.length < 1) {
+    const error = new Error("Upload at least 1 product image");
+    error.status = 400;
+    throw error;
+  }
 
   const listing = await prisma.listing.create({
     data: {
-      title: payload.title,
-      brand: payload.brand || null,
-      category: payload.category || "Fashion",
-      size: payload.size || null,
-      condition: payload.condition || "Good",
-      location: payload.location || null,
-      points: Number(payload.points) || 0,
-      description: payload.description || null,
+      title: clean.title,
+      brand: clean.brand,
+      category: clean.category || "Fashion",
+      size: clean.size,
+      condition: clean.condition || "Good",
+      location: clean.location,
+      points: clean.points,
+      description: clean.description || null,
       image: imageList[0] || "",
       images: imageList,
       video: payload.video || null,
@@ -191,6 +274,68 @@ export async function createListingInDb(payload, user) {
   });
 
   return formatListing(listing);
+}
+
+export async function updateListingInDb(id, payload, user) {
+  const listingId = parseListingId(id);
+  const listing = await prisma.listing.findUnique({ where: { id: listingId } });
+
+  if (!listing) {
+    const error = new Error("Listing not found");
+    error.status = 404;
+    throw error;
+  }
+
+  if (listing.userId !== user.id && !["ADMIN", "OWNER"].includes(user.role)) {
+    const error = new Error("You can only update your own listing");
+    error.status = 403;
+    throw error;
+  }
+
+  if (!EDITABLE_STATUSES.has(listing.swapStatus)) {
+    const error = new Error("Reserved, swapped or archived listings cannot be edited");
+    error.status = 409;
+    throw error;
+  }
+
+  const clean = validateListingPayload(
+    {
+      title: payload.title ?? listing.title,
+      brand: payload.brand ?? listing.brand,
+      category: payload.category ?? listing.category,
+      size: payload.size ?? listing.size,
+      condition: payload.condition ?? listing.condition,
+      location: payload.location ?? listing.location,
+      points: payload.points ?? listing.points,
+      description: payload.description ?? listing.description,
+    },
+    { partial: true }
+  );
+  const imageList = ensureImageList(payload.images);
+
+  const updated = await prisma.listing.update({
+    where: { id: listingId },
+    data: {
+      title: clean.title,
+      brand: clean.brand,
+      category: clean.category || "Fashion",
+      size: clean.size,
+      condition: clean.condition || "Good",
+      location: clean.location,
+      points: clean.points,
+      description: clean.description || null,
+      ...(imageList.length
+        ? {
+            image: imageList[0],
+            images: imageList,
+          }
+        : {}),
+      ...(payload.video !== undefined ? { video: payload.video || null } : {}),
+    },
+    include: { user: { include: { profile: true } } },
+  });
+
+  return formatListing(updated);
 }
 
 export async function deleteListingFromDb(id, user) {

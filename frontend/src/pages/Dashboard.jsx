@@ -64,7 +64,7 @@ export default function Dashboard() {
     setError(null);
 
     try {
-      const response = await getListings(userId);
+      const response = await getListings(userId, { includeUnavailable: true });
 
       if (response.success) {
         setListings(response.data || []);
@@ -326,8 +326,24 @@ export default function Dashboard() {
                           </p>
 
                           <div className="mt-3 flex flex-wrap gap-2">
-                            <span className="inline-flex rounded-full bg-emerald-100 px-3 py-1 text-sm font-black text-emerald-700">
-                              Active
+                            <span
+                              className={`inline-flex rounded-full px-3 py-1 text-sm font-black ${
+                                item.is_available_for_swap
+                                  ? "bg-emerald-100 text-emerald-700"
+                                  : item.swap_status === "reserved"
+                                  ? "bg-amber-100 text-amber-700"
+                                  : item.swap_status === "swapped"
+                                  ? "bg-slate-900 text-white"
+                                  : "bg-slate-100 text-slate-600"
+                              }`}
+                            >
+                              {item.is_available_for_swap
+                                ? "Available"
+                                : item.swap_status === "reserved"
+                                ? "Reserved"
+                                : item.swap_status === "swapped"
+                                ? "Swapped"
+                                : "Hidden"}
                             </span>
 
                             <span className="inline-flex items-center gap-1 rounded-full border border-white/60 bg-white/65 px-3 py-1 text-sm font-black">

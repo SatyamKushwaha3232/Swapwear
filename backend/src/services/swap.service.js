@@ -4,6 +4,7 @@ import { createNotification } from "./notification.service.js";
 
 const ACTIVE_SWAP_STATUSES = ["PENDING", "ACCEPTED", "SHIPPED", "DELIVERED", "DISPUTED"];
 const RELIST_STATUSES = ["CANCELLED", "REJECTED", "FAILED"];
+const PARTICIPANT_FINAL_STATUSES = ["CANCELLED", "REJECTED", "EXPIRED", "COMPLETED", "FAILED"];
 
 function parseListingId(id) {
   try {
@@ -202,6 +203,36 @@ async function loadSwap(id, tx = prisma) {
   return swap;
 }
 
+async function expireStalePendingSwaps(tx = prisma) {
+  const stale = await tx.swap.findMany({
+    where: {
+      status: "PENDING",
+      expiresAt: { lt: new Date() },
+    },
+    select: { id: true },
+  });
+
+  if (!stale.length) return 0;
+
+  await tx.swap.updateMany({
+    where: { id: { in: stale.map((item) => item.id) } },
+    data: { status: "EXPIRED", lastActionAt: new Date() },
+  });
+
+  if (typeof tx.swapEvent?.createMany === "function") {
+    await tx.swapEvent.createMany({
+      data: stale.map((item) => ({
+        swapId: item.id,
+        actorId: null,
+        eventType: "expired",
+        metadata: { reason: "pending_timeout" },
+      })),
+    });
+  }
+
+  return stale.length;
+}
+
 async function ensureListingsAvailable(tx, requesterItemId, ownerItemId) {
   const listings = await tx.listing.findMany({
     where: { id: { in: [requesterItemId, ownerItemId] } },
@@ -306,6 +337,8 @@ export async function createSwapRequest(payload, user) {
   }
 
   return prisma.$transaction(async (tx) => {
+    await expireStalePendingSwaps(tx);
+
     const [requesterListing, ownerListing] = await ensureListingsAvailable(
       tx,
       requesterItemId,
@@ -384,6 +417,8 @@ export async function fetchSwapRequests(userId, user) {
     throw error;
   }
 
+  await expireStalePendingSwaps();
+
   const swaps = await prisma.swap.findMany({
     where: {
       OR: [{ requesterId: user.id }, { ownerId: user.id }],
@@ -396,6 +431,7 @@ export async function fetchSwapRequests(userId, user) {
 }
 
 export async function fetchSwapById(id, user) {
+  await expireStalePendingSwaps();
   const swap = await loadSwap(id);
   await assertParticipant(swap, user);
   return formatSwap(swap);
@@ -407,6 +443,12 @@ export async function updateSwapStatus(id, status, user, reason = "") {
   return prisma.$transaction(async (tx) => {
     const swap = await loadSwap(id, tx);
     await assertParticipant(swap, user);
+
+    if (PARTICIPANT_FINAL_STATUSES.includes(swap.status) && swap.status !== "COMPLETED") {
+      const error = new Error("This swap is already closed");
+      error.status = 409;
+      throw error;
+    }
 
     if (nextStatus === "ACCEPTED") {
       if (swap.ownerId !== user.id && !["ADMIN", "OWNER"].includes(user.role)) {
@@ -438,6 +480,17 @@ export async function updateSwapStatus(id, status, user, reason = "") {
     if (nextStatus === "COMPLETED") {
       if (!["ACCEPTED", "SHIPPED", "DELIVERED"].includes(swap.status)) {
         throw new Error("Only active swaps can be completed");
+      }
+
+      const confirmations = await tx.swapConfirmation.findMany({ where: { swapId: id } });
+      const bothReceived = [swap.requesterId, swap.ownerId].every((participantId) =>
+        confirmations.some((item) => item.userId === participantId && item.receivedConfirmedAt)
+      );
+
+      if (!bothReceived) {
+        const error = new Error("Both users must confirm receipt before completing the swap");
+        error.status = 409;
+        throw error;
       }
 
       const now = new Date();
@@ -475,6 +528,18 @@ export async function updateSwapStatus(id, status, user, reason = "") {
     if (RELIST_STATUSES.includes(nextStatus)) {
       if (!ACTIVE_SWAP_STATUSES.includes(swap.status) && swap.status !== "COMPLETED") {
         throw new Error("This swap can no longer be cancelled");
+      }
+
+      if (nextStatus === "REJECTED" && swap.ownerId !== user.id && !["ADMIN", "OWNER"].includes(user.role)) {
+        const error = new Error("Only owner can reject this request");
+        error.status = 403;
+        throw error;
+      }
+
+      if (nextStatus === "CANCELLED" && swap.status === "PENDING" && swap.requesterId !== user.id && !["ADMIN", "OWNER"].includes(user.role)) {
+        const error = new Error("Only requester can cancel a pending request");
+        error.status = 403;
+        throw error;
       }
 
       const now = new Date();

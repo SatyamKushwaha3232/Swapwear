@@ -2,6 +2,7 @@ import {
   fetchListings,
   fetchListingById,
   createListingInDb,
+  updateListingInDb,
   deleteListingFromDb,
   uploadListingFile,
 } from "../services/listing.service.js";
@@ -70,6 +71,35 @@ export async function createListing(req, res) {
     const listing = await createListingInDb(payload, req.user);
 
     res.status(201).json({ success: true, data: listing });
+  } catch (err) {
+    res.status(err.status || 500).json({ success: false, error: err.message });
+  }
+}
+
+export async function updateListing(req, res) {
+  try {
+    const imageFiles = req.files?.images || [];
+    const videoFile = req.files?.video?.[0] || null;
+
+    const imageUrls = [];
+    for (const file of imageFiles) {
+      imageUrls.push(await uploadListingFile(file, "images", req.user.id));
+    }
+
+    let videoUrl;
+    if (videoFile) {
+      videoUrl = await uploadListingFile(videoFile, "videos", req.user.id);
+    }
+
+    const payload = {
+      ...req.body,
+      ...(imageUrls.length ? { images: imageUrls } : {}),
+      ...(videoUrl !== undefined ? { video: videoUrl } : {}),
+    };
+
+    const listing = await updateListingInDb(req.params.id, payload, req.user);
+
+    res.json({ success: true, data: listing });
   } catch (err) {
     res.status(err.status || 500).json({ success: false, error: err.message });
   }

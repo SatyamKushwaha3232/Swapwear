@@ -120,6 +120,20 @@ export async function createListing(data, imageFiles = [], videoFile = null) {
   }
 }
 
+export async function updateListing(id, data, imageFiles = [], videoFile = null) {
+  try {
+    const formData = new FormData();
+    Object.entries(data || {}).forEach(([key, value]) => formData.append(key, value ?? ""));
+    Array.from(imageFiles || []).forEach((file) => formData.append("images", file));
+    if (videoFile) formData.append("video", videoFile);
+
+    const updated = await backendRequest(`/listings/${id}`, { method: "PATCH", body: formData });
+    return { success: true, data: formatListing(updated) };
+  } catch (err) {
+    return { success: false, error: err.message || "Failed to update listing" };
+  }
+}
+
 export async function deleteListing(id) {
   try {
     await backendRequest(`/listings/${id}`, { method: "DELETE" });
