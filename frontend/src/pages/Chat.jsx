@@ -50,9 +50,28 @@ export default function Chat() {
   const [loadingChats, setLoadingChats] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [sending, setSending] = useState(false);
+  const [chatError, setChatError] = useState("");
 
   const typingTimerRef = useRef(null);
+  const lastChatErrorRef = useRef({ message: "", time: 0 });
   const activeId = activeConversation?.id || conversationId || "";
+
+  const notifyChatError = useCallback((message) => {
+    const cleanMessage =
+      message || "Server connection failed. Please check that the backend is running.";
+    const now = Date.now();
+    setChatError(cleanMessage);
+
+    if (
+      lastChatErrorRef.current.message === cleanMessage &&
+      now - lastChatErrorRef.current.time < 8000
+    ) {
+      return;
+    }
+
+    lastChatErrorRef.current = { message: cleanMessage, time: now };
+    toast.error(cleanMessage, { id: "chat-connection-error" });
+  }, []);
 
   const loadConversations = useCallback(
     async (showLoader = true) => {
@@ -67,22 +86,23 @@ export default function Chat() {
       const response = await getMyConversations(user.id);
 
       if (!response.success) {
-        toast.error(response.error || "Unable to load chats");
+        notifyChatError(response.error || "Unable to load chats");
         setLoadingChats(false);
         return;
       }
 
       const list = response.data || [];
       setConversations(list);
+      setChatError("");
 
-      if (!conversationId && !activeConversation && list[0]) {
-        setActiveConversation(list[0]);
+      if (!conversationId && list[0]) {
+        setActiveConversation((current) => current || list[0]);
         navigate(`/chat/${list[0].id}`, { replace: true });
       }
 
       setLoadingChats(false);
     },
-    [activeConversation, conversationId, navigate, user?.id]
+    [conversationId, navigate, notifyChatError, user?.id]
   );
 
   useEffect(() => {
@@ -116,7 +136,7 @@ export default function Chat() {
     );
 
     if (user?.id) {
-      markConversationSeen(activeId, user.id);
+      markConversationSeen(activeId, user.id).catch(() => {});
       setConversations((prev) =>
         prev.map((chat) =>
           String(chat.id) === String(activeId) ? { ...chat, unread_count: 0 } : chat
@@ -176,12 +196,13 @@ export default function Chat() {
     const response = await getMessages(id);
 
     if (!response.success) {
-      toast.error(response.error || "Unable to load messages");
+      notifyChatError(response.error || "Unable to load messages");
       setLoadingMessages(false);
       return;
     }
 
     setMessages(response.data || []);
+    setChatError("");
     setLoadingMessages(false);
   }
 
@@ -192,7 +213,7 @@ export default function Chat() {
     setMessageSearch("");
     setMessageView("all");
 
-    if (user?.id) markConversationSeen(chat.id, user.id);
+    if (user?.id) markConversationSeen(chat.id, user.id).catch(() => {});
 
     setConversations((prev) =>
       prev.map((item) =>
@@ -502,6 +523,7 @@ export default function Chat() {
     onHeaderMenu: handleHeaderMenu,
     sending,
     headerText,
+    chatError,
   };
 
   const content = isDesktop ? (
