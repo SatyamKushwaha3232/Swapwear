@@ -3,6 +3,7 @@ import { assertCourierReadyForHandover } from "../modules/delivery/delivery.serv
 import { createNotification } from "./notification.service.js";
 
 const ACTIVE_SWAP_STATUSES = ["PENDING", "ACCEPTED", "SHIPPED", "DELIVERED", "DISPUTED"];
+const LOCKING_SWAP_STATUSES = ["ACCEPTED", "SHIPPED", "DELIVERED", "DISPUTED", "COMPLETED"];
 const RELIST_STATUSES = ["CANCELLED", "REJECTED", "FAILED"];
 const PARTICIPANT_FINAL_STATUSES = ["CANCELLED", "REJECTED", "EXPIRED", "COMPLETED", "FAILED"];
 
@@ -244,7 +245,13 @@ async function ensureListingsAvailable(tx, requesterItemId, ownerItemId) {
     throw error;
   }
 
-  const blocked = listings.find(
+  await healStaleListingLocks(tx, listings);
+
+  const refreshedListings = await tx.listing.findMany({
+    where: { id: { in: [requesterItemId, ownerItemId] } },
+  });
+
+  const blocked = refreshedListings.find(
     (item) => item.swapStatus !== "AVAILABLE" || item.isPublic === false
   );
 
@@ -254,7 +261,72 @@ async function ensureListingsAvailable(tx, requesterItemId, ownerItemId) {
     throw error;
   }
 
-  return listings;
+  return refreshedListings;
+}
+
+async function healStaleListingLocks(tx, listings = []) {
+  const locked = listings.filter(
+    (item) => item.swapStatus !== "AVAILABLE" || item.isPublic === false
+  );
+  if (!locked.length) return;
+
+  const activeSwapIds = locked.map((item) => item.activeSwapId).filter(Boolean);
+  const activeSwaps = activeSwapIds.length
+    ? await tx.swap.findMany({
+        where: {
+          id: { in: activeSwapIds },
+          status: { in: LOCKING_SWAP_STATUSES },
+        },
+        select: { id: true },
+      })
+    : [];
+  const validActiveIds = new Set(activeSwaps.map((item) => item.id));
+  const staleIds = locked
+    .filter((item) => !item.activeSwapId || !validActiveIds.has(item.activeSwapId))
+    .map((item) => item.id);
+
+  if (!staleIds.length) return;
+
+  await tx.listing.updateMany({
+    where: { id: { in: staleIds } },
+    data: {
+      swapStatus: "AVAILABLE",
+      activeSwapId: null,
+      isPublic: true,
+      swapCompletedAt: null,
+      archiveAfter: null,
+      deleteEligibleAt: null,
+    },
+  });
+}
+
+async function ensureNoLockedSwapForListings(tx, requesterItemId, ownerItemId) {
+  const lockedSwap = await tx.swap.findFirst({
+    where: {
+      status: { in: LOCKING_SWAP_STATUSES },
+      OR: [
+        { requesterItemId },
+        { ownerItemId: requesterItemId },
+        { requesterItemId: ownerItemId },
+        { ownerItemId },
+      ],
+    },
+  });
+
+  if (!lockedSwap) return;
+
+  await tx.listing.updateMany({
+    where: { id: { in: [lockedSwap.requesterItemId, lockedSwap.ownerItemId] } },
+    data: {
+      swapStatus: lockedSwap.status === "COMPLETED" ? "SWAPPED" : "RESERVED",
+      activeSwapId: lockedSwap.id,
+      isPublic: false,
+    },
+  });
+
+  const error = new Error("One of these items is already locked in another active swap");
+  error.status = 409;
+  throw error;
 }
 
 async function expireCompetingSwaps(tx, swap, actorId) {
@@ -339,11 +411,18 @@ export async function createSwapRequest(payload, user) {
   return prisma.$transaction(async (tx) => {
     await expireStalePendingSwaps(tx);
 
-    const [requesterListing, ownerListing] = await ensureListingsAvailable(
-      tx,
-      requesterItemId,
-      ownerItemId
-    );
+    const initialListings = await tx.listing.findMany({
+      where: { id: { in: [requesterItemId, ownerItemId] } },
+    });
+
+    if (initialListings.length !== 2) {
+      const error = new Error("One of these items is no longer available");
+      error.status = 400;
+      throw error;
+    }
+
+    const requesterListing = initialListings.find((item) => item.id === requesterItemId);
+    const ownerListing = initialListings.find((item) => item.id === ownerItemId);
 
     if (requesterListing.userId !== user.id) {
       const error = new Error("Requester item must belong to you");
@@ -365,25 +444,32 @@ export async function createSwapRequest(payload, user) {
         ownerItemId,
         status: { in: ["PENDING", "ACCEPTED", "SHIPPED", "DELIVERED", "DISPUTED"] },
       },
+      include: swapInclude(),
     });
 
     if (duplicate) {
-      const error = new Error("You already have an active request for these items");
-      error.status = 409;
-      throw error;
+      return formatSwap(duplicate);
     }
+
+    await ensureNoLockedSwapForListings(tx, requesterItemId, ownerItemId);
+
+    const [availableRequesterListing, availableOwnerListing] = await ensureListingsAvailable(
+      tx,
+      requesterItemId,
+      ownerItemId
+    );
 
     const swap = await tx.swap.create({
       data: {
         requesterId: user.id,
-        ownerId: ownerListing.userId,
+        ownerId: availableOwnerListing.userId,
         requesterName:
           payload.requester_name || user.profile?.fullName || user.email?.split("@")[0],
-        ownerName: payload.owner_name || ownerListing.ownerName || "Owner",
+        ownerName: payload.owner_name || availableOwnerListing.ownerName || "Owner",
         requesterItemId,
         ownerItemId,
-        requesterItem: payload.requester_item || payload.requesterItem || listingSnapshot(requesterListing),
-        ownerItem: payload.owner_item || payload.ownerItem || listingSnapshot(ownerListing),
+        requesterItem: payload.requester_item || payload.requesterItem || listingSnapshot(availableRequesterListing),
+        ownerItem: payload.owner_item || payload.ownerItem || listingSnapshot(availableOwnerListing),
         status: "PENDING",
         message: payload.message || "",
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
@@ -401,7 +487,7 @@ export async function createSwapRequest(payload, user) {
       actorId: user.id,
       type: "swap_request",
       title: "New swap request",
-      message: `${swap.requesterName || "Someone"} wants to swap for ${ownerListing.title || "your item"}.`,
+      message: `${swap.requesterName || "Someone"} wants to swap for ${availableOwnerListing.title || "your item"}.`,
       link: "/swaps",
       data: { swap_id: swap.id, listing_id: String(ownerItemId) },
     });

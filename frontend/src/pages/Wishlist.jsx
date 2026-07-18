@@ -36,9 +36,14 @@ export default function Wishlist() {
     setError(null);
     try {
       const wishlist = await getWishlist(user.id);
+      const rows = Array.isArray(wishlist)
+        ? wishlist
+        : Array.isArray(wishlist?.data)
+        ? wishlist.data
+        : [];
 
       setItems(
-        wishlist
+        rows
           .map((wish) =>
             wish.listing
               ? {

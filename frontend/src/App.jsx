@@ -16,6 +16,7 @@ const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const SwapRequests = lazy(() => import("./pages/SwapRequests"));
 const SwapDealRoom = lazy(() => import("./pages/SwapDealRoom"));
 const Chat = lazy(() => import("./pages/Chat"));
+const Community = lazy(() => import("./pages/Community"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Profile = lazy(() => import("./pages/Profile"));
 const Wishlist = lazy(() => import("./pages/Wishlist"));
@@ -115,6 +116,11 @@ export default function App() {
               <SwapDealRoom />
             </ProtectedRoute>
           }
+        />
+
+        <Route
+          path="/community"
+          element={<Community />}
         />
 
         <Route

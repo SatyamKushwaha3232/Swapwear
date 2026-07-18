@@ -82,10 +82,15 @@ app.use(cors({
 }));
 
 app.use(rateLimit({
-    windowMs: 15 * 60 * 1000,
-    limit: 300,
+    windowMs: appConfig.rateLimit.windowMs,
+    limit: appConfig.rateLimit.max,
     standardHeaders: true,
-    legacyHeaders: false
+    legacyHeaders: false,
+    skip: (req) => appConfig.env !== "production" && ["/api/auth/refresh", "/health"].includes(req.path),
+    message: {
+        success: false,
+        error: "Too many requests. Please wait a minute and try again."
+    }
 }));
 
 app.use(express.json());

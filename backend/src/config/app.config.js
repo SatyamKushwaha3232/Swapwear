@@ -51,6 +51,10 @@ export const appConfig = {
     username: process.env.TURN_USERNAME || "",
     credential: process.env.TURN_CREDENTIAL || "",
   },
+  rateLimit: {
+    windowMs: Number(process.env.RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000),
+    max: Number(process.env.RATE_LIMIT_MAX || (process.env.NODE_ENV === "production" ? 300 : 3000)),
+  },
 };
 
 export function validateProductionConfig() {
