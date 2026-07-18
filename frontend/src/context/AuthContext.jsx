@@ -3,6 +3,7 @@ import {
   getBackendSession,
   loginWithBackend,
   logoutBackend,
+  verifyBackendPhoneOtp,
   signupWithBackend,
 } from "../services/backendAuth";
 
@@ -53,6 +54,13 @@ export function AuthProvider({ children }) {
     return auth;
   }, []);
 
+  const signInWithPhone = useCallback(async (payload) => {
+    const auth = await verifyBackendPhoneOtp(payload);
+    setSession(auth.session);
+    setUser(auth.user);
+    return auth;
+  }, []);
+
   const signOut = useCallback(async () => {
     await logoutBackend();
     setSession(null);
@@ -67,9 +75,10 @@ export function AuthProvider({ children }) {
       isAuthenticated: Boolean(user),
       signIn,
       signUp,
+      signInWithPhone,
       signOut,
     }),
-    [session, user, loading, signIn, signUp, signOut]
+    [session, user, loading, signIn, signUp, signInWithPhone, signOut]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

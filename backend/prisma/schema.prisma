@@ -119,6 +119,8 @@ model User {
   ownerSwaps     Swap[]        @relation("OwnerSwaps")
   messages       ChatMessage[]
   notifications  Notification[]
+  authIdentities AuthIdentity[]
+  phoneOtps      PhoneOtp[]
   passwordResetTokens PasswordResetToken[]
   reviewsGiven   Review[]      @relation("ReviewsGiven")
   reviewsReceived Review[]     @relation("ReviewsReceived")
@@ -128,6 +130,40 @@ model User {
   payments       Payment[]
   callsStarted   CallSession[] @relation("CallsStarted")
   callsReceived  CallSession[] @relation("CallsReceived")
+}
+
+model AuthIdentity {
+  id                String   @id @default(uuid())
+  userId            String
+  provider          String
+  providerAccountId String
+  email             String?
+  displayName       String?
+  avatarUrl         String?
+  rawProfile        Json     @default("{}")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model PhoneOtp {
+  id        String    @id @default(uuid())
+  userId    String?
+  phone     String
+  codeHash  String
+  purpose   String    @default("login")
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user      User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([phone, purpose, expiresAt])
+  @@index([userId])
 }
 
 model PasswordResetToken {

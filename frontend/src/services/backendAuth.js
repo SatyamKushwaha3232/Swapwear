@@ -1,4 +1,5 @@
 import {
+  API_BASE_URL,
   backendRequest,
   getBackendAccessToken,
   setBackendAccessToken,
@@ -29,7 +30,12 @@ export function getStoredBackendUser() {
 
 export async function getBackendSession() {
   if (!getBackendAccessToken()) {
-    return { session: null, user: null };
+    try {
+      const data = await backendRequest("/auth/refresh", { method: "POST" });
+      return saveSession(data);
+    } catch {
+      return { session: null, user: null };
+    }
   }
 
   try {
@@ -78,6 +84,31 @@ export async function resetBackendPassword({ token, password }) {
     method: "POST",
     body: JSON.stringify({ token, password }),
   });
+}
+
+export function startBackendOAuth(provider) {
+  window.location.assign(`${API_BASE_URL}/auth/oauth/${provider}/start`);
+}
+
+export async function completeBackendOAuthSession() {
+  const data = await backendRequest("/auth/refresh", { method: "POST" });
+  return saveSession(data);
+}
+
+export async function requestBackendPhoneOtp(phone) {
+  return backendRequest("/auth/phone/request-otp", {
+    method: "POST",
+    body: JSON.stringify({ phone }),
+  });
+}
+
+export async function verifyBackendPhoneOtp({ phone, code, fullName }) {
+  const data = await backendRequest("/auth/phone/verify-otp", {
+    method: "POST",
+    body: JSON.stringify({ phone, code, fullName }),
+  });
+
+  return saveSession(data);
 }
 
 export async function logoutBackend() {

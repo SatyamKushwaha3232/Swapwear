@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import {
   Mail,
@@ -14,18 +14,47 @@ import MicrosoftIcon from "../assets/auth-icons/microsoft.svg";
 import GithubIcon from "../assets/auth-icons/github.svg";
 import PhoneIcon from "../assets/auth-icons/phone.svg";
 import { useAuth } from "../context/AuthContext";
+import PhoneOtpPanel from "../components/auth/PhoneOtpPanel";
+import { completeBackendOAuthSession, startBackendOAuth } from "../services/backendAuth";
 
 export default function Login() {
   const navigate = useNavigate();
-  const { signIn } = useAuth();
+  const location = useLocation();
+  const { signIn, signInWithPhone } = useAuth();
   const [loading, setLoading] = useState(false);
   const [oauthLoading, setOauthLoading] = useState("");
+  const [phoneMode, setPhoneMode] = useState(false);
 
   const [form, setForm] = useState({
     email: "",
     password: "",
     remember: true,
   });
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const oauth = params.get("oauth");
+    if (!oauth) return;
+
+    async function finishOAuth() {
+      if (oauth !== "success") {
+        toast.error(params.get("reason") || "Social login failed");
+        navigate("/login", { replace: true });
+        return;
+      }
+
+      try {
+        await completeBackendOAuthSession();
+        toast.success("Social login complete");
+        navigate("/dashboard", { replace: true });
+      } catch (error) {
+        toast.error(error.message || "Unable to complete social login");
+        navigate("/login", { replace: true });
+      }
+    }
+
+    finishOAuth();
+  }, [location.search, navigate]);
 
   function handleChange(e) {
     const { name, value, type, checked } = e.target;
@@ -58,8 +87,20 @@ export default function Login() {
 
   async function handleOAuth(provider) {
     setOauthLoading(provider);
-    toast("Social login is disabled in manual backend mode.");
-    setOauthLoading("");
+    startBackendOAuth(provider);
+  }
+
+  async function handlePhoneVerify(payload) {
+    try {
+      setLoading(true);
+      await signInWithPhone(payload);
+      toast.success("Phone login complete");
+      navigate("/dashboard", { replace: true });
+    } catch (error) {
+      toast.error(error.message || "Phone login failed");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -105,7 +146,13 @@ export default function Login() {
             </p>
           </div>
 
-          <AuthButtons oauthLoading={oauthLoading} onOAuth={handleOAuth} />
+          <AuthButtons
+            oauthLoading={oauthLoading}
+            onOAuth={handleOAuth}
+            onPhone={() => setPhoneMode((prev) => !prev)}
+          />
+
+          {phoneMode && <PhoneOtpPanel mode="login" onVerify={handlePhoneVerify} />}
 
           <Divider text="OR LOGIN WITH EMAIL" />
 
@@ -183,8 +230,8 @@ export default function Login() {
           <div className="flex items-start gap-3 rounded-[24px] border border-pink-100 bg-pink-50/70 p-4">
             <ShieldCheck className="shrink-0 text-pink-500" size={20} />
             <p className="text-sm font-semibold leading-relaxed text-slate-600">
-              Email login is powered by the manual backend. Social providers
-              can be added later through backend OAuth adapters.
+              Email, phone OTP and social login are powered by the manual backend.
+              Provider keys are configured in backend environment variables.
             </p>
           </div>
 
@@ -233,10 +280,10 @@ function MiniStat({ value, label }) {
   );
 }
 
-function AuthButtons({ oauthLoading, onOAuth }) {
+function AuthButtons({ oauthLoading, onOAuth, onPhone }) {
   const providers = [
     { id: "google", title: "Google", icon: GoogleIcon },
-    { id: "azure", title: "Microsoft", icon: MicrosoftIcon },
+    { id: "microsoft", title: "Microsoft", icon: MicrosoftIcon },
     { id: "github", title: "GitHub", icon: GithubIcon },
   ];
 
@@ -258,9 +305,10 @@ function AuthButtons({ oauthLoading, onOAuth }) {
 
         <button
           type="button"
-          disabled
-          title="Phone OTP coming soon"
-          className="flex h-14 cursor-not-allowed items-center justify-center rounded-2xl border border-pink-100 bg-pink-50 opacity-60"
+          disabled={Boolean(oauthLoading)}
+          title="Continue with Phone OTP"
+          onClick={onPhone}
+          className="flex h-14 items-center justify-center rounded-2xl border border-pink-100 bg-pink-50 transition hover:-translate-y-1 hover:border-pink-300 disabled:opacity-60"
         >
           <img src={PhoneIcon} alt="Phone OTP" className="h-7 w-7" />
         </button>

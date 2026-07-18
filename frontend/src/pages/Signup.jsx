@@ -19,13 +19,16 @@ import MicrosoftIcon from "../assets/auth-icons/microsoft.svg";
 import GithubIcon from "../assets/auth-icons/github.svg";
 import PhoneIcon from "../assets/auth-icons/phone.svg";
 import { useAuth } from "../context/AuthContext";
+import PhoneOtpPanel from "../components/auth/PhoneOtpPanel";
+import { startBackendOAuth } from "../services/backendAuth";
 
 export default function Signup() {
   const navigate = useNavigate();
-  const { signUp } = useAuth();
+  const { signUp, signInWithPhone } = useAuth();
 
   const [loading, setLoading] = useState(false);
   const [oauthLoading, setOauthLoading] = useState("");
+  const [phoneMode, setPhoneMode] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
@@ -88,8 +91,20 @@ export default function Signup() {
 
   async function handleOAuth(provider) {
     setOauthLoading(provider);
-    toast("Social signup is disabled in manual backend mode.");
-    setOauthLoading("");
+    startBackendOAuth(provider);
+  }
+
+  async function handlePhoneVerify(payload) {
+    try {
+      setLoading(true);
+      await signInWithPhone(payload);
+      toast.success("Phone account created");
+      navigate("/dashboard", { replace: true });
+    } catch (error) {
+      toast.error(error.message || "Phone signup failed");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -135,7 +150,13 @@ export default function Signup() {
             </p>
           </div>
 
-          <AuthButtons oauthLoading={oauthLoading} onOAuth={handleOAuth} />
+          <AuthButtons
+            oauthLoading={oauthLoading}
+            onOAuth={handleOAuth}
+            onPhone={() => setPhoneMode((prev) => !prev)}
+          />
+
+          {phoneMode && <PhoneOtpPanel mode="signup" onVerify={handlePhoneVerify} />}
 
           <Divider text="OR CREATE WITH EMAIL" />
 
@@ -246,8 +267,8 @@ export default function Signup() {
           <div className="flex items-start gap-3 rounded-[24px] border border-pink-100 bg-pink-50/70 p-4">
             <ShieldCheck className="shrink-0 text-pink-500" size={20} />
             <p className="text-sm font-semibold leading-relaxed text-slate-600">
-              Manual backend auth creates your account directly. Email
-              verification can be added later through a backend mail adapter.
+              Manual backend auth supports email, phone OTP and social providers.
+              Email verification can be added through a backend mail adapter.
             </p>
           </div>
 
@@ -348,10 +369,10 @@ function MiniStat({ value, label }) {
   );
 }
 
-function AuthButtons({ oauthLoading, onOAuth }) {
+function AuthButtons({ oauthLoading, onOAuth, onPhone }) {
   const providers = [
     { id: "google", title: "Google", icon: GoogleIcon },
-    { id: "azure", title: "Microsoft", icon: MicrosoftIcon },
+    { id: "microsoft", title: "Microsoft", icon: MicrosoftIcon },
     { id: "github", title: "GitHub", icon: GithubIcon },
   ];
 
@@ -373,9 +394,10 @@ function AuthButtons({ oauthLoading, onOAuth }) {
 
         <button
           type="button"
-          disabled
-          title="Phone OTP coming soon"
-          className="flex h-14 cursor-not-allowed items-center justify-center rounded-2xl border border-pink-100 bg-pink-50 opacity-60"
+          disabled={Boolean(oauthLoading)}
+          title="Continue with Phone OTP"
+          onClick={onPhone}
+          className="flex h-14 items-center justify-center rounded-2xl border border-pink-100 bg-pink-50 transition hover:-translate-y-1 hover:border-pink-300 disabled:opacity-60"
         >
           <img src={PhoneIcon} alt="Phone OTP" className="h-7 w-7" />
         </button>
