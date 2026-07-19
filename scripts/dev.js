@@ -1,12 +1,13 @@
 import { spawn } from "node:child_process";
 
-const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
+const isWindows = process.platform === "win32";
+const npmCommand = isWindows ? "npm.cmd" : "npm";
 
 function start(name, args, color) {
   const child = spawn(npmCommand, args, {
     cwd: process.cwd(),
     stdio: ["inherit", "pipe", "pipe"],
-    shell: false,
+    shell: isWindows,
   });
 
   child.stdout.on("data", (chunk) => {
