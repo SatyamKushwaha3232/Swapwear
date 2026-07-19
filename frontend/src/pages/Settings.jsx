@@ -314,7 +314,7 @@ export default function Settings() {
                             {payment.purpose.replaceAll("_", " ")}
                           </p>
                           <p className="mt-1 text-sm font-semibold text-slate-500">
-                            â‚¹{(payment.amount / 100).toFixed(2)} / {payment.status}
+                            Rs. {(payment.amount / 100).toFixed(2)} / {payment.status}
                           </p>
                         </div>
                         {payment.status === "pending" && (
