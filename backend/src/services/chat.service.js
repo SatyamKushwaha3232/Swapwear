@@ -300,7 +300,11 @@ export async function updateMessage(messageId, patch, user) {
     include: { conversation: true },
   });
 
-  if (!message) throw new Error("Message not found");
+  if (!message) {
+    const error = new Error("Message not found");
+    error.status = 404;
+    throw error;
+  }
   await assertConversationAccess(message.conversationId, user);
 
   if (message.senderId !== user.id && !isAdmin(user)) {
@@ -321,7 +325,11 @@ export async function reactToMessage(messageId, emoji, user) {
   const message = await prisma.chatMessage.findUnique({
     where: { id: parseBigInt(messageId, "message id") },
   });
-  if (!message) throw new Error("Message not found");
+  if (!message) {
+    const error = new Error("Message not found");
+    error.status = 404;
+    throw error;
+  }
   await assertConversationAccess(message.conversationId, user);
 
   const reactions = message.reactions || {};
@@ -389,7 +397,11 @@ export async function updateCallSession(callId, status, user) {
     where: { id: callId },
   });
 
-  if (!call) throw new Error("Call not found");
+  if (!call) {
+    const error = new Error("Call not found");
+    error.status = 404;
+    throw error;
+  }
   if (call.callerId !== user.id && call.receiverId !== user.id && !isAdmin(user)) {
     const error = new Error("You are not part of this call");
     error.status = 403;

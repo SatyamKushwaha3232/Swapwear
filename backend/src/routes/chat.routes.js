@@ -42,6 +42,23 @@ const upload = multer({
   },
 });
 
+function uploadSingleChatFile(req, res, next) {
+  upload.single("file")(req, res, (err) => {
+    if (!err) {
+      next();
+      return;
+    }
+
+    res.status(400).json({
+      success: false,
+      error:
+        err.code === "LIMIT_FILE_SIZE"
+          ? "Attachment must be under 25MB"
+          : err.message || "Unable to upload attachment",
+    });
+  });
+}
+
 router.use(requireAuth);
 
 router.get("/conversations", fetchConversations);
@@ -50,7 +67,7 @@ router.get("/conversations/:conversationId/messages", fetchMessages);
 router.post("/messages", createMessage);
 router.patch("/messages/:id", patchMessage);
 router.post("/messages/:id/reactions", addReaction);
-router.post("/upload", upload.single("file"), uploadFile);
+router.post("/upload", uploadSingleChatFile, uploadFile);
 router.post("/conversations/:conversationId/seen", seenConversation);
 router.post("/conversations/:conversationId/typing", typing);
 router.post("/calls", startCall);
