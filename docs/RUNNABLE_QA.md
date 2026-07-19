@@ -4,7 +4,7 @@ This guide gives SwapWear a filled database for checking pages and flows.
 
 ## Demo Seed
 
-From `backend`:
+From the project root:
 
 ```bash
 npm run seed:demo
@@ -37,7 +37,7 @@ The script is idempotent, so running it again updates the same demo records inst
 
 ## Smoke Check
 
-From `backend`:
+From the project root:
 
 ```bash
 npm run smoke
@@ -53,8 +53,9 @@ This confirms:
 ## Recommended Local Order
 
 ```bash
+npm run setup
 npm run db:generate
-npm run db:migrate
+npm run db:push
 npm run seed:demo
 npm run smoke
 npm run dev

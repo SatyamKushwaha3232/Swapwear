@@ -1,0 +1,21 @@
+{
+  "name": "swapwear-workspace",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/dev.js",
+    "backend:dev": "npm --prefix backend run dev",
+    "frontend:dev": "npm --prefix frontend run dev",
+    "backend:install": "npm --prefix backend install",
+    "frontend:install": "npm --prefix frontend install",
+    "setup": "npm --prefix backend install && npm --prefix frontend install",
+    "db:generate": "npm --prefix backend run db:generate",
+    "db:push": "npm --prefix backend run db:push",
+    "db:deploy": "npm --prefix backend run db:deploy",
+    "seed:demo": "npm --prefix backend run seed:demo",
+    "admin:create": "npm --prefix backend run admin:create",
+    "smoke": "npm --prefix backend run smoke",
+    "build": "npm --prefix frontend run build",
+    "qa": "npm --prefix backend run smoke && npm --prefix frontend run build"
+  }
+}

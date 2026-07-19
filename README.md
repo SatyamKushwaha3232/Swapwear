@@ -27,6 +27,26 @@ VITE_API_BASE_URL=http://localhost:5000/api
 VITE_AUTH_PROVIDER=backend
 ```
 
+## One-command local workflow
+
+From the project root:
+
+```bash
+npm run setup
+npm run db:push
+npm run seed:demo
+npm run admin:create
+npm run dev
+```
+
+Useful root commands:
+
+```bash
+npm run smoke
+npm run build
+npm run qa
+```
+
 ## Backend
 
 ```bash
