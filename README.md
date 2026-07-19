@@ -34,6 +34,7 @@ cd backend
 npm install
 npm run db:push
 npm run db:generate
+npm run admin:create
 npm run dev
 ```
 
@@ -45,9 +46,24 @@ JWT_ACCESS_SECRET=change-me-access
 JWT_REFRESH_SECRET=change-me-refresh
 CLIENT_URL=http://localhost:5173
 PORT=5000
+OAUTH_CALLBACK_BASE_URL=http://localhost:5000/api/auth/oauth
 ```
 
 `npm run db:push` syncs the Prisma schema to PostgreSQL. Use it after schema changes such as password reset tokens.
+
+Create the first admin by setting `ADMIN_EMAIL`, `ADMIN_PASSWORD`, and `ADMIN_NAME` in `backend/.env`, then run:
+
+```bash
+npm run admin:create
+```
+
+Local OAuth callback URLs:
+
+```text
+http://localhost:5000/api/auth/oauth/google/callback
+http://localhost:5000/api/auth/oauth/github/callback
+http://localhost:5000/api/auth/oauth/microsoft/callback
+```
 
 ## Current Features
 
@@ -75,5 +91,5 @@ node -e "Promise.all([import('./src/modules/auth/auth.routes.js'), import('./src
 
 - Add a real mail adapter before production password reset emails. Until then, local development returns a reset link on the forgot-password screen.
 - Add payment/courier provider credentials only after final provider selection.
-- Keep `uploads/` on persistent storage in production.
+- Keep `backend/uploads/` on persistent storage in production, or move uploads to Cloudinary/S3-style object storage before real public launch.
 - Run full protected-page QA with backend and PostgreSQL running before deployment.

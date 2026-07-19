@@ -13,7 +13,9 @@ Use this when moving from local development to a real server.
    - `CLIENT_URLS`
    - `JWT_ACCESS_SECRET`
    - `JWT_REFRESH_SECRET`
+   - `OAUTH_CALLBACK_BASE_URL`
    - `PUBLIC_FILE_BASE_URL`
+   - OAuth provider keys only if social login is enabled
 4. Install backend packages.
 5. Run `npm run db:generate`.
 6. Run `npm run db:deploy`.
@@ -24,6 +26,14 @@ Use this when moving from local development to a real server.
 9. Run `npm run smoke`.
 10. Start backend with `npm start`.
 11. Confirm `/health` returns `status: ok`.
+
+Production OAuth callback URLs must be added in provider dashboards:
+
+```text
+https://your-backend-domain.com/api/auth/oauth/google/callback
+https://your-backend-domain.com/api/auth/oauth/github/callback
+https://your-backend-domain.com/api/auth/oauth/microsoft/callback
+```
 
 ## Frontend
 
@@ -39,3 +49,4 @@ Use this when moving from local development to a real server.
 - Keep `PAYMENT_PROVIDER=manual` until Razorpay/Stripe webhook verification is fully wired.
 - Keep `COURIER_PROVIDER=manual` until courier provider credentials and webhook tracking are tested.
 - Add persistent object storage before high traffic; local uploads are fine for a single VPS but not for multi-server hosting.
+- Never commit real `.env` files, OAuth secrets, JWT secrets, database passwords, or provider API keys.
