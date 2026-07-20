@@ -30,21 +30,7 @@ export function getStoredBackendUser() {
 
 export async function getBackendSession() {
   if (!getBackendAccessToken()) {
-    const path = window.location.pathname;
-    const params = new URLSearchParams(window.location.search);
-    const isAuthPage = ["/login", "/signup", "/forgot-password", "/reset-password"].includes(path);
-    const isOAuthCallback = path === "/login" && params.get("oauth") === "success";
-
-    if (isAuthPage && !isOAuthCallback) {
-      return { session: null, user: null };
-    }
-
-    try {
-      const data = await backendRequest("/auth/refresh", { method: "POST" });
-      return saveSession(data);
-    } catch {
-      return { session: null, user: null };
-    }
+    return { session: null, user: null };
   }
 
   try {
