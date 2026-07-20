@@ -154,6 +154,9 @@ export async function completeOAuthLogin({ provider, code }) {
   const config = providerConfig(provider);
   const token = await exchangeOAuthCode(config, code);
   const profile = await loadOAuthProfile(config, token.access_token);
+  const randomPasswordHash = await hashPassword(
+    crypto.randomBytes(24).toString("hex")
+  );
 
   if (!profile.accountId) throw authError("OAuth profile id missing", 502);
   if (!profile.email) throw authError("OAuth provider did not return an email", 400);
@@ -185,7 +188,7 @@ export async function completeOAuthLogin({ provider, code }) {
     const userRecord = existingUser || await tx.user.create({
       data: {
         email: profile.email,
-        passwordHash: await hashPassword(crypto.randomBytes(24).toString("hex")),
+        passwordHash: randomPasswordHash,
         emailVerified: true,
         profile: {
           create: {
@@ -259,6 +262,10 @@ export async function verifyPhoneOtp({ phone, code, fullName }) {
     },
     orderBy: { createdAt: "desc" },
   });
+  const randomPasswordHash = await hashPassword(
+    crypto.randomBytes(24).toString("hex")
+  );
+
 
   if (!otp) throw authError("OTP is invalid or expired", 400);
 
@@ -299,7 +306,7 @@ export async function verifyPhoneOtp({ phone, code, fullName }) {
     const created = await tx.user.create({
       data: {
         email,
-        passwordHash: await hashPassword(crypto.randomBytes(24).toString("hex")),
+        passwordHash: randomPasswordHash,
         emailVerified: true,
         profile: {
           create: {
