@@ -189,6 +189,34 @@ async function assertParticipant(swap, user) {
   }
 }
 
+function isSwapParticipant(swap, user) {
+  return swap.requesterId === user.id || swap.ownerId === user.id;
+}
+
+function assertExactOwner(swap, user, message = "Only item owner can perform this action") {
+  if (swap.ownerId !== user.id) {
+    const error = new Error(message);
+    error.status = 403;
+    throw error;
+  }
+}
+
+function assertExactRequester(swap, user, message = "Only requester can perform this action") {
+  if (swap.requesterId !== user.id) {
+    const error = new Error(message);
+    error.status = 403;
+    throw error;
+  }
+}
+
+function assertExactParticipant(swap, user) {
+  if (!isSwapParticipant(swap, user)) {
+    const error = new Error("Only swap participants can perform this action");
+    error.status = 403;
+    throw error;
+  }
+}
+
 async function loadSwap(id, tx = prisma) {
   const swap = await tx.swap.findUnique({
     where: { id },
@@ -537,11 +565,7 @@ export async function updateSwapStatus(id, status, user, reason = "") {
     }
 
     if (nextStatus === "ACCEPTED") {
-      if (swap.ownerId !== user.id && !["ADMIN", "OWNER"].includes(user.role)) {
-        const error = new Error("Only owner can accept this request");
-        error.status = 403;
-        throw error;
-      }
+      assertExactOwner(swap, user, "Only the requested item owner can accept this request");
       if (swap.status !== "PENDING") throw new Error("Only pending swaps can be accepted");
 
       await ensureListingsAvailable(tx, swap.requesterItemId, swap.ownerItemId);
@@ -616,16 +640,14 @@ export async function updateSwapStatus(id, status, user, reason = "") {
         throw new Error("This swap can no longer be cancelled");
       }
 
-      if (nextStatus === "REJECTED" && swap.ownerId !== user.id && !["ADMIN", "OWNER"].includes(user.role)) {
-        const error = new Error("Only owner can reject this request");
-        error.status = 403;
-        throw error;
+      assertExactParticipant(swap, user);
+
+      if (nextStatus === "REJECTED") {
+        assertExactOwner(swap, user, "Only the requested item owner can reject this request");
       }
 
-      if (nextStatus === "CANCELLED" && swap.status === "PENDING" && swap.requesterId !== user.id && !["ADMIN", "OWNER"].includes(user.role)) {
-        const error = new Error("Only requester can cancel a pending request");
-        error.status = 403;
-        throw error;
+      if (nextStatus === "CANCELLED" && swap.status === "PENDING") {
+        assertExactRequester(swap, user, "Only requester can cancel a pending request");
       }
 
       const now = new Date();

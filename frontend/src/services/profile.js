@@ -1,16 +1,11 @@
-﻿import { API_BASE_URL, backendRequest } from "../lib/backendApi";
-
-function resolveBackendAsset(url) {
-  if (!url || /^https?:\/\//i.test(url) || url.startsWith("data:")) return url;
-  const apiOrigin = API_BASE_URL.replace(/\/api\/?$/, "");
-  return `${apiOrigin}${url.startsWith("/") ? url : `/${url}`}`;
-}
+import { backendRequest } from "../lib/backendApi";
+import { resolveMediaUrl } from "../utils/media";
 
 function normalizeProfile(profile) {
   if (!profile) return profile;
   return {
     ...profile,
-    avatar_url: resolveBackendAsset(profile.avatar_url),
+    avatar_url: resolveMediaUrl(profile.avatar_url),
   };
 }
 
@@ -45,7 +40,7 @@ export async function uploadAvatar(file) {
 
   try {
     const data = await backendRequest("/users/me/avatar", { method: "POST", body });
-    const avatar = resolveBackendAsset(data?.avatar_url);
+    const avatar = resolveMediaUrl(data?.avatar_url);
     return { success: true, avatar, data: { ...data, avatar_url: avatar } };
   } catch (error) {
     return { success: false, error: error.message };

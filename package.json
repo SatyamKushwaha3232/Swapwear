@@ -14,6 +14,7 @@
     "db:deploy": "npm --prefix backend run db:deploy",
     "seed:demo": "npm --prefix backend run seed:demo",
     "admin:create": "npm --prefix backend run admin:create",
+    "swap:check": "npm --prefix backend run swap:check",
     "smoke": "npm --prefix backend run smoke",
     "build": "npm --prefix frontend run build",
     "qa": "npm --prefix backend run smoke && npm --prefix frontend run build"

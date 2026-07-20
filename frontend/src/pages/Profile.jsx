@@ -14,6 +14,7 @@ import {
   updateProfile,
   uploadAvatar,
 } from "../services/profile";
+import { resolveMediaUrl } from "../utils/media";
 
 export default function Profile() {
   const [profile, setProfile] = useState(null);
@@ -116,6 +117,7 @@ export default function Profile() {
   }
 
   const avatarText = (formData.full_name || "U").charAt(0).toUpperCase();
+  const avatarUrl = resolveMediaUrl(formData.avatar_url);
 
   return (
     <section className="section-space pt-28">
@@ -124,9 +126,9 @@ export default function Profile() {
           <div className="flex flex-col lg:flex-row gap-10 lg:items-start">
             <div className="relative w-32 h-32 shrink-0">
               <div className="w-32 h-32 rounded-full bg-pink-400/25 border border-white/50 overflow-hidden flex items-center justify-center text-5xl font-black text-[var(--accent)]">
-                {formData.avatar_url ? (
+                {avatarUrl ? (
                   <img
-                    src={formData.avatar_url}
+                    src={avatarUrl}
                     alt="Profile"
                     className="w-full h-full object-cover"
                   />

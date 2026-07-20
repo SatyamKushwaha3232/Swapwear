@@ -1,14 +1,18 @@
 import { Link } from "react-router-dom";
 import { User, LayoutDashboard, PlusCircle, MessageCircle, Repeat2, LogOut, Heart, Settings } from "lucide-react";
+import { resolveMediaUrl } from "../../utils/media";
+
 export default function UserMenu({ user, profile, open, onLogout }) {
   if (!open) return null;
   const displayName = profile?.full_name || user?.user_metadata?.full_name || "SwapWear User";
+  const avatarUrl = resolveMediaUrl(profile?.avatar_url || user?.user_metadata?.avatar_url || "");
+
   return (
     <div className="absolute right-0 top-[72px] w-[330px] rounded-[34px] border border-white/70 bg-white/95 backdrop-blur-2xl shadow-[0_32px_90px_rgba(255,79,163,0.22)] overflow-hidden z-[1000]">
       <div className="p-5 border-b border-pink-50 bg-gradient-to-br from-pink-50 to-white">
         <div className="flex items-center gap-4">
           <div className="w-16 h-16 rounded-full overflow-hidden bg-gradient-to-r from-pink-500 to-fuchsia-500 text-white flex items-center justify-center text-2xl font-black shadow-lg ring-4 ring-white">
-            {profile?.avatar_url ? <img src={profile.avatar_url} alt="Profile" className="w-full h-full object-cover" /> : displayName.charAt(0).toUpperCase()}
+            {avatarUrl ? <img src={avatarUrl} alt="Profile" className="w-full h-full object-cover" /> : displayName.charAt(0).toUpperCase()}
           </div>
           <div className="min-w-0">
             <h3 className="font-black text-lg truncate">{displayName}</h3>

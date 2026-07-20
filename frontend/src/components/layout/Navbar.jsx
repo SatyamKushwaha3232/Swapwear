@@ -19,6 +19,7 @@ import SearchBar from "./SearchBar";
 import UserMenu from "./UserMenu";
 import useRotatingListings from "../../hooks/useRotatingListings";
 import { categoryHighlights } from "../../utils/marketplaceHighlights";
+import { resolveMediaUrl } from "../../utils/media";
 
 export default function Navbar() {
   const { user, signOut } = useAuth();
@@ -76,6 +77,7 @@ export default function Navbar() {
   )
     .charAt(0)
     .toUpperCase();
+  const avatarUrl = resolveMediaUrl(profile?.avatar_url || user?.user_metadata?.avatar_url || "");
 
   return (
     <>
@@ -165,9 +167,9 @@ export default function Navbar() {
                     }}
                     className="h-11 w-11 overflow-hidden rounded-full bg-gradient-to-br from-pink-500 via-fuchsia-500 to-violet-500 text-base font-black text-white shadow-xl ring-4 ring-pink-100 transition hover:scale-105"
                   >
-                    {profile?.avatar_url ? (
+                    {avatarUrl ? (
                       <img
-                        src={profile.avatar_url}
+                        src={avatarUrl}
                         alt="Profile"
                         className="h-full w-full object-cover"
                       />
@@ -235,9 +237,9 @@ export default function Navbar() {
             {user && (
               <div className="premium-card mb-6 flex items-center gap-4 rounded-[28px] p-4">
                 <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-r from-pink-500 to-fuchsia-500 text-2xl font-black text-white">
-                  {profile?.avatar_url ? (
+                  {avatarUrl ? (
                     <img
-                      src={profile.avatar_url}
+                      src={avatarUrl}
                       alt="Profile"
                       className="h-full w-full object-cover"
                     />

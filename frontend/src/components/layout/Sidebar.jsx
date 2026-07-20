@@ -16,6 +16,7 @@ import {
 import { useAuth } from "../../context/AuthContext";
 import { isAdminUser } from "../../lib/adminAccess";
 import { getCurrentProfile } from "../../services/profile";
+import { resolveMediaUrl } from "../../utils/media";
 
 const links = [
   { name: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
@@ -57,11 +58,12 @@ export default function Sidebar() {
 
   const avatarLetter = displayName.charAt(0).toUpperCase();
 
-  const avatarUrl =
+  const avatarUrl = resolveMediaUrl(
     profile?.avatar_url ||
     user?.user_metadata?.avatar_url ||
     user?.user_metadata?.picture ||
-    "";
+    ""
+  );
 
   const isPremium = Boolean(profile?.is_premium);
   const totalSwaps = profile?.total_swaps ?? 0;
