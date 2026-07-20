@@ -24,7 +24,7 @@ export function getBackendAccessToken() {
 
 export async function backendRequest(path, options = {}) {
   const isFormData = options.body instanceof FormData;
-  const timeoutMs = Number(options.timeoutMs || 20000);
+  const timeoutMs = Number(options.timeoutMs || 60000);
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
   const headers = {

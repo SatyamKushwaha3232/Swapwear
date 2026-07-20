@@ -5,6 +5,8 @@ import {
   setBackendAccessToken,
 } from "../lib/backendApi";
 
+const AUTH_TIMEOUT_MS = 90000;
+
 function saveSession(data) {
   const session = data?.session || null;
   const user = data?.user || null;
@@ -52,6 +54,7 @@ export async function getBackendSession() {
 export async function loginWithBackend(email, password) {
   const data = await backendRequest("/auth/login", {
     method: "POST",
+    timeoutMs: AUTH_TIMEOUT_MS,
     body: JSON.stringify({ email, password }),
   });
 
@@ -61,6 +64,7 @@ export async function loginWithBackend(email, password) {
 export async function signupWithBackend({ fullName, email, password }) {
   const data = await backendRequest("/auth/register", {
     method: "POST",
+    timeoutMs: AUTH_TIMEOUT_MS,
     body: JSON.stringify({ fullName, email, password }),
   });
 
@@ -86,13 +90,17 @@ export function startBackendOAuth(provider) {
 }
 
 export async function completeBackendOAuthSession() {
-  const data = await backendRequest("/auth/refresh", { method: "POST" });
+  const data = await backendRequest("/auth/refresh", {
+    method: "POST",
+    timeoutMs: AUTH_TIMEOUT_MS,
+  });
   return saveSession(data);
 }
 
 export async function requestBackendPhoneOtp(phone) {
   return backendRequest("/auth/phone/request-otp", {
     method: "POST",
+    timeoutMs: AUTH_TIMEOUT_MS,
     body: JSON.stringify({ phone }),
   });
 }
@@ -100,6 +108,7 @@ export async function requestBackendPhoneOtp(phone) {
 export async function verifyBackendPhoneOtp({ phone, code, fullName }) {
   const data = await backendRequest("/auth/phone/verify-otp", {
     method: "POST",
+    timeoutMs: AUTH_TIMEOUT_MS,
     body: JSON.stringify({ phone, code, fullName }),
   });
 
