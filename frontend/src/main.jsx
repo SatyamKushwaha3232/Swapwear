@@ -1,4 +1,3 @@
-import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
@@ -25,15 +24,16 @@ window.addEventListener("vite:preloadError", () => {
 });
 
 ReactDOM.createRoot(document.getElementById("root")).render(
-  <React.StrictMode>
-    <ErrorBoundary>
-      <AuthProvider>
-        <BrowserRouter>
-          <App />
-          <NetworkStatus />
-          <Toaster position="top-center" toastOptions={{ duration: 2500 }} />
-        </BrowserRouter>
-      </AuthProvider>
-    </ErrorBoundary>
-  </React.StrictMode>
+  <ErrorBoundary>
+    <AuthProvider>
+      <BrowserRouter>
+        <App />
+        <NetworkStatus />
+        <Toaster
+          position="top-center"
+          toastOptions={{ duration: 2500 }}
+        />
+      </BrowserRouter>
+    </AuthProvider>
+  </ErrorBoundary>
 );

@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import {
   getBackendSession,
   loginWithBackend,
@@ -13,22 +13,28 @@ export function AuthProvider({ children }) {
   const [session, setSession] = useState(null);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  // A slow initial session restore must never overwrite a newer login/logout.
+  const authActionVersion = useRef(0);
 
   useEffect(() => {
     let mounted = true;
+    const restoreVersion = authActionVersion.current;
 
     async function initAuth() {
       try {
         const backendSession = await getBackendSession();
 
-        if (!mounted) return;
+        if (!mounted || restoreVersion !== authActionVersion.current) return;
 
         setSession(backendSession.session);
         setUser(backendSession.user);
       } catch {
+        if (!mounted || restoreVersion !== authActionVersion.current) return;
         setSession(null);
         setUser(null);
       } finally {
+        // Even when a login supersedes this restore, protected routes must
+        // stop waiting for the obsolete startup request.
         if (mounted) setLoading(false);
       }
     }
@@ -41,6 +47,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   const signIn = useCallback(async (email, password) => {
+    authActionVersion.current += 1;
     const auth = await loginWithBackend(email, password);
     setSession(auth.session);
     setUser(auth.user);
@@ -48,6 +55,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   const signUp = useCallback(async (payload) => {
+    authActionVersion.current += 1;
     const auth = await signupWithBackend(payload);
     setSession(auth.session);
     setUser(auth.user);
@@ -55,6 +63,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   const signInWithPhone = useCallback(async (payload) => {
+    authActionVersion.current += 1;
     const auth = await verifyBackendPhoneOtp(payload);
     setSession(auth.session);
     setUser(auth.user);
@@ -62,6 +71,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   const signOut = useCallback(async () => {
+    authActionVersion.current += 1;
     await logoutBackend();
     setSession(null);
     setUser(null);

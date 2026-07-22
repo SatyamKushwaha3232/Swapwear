@@ -32,7 +32,9 @@ export function getStoredBackendUser() {
 
 
 export async function getBackendSession() {
-  if (!getBackendAccessToken()) {
+  const tokenAtStart = getBackendAccessToken();
+
+  if (!tokenAtStart) {
     return { session: null, user: null };
   }
 
@@ -55,55 +57,13 @@ export async function getBackendSession() {
       },
       user,
     };
-  } catch (err) {
-
-    // Access token expire ho gaya
-    if (err.status === 401) {
-
-      try {
-
-        // Cookie se naya access token le lo
-        const refreshData = await backendRequest("/auth/refresh", {
-          method: "POST",
-          timeoutMs: AUTH_TIMEOUT_MS,
-        });
-
-        saveSession(refreshData);
-
-        // Dobara /me call karo
-        const me = await backendRequest("/auth/me");
-
-        const user = me?.user || null;
-
-        if (user) {
-          localStorage.setItem(
-            "swapwear_backend_user",
-            JSON.stringify(user)
-          );
-        }
-
-        return {
-          session: {
-            access_token: getBackendAccessToken(),
-            token_type: "bearer",
-          },
-          user,
-        };
-
-      } catch {
-
-        setBackendAccessToken("");
-        localStorage.removeItem("swapwear_backend_user");
-
-        return {
-          session: null,
-          user: null,
-        };
-      }
+  } catch {
+    // Do not let the app-start restore erase a session that was created by a
+    // login while this request was still running.
+    if (getBackendAccessToken() === tokenAtStart) {
+      setBackendAccessToken("");
+      localStorage.removeItem("swapwear_backend_user");
     }
-
-    setBackendAccessToken("");
-    localStorage.removeItem("swapwear_backend_user");
 
     return {
       session: null,

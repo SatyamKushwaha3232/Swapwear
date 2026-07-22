@@ -1,8 +1,6 @@
-import fs from "node:fs/promises";
-import path from "node:path";
-
 import { appConfig } from "../config/app.config.js";
 import { prisma } from "../config/prisma.js";
+import { uploadToCloudinary } from "./cloudinary.service.js";
 
 const SWAP_STATUS_TO_API = {
   AVAILABLE: "available",
@@ -72,12 +70,6 @@ function formatListing(item = {}) {
     is_available_for_swap:
       item.swapStatus === "AVAILABLE" && item.isPublic !== false,
   };
-}
-
-function safeFileName(file) {
-  const ext = file.originalname.split(".").pop() || "bin";
-  const cleanExt = ext.replace(/[^a-zA-Z0-9]/g, "") || "bin";
-  return `${Date.now()}-${Math.random().toString(36).slice(2)}.${cleanExt}`;
 }
 
 function parseListingId(id) {
@@ -157,20 +149,10 @@ function validateListingPayload(payload = {}, { partial = false } = {}) {
 
 export async function uploadListingFile(file, folder, userId) {
   const safeFolder = folder === "videos" ? "videos" : "images";
-  const relativeFolder = path.join("listings", userId, safeFolder);
-  const absoluteFolder = path.resolve(appConfig.uploadDir, relativeFolder);
-
-  await fs.mkdir(absoluteFolder, { recursive: true });
-
-  const fileName = safeFileName(file);
-  const absolutePath = path.join(absoluteFolder, fileName);
-  await fs.writeFile(absolutePath, file.buffer);
-
-  const publicPath = ["listings", userId, safeFolder, fileName]
-    .map(encodeURIComponent)
-    .join("/");
-
-  return `${appConfig.publicFileBaseUrl}/${publicPath}`;
+  const { url } = await uploadToCloudinary(file, {
+    folder: `swapwear/listings/${userId}/${safeFolder}`,
+  });
+  return url;
 }
 
 export async function fetchListings(userId = null, options = {}) {

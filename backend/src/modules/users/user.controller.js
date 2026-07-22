@@ -1,6 +1,7 @@
 import { asyncHandler } from "../../utils/http.js";
 import { presentProfile } from "../../utils/userPresenter.js";
 import { getProfile, updateUserProfile } from "./user.service.js";
+import { uploadToCloudinary } from "../../services/cloudinary.service.js";
 
 export const currentProfile = asyncHandler(async (req, res) => {
   const profile = await getProfile(req.user.id);
@@ -18,7 +19,9 @@ export const uploadAvatar = asyncHandler(async (req, res) => {
     return;
   }
 
-  const avatarUrl = `/uploads/avatars/${req.file.filename}`;
+  const { url: avatarUrl } = await uploadToCloudinary(req.file, {
+    folder: `swapwear/avatars/${req.user.id}`,
+  });
   const profile = await updateUserProfile(req.user.id, { avatar_url: avatarUrl });
 
   res.json({

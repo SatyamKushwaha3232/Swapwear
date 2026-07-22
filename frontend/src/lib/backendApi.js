@@ -23,6 +23,10 @@ export function getBackendAccessToken() {
 }
 
 async function refreshAccessToken() {
+  // Keep track of the token this refresh belongs to. A slower failed refresh
+  // must not erase a token that was set by a newer successful login.
+  const tokenAtStart = accessToken;
+
   try {
     const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
       method: "POST",
@@ -32,7 +36,7 @@ async function refreshAccessToken() {
     const result = await response.json();
 
     if (!response.ok || !result.success) {
-      setBackendAccessToken("");
+      if (accessToken === tokenAtStart) setBackendAccessToken("");
       return false;
     }
 
@@ -41,14 +45,15 @@ async function refreshAccessToken() {
       result.session?.access_token;
 
     if (!token) {
-      setBackendAccessToken("");
+      if (accessToken === tokenAtStart) setBackendAccessToken("");
       return false;
     }
 
+    if (accessToken !== tokenAtStart) return Boolean(accessToken);
     setBackendAccessToken(token);
     return true;
   } catch {
-    setBackendAccessToken("");
+    if (accessToken === tokenAtStart) setBackendAccessToken("");
     return false;
   }
 }
@@ -89,7 +94,12 @@ export async function backendRequest(path, options = {}) {
     error: `Request failed with status ${response.status}`,
   }));
 
-  if (response.status === 401) {
+  // Login/register failures should be returned directly; refreshing a stale
+  // session while authentication is in progress creates a token race.
+  const isSessionEndpoint = ["/auth/login", "/auth/register", "/auth/refresh", "/auth/logout"].includes(path);
+  const canRefreshSession = options.refreshOn401 !== false && !isSessionEndpoint;
+
+  if (response.status === 401 && canRefreshSession) {
     const refreshed = await refreshAccessToken();
 
     if (refreshed) {

@@ -1,9 +1,7 @@
-import fs from "node:fs/promises";
-import path from "node:path";
-
 import { appConfig } from "../config/app.config.js";
 import { prisma } from "../config/prisma.js";
 import { createNotification } from "./notification.service.js";
+import { uploadToCloudinary } from "./cloudinary.service.js";
 
 function parseBigInt(id, label = "id") {
   try {
@@ -151,12 +149,10 @@ async function assertConversationAccess(conversationId, user, tx = prisma) {
 }
 
 async function saveChatFile(file, userId) {
-  const ext = (file.originalname?.split(".").pop() || "file").replace(/[^a-zA-Z0-9]/g, "") || "file";
-  const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-  const folder = path.resolve(appConfig.uploadDir, "chat", userId);
-  await fs.mkdir(folder, { recursive: true });
-  await fs.writeFile(path.join(folder, fileName), file.buffer);
-  return `${appConfig.publicFileBaseUrl}/chat/${encodeURIComponent(userId)}/${encodeURIComponent(fileName)}`;
+  const { url } = await uploadToCloudinary(file, {
+    folder: `swapwear/chat/${userId}`,
+  });
+  return url;
 }
 
 export async function uploadChatFile(file, user) {
