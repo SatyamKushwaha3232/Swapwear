@@ -22,6 +22,37 @@ export function getBackendAccessToken() {
   return accessToken;
 }
 
+async function refreshAccessToken() {
+  try {
+    const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
+      method: "POST",
+      credentials: "include",
+    });
+
+    const result = await response.json();
+
+    if (!response.ok || !result.success) {
+      setBackendAccessToken("");
+      return false;
+    }
+
+    const token =
+      result.data?.session?.access_token ||
+      result.session?.access_token;
+
+    if (!token) {
+      setBackendAccessToken("");
+      return false;
+    }
+
+    setBackendAccessToken(token);
+    return true;
+  } catch {
+    setBackendAccessToken("");
+    return false;
+  }
+}
+
 export async function backendRequest(path, options = {}) {
   const isFormData = options.body instanceof FormData;
   const timeoutMs = Number(options.timeoutMs || 60000);
@@ -57,6 +88,19 @@ export async function backendRequest(path, options = {}) {
     success: false,
     error: `Request failed with status ${response.status}`,
   }));
+
+  if (response.status === 401) {
+    const refreshed = await refreshAccessToken();
+
+    if (refreshed) {
+      return backendRequest(path, options);
+    }
+
+    throw new ApiError("Session expired", {
+      status: 401,
+      payload: result,
+    });
+  }
 
   if (!response.ok || result.success === false) {
     throw new ApiError(result.error || `Request failed with status ${response.status}`, {
