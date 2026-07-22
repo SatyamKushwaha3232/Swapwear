@@ -30,6 +30,7 @@ export function getStoredBackendUser() {
   }
 }
 
+
 export async function getBackendSession() {
   if (!getBackendAccessToken()) {
     return { session: null, user: null };
@@ -37,19 +38,80 @@ export async function getBackendSession() {
 
   try {
     const data = await backendRequest("/auth/me");
+
     const user = data?.user || null;
-    if (user) localStorage.setItem("swapwear_backend_user", JSON.stringify(user));
+
+    if (user) {
+      localStorage.setItem(
+        "swapwear_backend_user",
+        JSON.stringify(user)
+      );
+    }
 
     return {
-      session: { access_token: getBackendAccessToken(), token_type: "bearer" },
+      session: {
+        access_token: getBackendAccessToken(),
+        token_type: "bearer",
+      },
       user,
     };
-  } catch {
+  } catch (err) {
+
+    // Access token expire ho gaya
+    if (err.status === 401) {
+
+      try {
+
+        // Cookie se naya access token le lo
+        const refreshData = await backendRequest("/auth/refresh", {
+          method: "POST",
+          timeoutMs: AUTH_TIMEOUT_MS,
+        });
+
+        saveSession(refreshData);
+
+        // Dobara /me call karo
+        const me = await backendRequest("/auth/me");
+
+        const user = me?.user || null;
+
+        if (user) {
+          localStorage.setItem(
+            "swapwear_backend_user",
+            JSON.stringify(user)
+          );
+        }
+
+        return {
+          session: {
+            access_token: getBackendAccessToken(),
+            token_type: "bearer",
+          },
+          user,
+        };
+
+      } catch {
+
+        setBackendAccessToken("");
+        localStorage.removeItem("swapwear_backend_user");
+
+        return {
+          session: null,
+          user: null,
+        };
+      }
+    }
+
     setBackendAccessToken("");
     localStorage.removeItem("swapwear_backend_user");
-    return { session: null, user: null };
+
+    return {
+      session: null,
+      user: null,
+    };
   }
 }
+
 
 export async function loginWithBackend(email, password) {
   const data = await backendRequest("/auth/login", {
