@@ -40,7 +40,7 @@ export async function fetchNotifications(user, limit = 30) {
   return notifications.map(formatNotification);
 }
 
-export async function createNotification(payload, actor = null) {
+export async function createNotification(payload, actor = null, db = prisma) {
   const userId = payload.userId || payload.user_id;
   if (!userId) {
     const error = new Error("Notification user missing");
@@ -48,7 +48,7 @@ export async function createNotification(payload, actor = null) {
     throw error;
   }
 
-  const notification = await prisma.notification.create({
+  const notification = await db.notification.create({
     data: {
       userId,
       actorId: payload.actorId || payload.actor_id || actor?.id || null,

@@ -166,7 +166,7 @@ async function addEvent(tx, swapId, actorId, eventType, metadata = {}) {
   });
 }
 
-async function notifySwapParticipant(swap, actorId, status, title = "Swap updated") {
+async function notifySwapParticipant(swap, actorId, status, title = "Swap updated", db = prisma) {
   const recipientId = swap.requesterId === actorId ? swap.ownerId : swap.requesterId;
   if (!recipientId || recipientId === actorId) return;
 
@@ -178,7 +178,7 @@ async function notifySwapParticipant(swap, actorId, status, title = "Swap update
     message: `Your swap is now ${status}.`,
     link: "/swaps",
     data: { swap_id: swap.id },
-  });
+  }, null, db);
 }
 
 async function assertParticipant(swap, user) {
@@ -436,7 +436,7 @@ export async function createSwapRequest(payload, user) {
     throw error;
   }
 
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     await expireStalePendingSwaps(tx);
 
     const initialListings = await tx.listing.findMany({
@@ -476,7 +476,7 @@ export async function createSwapRequest(payload, user) {
     });
 
     if (duplicate) {
-      return formatSwap(duplicate);
+      return { swap: formatSwap(duplicate), notification: null };
     }
 
     await ensureNoLockedSwapForListings(tx, requesterItemId, ownerItemId);
@@ -510,18 +510,30 @@ export async function createSwapRequest(payload, user) {
       ownerItemId: String(ownerItemId),
     });
 
-    await createNotification({
-      userId: swap.ownerId,
-      actorId: user.id,
-      type: "swap_request",
-      title: "New swap request",
-      message: `${swap.requesterName || "Someone"} wants to swap for ${availableOwnerListing.title || "your item"}.`,
-      link: "/swaps",
-      data: { swap_id: swap.id, listing_id: String(ownerItemId) },
-    });
-
-    return formatSwap(swap);
+    return {
+      swap: formatSwap(swap),
+      notification: {
+        userId: swap.ownerId,
+        actorId: user.id,
+        type: "swap_request",
+        title: "New swap request",
+        message: `${swap.requesterName || "Someone"} wants to swap for ${availableOwnerListing.title || "your item"}.`,
+        link: "/swaps",
+        data: { swap_id: swap.id, listing_id: String(ownerItemId) },
+      },
+    };
   });
+
+  // A notification should never turn a successfully created swap into a 500.
+  if (result.notification) {
+    try {
+      await createNotification(result.notification);
+    } catch (error) {
+      console.error("Swap notification failed after request creation:", error);
+    }
+  }
+
+  return result.swap;
 }
 
 export async function fetchSwapRequests(userId, user) {
@@ -583,7 +595,6 @@ export async function updateSwapStatus(id, status, user, reason = "") {
 
       await expireCompetingSwaps(tx, updated, user.id);
       await addEvent(tx, id, user.id, "accepted");
-      await notifySwapParticipant(updated, user.id, "accepted", "Swap accepted");
       return formatSwap(updated);
     }
 
@@ -631,7 +642,6 @@ export async function updateSwapStatus(id, status, user, reason = "") {
       });
 
       await addEvent(tx, id, user.id, "completed");
-      await notifySwapParticipant(updated, user.id, "completed", "Swap completed");
       return formatSwap(updated);
     }
 
@@ -679,7 +689,6 @@ export async function updateSwapStatus(id, status, user, reason = "") {
 
       await reviveEligibleExpiredSwaps(tx, updated, user.id);
       await addEvent(tx, id, user.id, apiStatus(nextStatus), { reason });
-      await notifySwapParticipant(updated, user.id, apiStatus(nextStatus), "Swap updated");
       return formatSwap(updated);
     }
 
@@ -723,7 +732,7 @@ export async function confirmSwapHandover(id, note, user) {
       throw new Error("Swap must be accepted before handover");
     }
 
-    await assertCourierReadyForHandover(id);
+    await assertCourierReadyForHandover(id, tx);
 
     await tx.swapConfirmation.upsert({
       where: { swapId_userId: { swapId: id, userId: user.id } },
@@ -743,7 +752,6 @@ export async function confirmSwapHandover(id, note, user) {
     });
 
     await addEvent(tx, id, user.id, "handover_confirmed");
-    await notifySwapParticipant(updated, user.id, "shipped", "Swap handover confirmed");
     return formatSwap(updated);
   });
 }
@@ -775,7 +783,6 @@ export async function confirmSwapReceived(id, note, user) {
     });
 
     await addEvent(tx, id, user.id, "received_confirmed");
-    await notifySwapParticipant(updated, user.id, "delivered", "Swap receipt confirmed");
     return formatSwap(updated);
   });
 }
@@ -796,7 +803,6 @@ export async function openSwapDispute(id, reason, user) {
     });
 
     await addEvent(tx, id, user.id, "disputed", { disputeId: String(dispute.id), reason });
-    await notifySwapParticipant(updated, user.id, "disputed", "Swap dispute opened");
     return formatSwap(updated);
   });
 }

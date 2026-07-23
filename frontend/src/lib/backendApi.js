@@ -22,10 +22,10 @@ export function getBackendAccessToken() {
   return accessToken;
 }
 
-async function refreshAccessToken() {
+async function refreshAccessToken(tokenForFailedRequest) {
   // Keep track of the token this refresh belongs to. A slower failed refresh
   // must not erase a token that was set by a newer successful login.
-  const tokenAtStart = accessToken;
+  const tokenAtStart = tokenForFailedRequest;
 
   try {
     const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
@@ -68,8 +68,13 @@ export async function backendRequest(path, options = {}) {
     ...(options.headers || {}),
   };
 
-  if (accessToken) {
-    headers.Authorization = `Bearer ${accessToken}`;
+  // Save the exact token sent with this request. A login can complete while
+  // this request is in flight, so using the later global token for cleanup
+  // would incorrectly delete that new session.
+  const tokenForRequest = accessToken;
+
+  if (tokenForRequest) {
+    headers.Authorization = `Bearer ${tokenForRequest}`;
   }
 
   let response;
@@ -100,7 +105,7 @@ export async function backendRequest(path, options = {}) {
   const canRefreshSession = options.refreshOn401 !== false && !isSessionEndpoint;
 
   if (response.status === 401 && canRefreshSession) {
-    const refreshed = await refreshAccessToken();
+    const refreshed = await refreshAccessToken(tokenForRequest);
 
     if (refreshed) {
       return backendRequest(path, options);

@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { AlertTriangle, CheckCircle2, X } from "lucide-react";
 
+const EMPTY_VALUES = Object.freeze({});
+
 export default function ActionDialog({
   open,
   title,
@@ -9,7 +11,7 @@ export default function ActionDialog({
   confirmLabel = "Confirm",
   cancelLabel = "Cancel",
   fields = [],
-  initialValues = {},
+  initialValues = EMPTY_VALUES,
   loading = false,
   onClose,
   onConfirm,

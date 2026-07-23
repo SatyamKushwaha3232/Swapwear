@@ -13,6 +13,7 @@ import {
 } from "../services/swap.service.js";
 
 function sendError(res, err) {
+  console.error("Swap request failed:", err);
   res.status(err.status || 500).json({
     success: false,
     error: err.message || "Swap action failed",

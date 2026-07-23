@@ -365,8 +365,8 @@ export async function addDeliveryProof(orderId, payload, user) {
   return formatDelivery(updated);
 }
 
-export async function assertCourierReadyForHandover(swapId) {
-  const swap = await prisma.swap.findUnique({
+export async function assertCourierReadyForHandover(swapId, tx = prisma) {
+  const swap = await tx.swap.findUnique({
     where: { id: swapId },
     include: { deliveries: true },
   });
