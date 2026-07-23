@@ -108,6 +108,14 @@ export default function App() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/edit-listing/:listingId"
+          element={
+            <ProtectedRoute>
+              <AddListing />
+            </ProtectedRoute>
+          }
+        />
 
         <Route
           path="/swaps/:swapId"

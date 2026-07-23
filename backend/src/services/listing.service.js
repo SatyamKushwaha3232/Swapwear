@@ -336,19 +336,15 @@ export async function deleteListingFromDb(id, user) {
     throw error;
   }
 
-  if (listing.swapStatus !== "AVAILABLE") {
-    await prisma.listing.update({
-      where: { id: listingId },
-      data: {
-        swapStatus: "ARCHIVED",
-        isPublic: false,
-        archivedAt: new Date(),
-      },
-    });
-
-    return true;
-  }
-
-  await prisma.listing.delete({ where: { id: listingId } });
+  // Swap records retain a foreign-key reference to their listings. Archive
+  // instead of hard-deleting so removing a listing never breaks swap history.
+  await prisma.listing.update({
+    where: { id: listingId },
+    data: {
+      swapStatus: "ARCHIVED",
+      isPublic: false,
+      archivedAt: new Date(),
+    },
+  });
   return true;
 }

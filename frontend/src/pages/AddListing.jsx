@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import {
   Upload,
@@ -17,7 +17,7 @@ import {
   Eye,
 } from "lucide-react";
 
-import { createListing } from "../services/listings";
+import { createListing, getListingById, updateListing } from "../services/listings";
 
 const initialForm = {
   title: "",
@@ -51,6 +51,8 @@ const conditions = ["New", "Like New", "Excellent", "Good", "Used"];
 
 export default function AddListing() {
   const navigate = useNavigate();
+  const { listingId } = useParams();
+  const editing = Boolean(listingId);
 
   const [formData, setFormData] = useState(initialForm);
   const [images, setImages] = useState([]);
@@ -58,6 +60,41 @@ export default function AddListing() {
   const [imagePreviews, setImagePreviews] = useState([]);
   const [videoPreview, setVideoPreview] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!editing) return;
+    let active = true;
+
+    async function loadListing() {
+      const response = await getListingById(listingId);
+      if (!active) return;
+
+      if (!response.success || !response.data) {
+        toast.error(response.error || "Unable to load listing");
+        navigate("/dashboard", { replace: true });
+        return;
+      }
+
+      const item = response.data;
+      setFormData({
+        title: item.title || "",
+        brand: item.brand || "",
+        category: item.category || "Jackets",
+        size: item.size || "",
+        location: item.location || "",
+        points: item.points || 0,
+        condition: item.condition || "Good",
+        description: item.description || "",
+      });
+      setImagePreviews(item.images || (item.image ? [item.image] : []));
+      setVideoPreview(item.video || "");
+    }
+
+    loadListing();
+    return () => {
+      active = false;
+    };
+  }, [editing, listingId, navigate]);
 
   useEffect(() => {
     return () => {
@@ -163,7 +200,7 @@ export default function AddListing() {
       return;
     }
 
-    if (images.length < 1) {
+    if (!editing && images.length < 1) {
       toast.error("Upload at least 1 product image");
       return;
     }
@@ -171,14 +208,16 @@ export default function AddListing() {
     try {
       setLoading(true);
 
-      const response = await createListing(formData, images, video);
+      const response = editing
+        ? await updateListing(listingId, formData, images, video)
+        : await createListing(formData, images, video);
 
       if (!response.success) {
-        toast.error(response.error || "Unable to publish listing");
+        toast.error(response.error || `Unable to ${editing ? "update" : "publish"} listing`);
         return;
       }
 
-      toast.success("Listing published successfully");
+      toast.success(editing ? "Listing updated successfully" : "Listing published successfully");
       navigate("/dashboard");
     } catch (error) {
       toast.error(error.message || "Something went wrong");
@@ -197,12 +236,13 @@ export default function AddListing() {
           </div>
 
           <h1 className="mt-5 text-4xl md:text-6xl xl:text-7xl font-black tracking-[-3px] leading-[1]">
-            Add your swap item.
+            {editing ? "Edit your swap item." : "Add your swap item."}
           </h1>
 
           <p className="mt-5 text-lg md:text-xl text-[var(--muted)] leading-relaxed max-w-3xl">
-            Upload same-product images, add item details, and publish your
-            listing to the SwapWear marketplace.
+            {editing
+              ? "Update item details or upload replacement media for this listing."
+              : "Upload same-product images, add item details, and publish your listing to the SwapWear marketplace."}
           </p>
         </div>
 
@@ -509,7 +549,13 @@ export default function AddListing() {
                 disabled={loading}
                 className="button-primary h-[68px] w-full text-lg disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {loading ? "Publishing Listing..." : "Publish Listing"}
+                {loading
+                  ? editing
+                    ? "Updating Listing..."
+                    : "Publishing Listing..."
+                  : editing
+                  ? "Save Changes"
+                  : "Publish Listing"}
               </button>
             </form>
           </div>

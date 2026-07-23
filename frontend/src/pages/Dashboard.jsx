@@ -14,6 +14,7 @@ import {
   ArrowUpRight,
   Sparkles,
   Eye,
+  Pencil,
   Trash2,
 } from "lucide-react";
 
@@ -67,7 +68,9 @@ export default function Dashboard() {
       const response = await getListings(userId, { includeUnavailable: true });
 
       if (response.success) {
-        setListings(response.data || []);
+      // Archived listings are retained in the database for swap history, but
+      // they should disappear from the owner's active dashboard.
+      setListings((response.data || []).filter((item) => item.swap_status !== "archived"));
       } else {
         setError(response.error || "Unable to load listings");
         setListings([]);
@@ -362,6 +365,16 @@ export default function Dashboard() {
                           View
                         </Link>
 
+                        {item.is_available_for_swap && (
+                          <Link
+                            to={`/edit-listing/${item.id}`}
+                            className="flex items-center gap-2 rounded-full bg-pink-100 px-5 py-3 font-black text-pink-600 transition hover:bg-pink-200"
+                          >
+                            <Pencil size={17} />
+                            Edit
+                          </Link>
+                        )}
+
                         <button
                           onClick={() => handleDelete(item.id)}
                           disabled={deletingId === item.id}
@@ -451,7 +464,7 @@ export default function Dashboard() {
         title="Remove this listing?"
         text={`${
           deleteDialogItem?.title || "This item"
-        } will be removed if it is still available. Reserved items are archived safely.`}
+        } will be removed from the marketplace and preserved safely in swap history.`}
         tone="danger"
         confirmLabel="Remove Listing"
         loading={Boolean(deletingId)}

@@ -20,11 +20,7 @@ import { completeBackendOAuthSession, startBackendOAuth } from "../services/back
 export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
-  const {
-    signIn,
-    signInWithPhone,
-    user,
-  } = useAuth();
+  const { signIn, signInWithPhone } = useAuth();
   const [loading, setLoading] = useState(false);
   const [oauthLoading, setOauthLoading] = useState("");
   const [phoneMode, setPhoneMode] = useState(false);
@@ -79,7 +75,6 @@ export default function Login() {
       setLoading(true);
 
       await signIn(form.email.trim(), form.password);
-      console.log("LOGIN RETURN", auth);
 
       toast.success("Welcome back");
       navigate("/dashboard", { replace: true });

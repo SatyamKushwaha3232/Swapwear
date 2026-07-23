@@ -109,6 +109,13 @@ export const oauthCallback = asyncHandler(async (req, res) => {
     sendAuthCookies(res, { refreshToken: payload.session.refresh_token });
     return res.redirect(`${appConfig.clientUrl}/login?oauth=success`);
   } catch (error) {
+    // OAuth provider failures otherwise get hidden behind the redirect, which
+    // makes network/DNS and Google configuration issues very hard to trace.
+    console.error("OAuth callback failed:", {
+      provider: req.params.provider,
+      message: error.message,
+      cause: error.cause?.message,
+    });
     const reason = encodeURIComponent(error.message || "oauth_failed");
     return res.redirect(`${appConfig.clientUrl}/login?oauth=failed&reason=${reason}`);
   }
