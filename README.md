@@ -1,7 +1,7 @@
 # 👕 SwapWear
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/SatyamKushwaha3232/SwapWear/main/frontend/public/logo.png" width="180" alt="SwapWear Logo"/>
+  <img src="./assets/Screenshot%202026-08-06%20140400.png" width="180" alt="SwapWear Logo">
 </p>
 
 <h1 align="center">♻️ SwapWear - Sustainable Fashion Marketplace</h1>
