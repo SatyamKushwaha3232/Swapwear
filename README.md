@@ -420,61 +420,62 @@ Swap Dashboard ◄──── Deal Room
 
 # 📸 Screenshots
 
-> Replace these placeholders with screenshots of your application.
+
 
 ## 🏠 Home Page
 
-```
-Add Screenshot Here
-```
+
+<img width="1535" height="729" alt="image" src="https://github.com/user-attachments/assets/e7991a2a-f5e8-4ffc-ba7c-dd782da95a71" />
+<img width="1526" height="730" alt="image" src="https://github.com/user-attachments/assets/92be0756-7766-484b-9f7b-ac0898f46579" />
+
+
+
+
 
 ---
 
 ## 🔍 Explore Page
 
-```
-Add Screenshot Here
-```
+<img width="1535" height="730" alt="image" src="https://github.com/user-attachments/assets/24111b41-7004-4079-bc23-662b04f5d0d3" />
+<img width="1536" height="729" alt="image" src="https://github.com/user-attachments/assets/e8ceefc4-a4b3-4228-8add-424dcfe401c7" />
+
 
 ---
 
 ## 👕 Product Details
 
-```
-Add Screenshot Here
-```
+<img width="1536" height="730" alt="image" src="https://github.com/user-attachments/assets/703ba390-141f-446f-a35b-1bddbacc10da" />
+
 
 ---
 
 ## 👤 Dashboard
 
-```
-Add Screenshot Here
-```
+<img width="1536" height="731" alt="image" src="https://github.com/user-attachments/assets/7ee6d3e6-5247-40ca-9b81-e1f46bc26858" />
+<img width="1536" height="731" alt="image" src="https://github.com/user-attachments/assets/3fe5e961-fa2b-4121-9b41-1fe0b1afac21" />
+
 
 ---
 
 ## 💬 Chat
 
-```
-Add Screenshot Here
-```
+<img width="1534" height="776" alt="image" src="https://github.com/user-attachments/assets/db7b3f2c-7fe5-456f-bb53-194c7aface77" />
+
 
 ---
 
 ## ❤️ Wishlist
 
-```
-Add Screenshot Here
-```
+<img width="1536" height="733" alt="image" src="https://github.com/user-attachments/assets/4f6d5195-4da3-4837-aaa0-6b6ed10c8b81" />
+
 
 ---
 
 ## 👑 Admin Panel
 
-```
-Add Screenshot Here
-```
+<img width="1530" height="777" alt="image" src="https://github.com/user-attachments/assets/c3cf97bb-6e3a-407c-802d-1621e045e11c" />
+<img width="1534" height="776" alt="image" src="https://github.com/user-attachments/assets/4113718e-5e81-4299-a135-2f8309dd8cdd" />
+
 
 ---
 
